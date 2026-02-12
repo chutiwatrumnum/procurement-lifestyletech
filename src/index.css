@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: #F9FAFB;
+  --color-foreground: #111827;
+  
+  --color-card: #FFFFFF;
+  --color-card-foreground: #111827;
+  
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #111827;
+  
+  --color-primary: #2563EB;
+  --color-primary-foreground: #FFFFFF;
+  
+  --color-secondary: #F3F4F6;
+  --color-secondary-foreground: #111827;
+  
+  --color-muted: #F3F4F6;
+  --color-muted-foreground: #6B7280;
+  
+  --color-accent: #EBF5FF;
+  --color-accent-foreground: #2563EB;
+  
+  --color-destructive: #FB923C;
+  --color-destructive-foreground: #FFFFFF;
+  
+  --color-success: #10B981;
+  --color-warning: #FBBF24;
+  --color-info: #3B82F6;
+  --color-purple: #8B5CF6;
+  
+  --color-border: #E5E7EB;
+  --color-input: #E5E7EB;
+  --color-ring: #2563EB;
+  
+  --color-sidebar: #1F2937;
+  --color-sidebar-foreground: #FFFFFF;
+  --color-sidebar-primary: #2563EB;
+  --color-sidebar-accent: #374151;
+  --color-sidebar-border: #374151;
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+  }
+}

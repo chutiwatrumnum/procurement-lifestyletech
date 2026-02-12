@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+
+<html class="light" lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ระบบจัดการผู้ขาย - Vendor Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark/50 px-6 py-3 sticky top-0 z-50 backdrop-blur-md">
+<div class="flex items-center gap-4">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-tight">ระบบจัดการธุรกิจ</h2>
+</div>
+<nav class="hidden md:flex flex-1 justify-center gap-8">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">แดชบอร์ด</a>
+<a class="text-sm font-bold text-primary border-b-2 border-primary pb-1" href="#">ผู้ขาย</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">ใบสั่งซื้อ</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">คลังสินค้า</a>
+</nav>
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<div class="h-8 w-[1px] bg-slate-200 dark:border-slate-800"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold">สมชาย ใจดี</p>
+<p class="text-[10px] text-slate-500">ผู้ดูแลระบบ</p>
+</div>
+<div class="size-9 rounded-full bg-primary/20 border border-primary/30 overflow-hidden">
+<img alt="รูปโปรไฟล์ผู้ใช้งาน" class="w-full h-full object-cover" data-alt="Portrait of a smiling male professional" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1sL93t740IGj5uue4_8GCChUnE6_8OSYsOHo4055L4yz9EX_21M889tydc9yFAGohf9o9IZPPTKM8r7aTmxwgmZc4TGU6bpdp2YkPLVCy4gSpKdt9csqkKr9JgqRWuMsvT-1BAct3oBvwLoNIcjzGGdnGgDxQ7j4ogztntGtcQFkzGN0Ka4sn40WFQ3ghESOJRL-GwVikOxX10AHPSlFJAQyAfKkhiKGq9_j4FQ-1sUPM4-OlRWXePP9bI9LZn4BkqTWCILBj5BFk"/>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-1 px-4 py-8 md:px-10 lg:px-20 max-w-[1600px] mx-auto w-full">
+<!-- Page Header Area -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+<div>
+<h1 class="text-3xl font-black tracking-tight mb-1">รายชื่อผู้ขาย (Vendors)</h1>
+<p class="text-slate-500 dark:text-slate-400">จัดการข้อมูลผู้จัดจำหน่ายและพาร์ทเนอร์ทางธุรกิจทั้งหมด</p>
+</div>
+<div class="flex gap-3 w-full md:w-auto">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+<span>เพิ่มผู้ขายใหม่</span>
+</button>
+</div>
+</div>
+<!-- Filter & Search Section -->
+<div class="bg-white dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 mb-6 flex flex-col lg:flex-row gap-4 shadow-sm">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="ค้นหาตามชื่อผู้ขาย, รหัส หรือบุคคลติดต่อ..." type="text"/>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<div class="relative">
+<select class="appearance-none pl-4 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none cursor-pointer">
+<option>ทุกหมวดหมู่</option>
+<option>วัตถุดิบอาหาร</option>
+<option>บรรจุภัณฑ์</option>
+<option>เครื่องใช้สำนักงาน</option>
+<option>บริการขนส่ง</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">keyboard_arrow_down</span>
+</div>
+<div class="relative">
+<select class="appearance-none pl-4 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none cursor-pointer">
+<option>สถานะทั้งหมด</option>
+<option>ใช้งานอยู่</option>
+<option>ไม่ได้ใช้งาน</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">keyboard_arrow_down</span>
+</div>
+<button class="p-2.5 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Vendor Table Card -->
+<div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">ชื่อผู้ขาย / รหัส</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">หมวดหมู่</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">ผู้ติดต่อหลัก</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">เบอร์โทรศัพท์</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-center">สถานะ</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">จัดการ</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">ส</div>
+<div>
+<p class="font-bold text-sm">บจก. สยามฟู้ด เซอร์วิส</p>
+<p class="text-xs text-slate-500">VD-00124</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">วัตถุดิบอาหาร</span>
+</td>
+<td class="px-6 py-4 text-sm">คุณอานนท์ มั่นคง</td>
+<td class="px-6 py-4 text-sm font-mono text-slate-600 dark:text-slate-400">081-234-5678</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+<span class="size-1.5 rounded-full bg-green-500"></span>
+                                        ใช้งานอยู่
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex justify-end items-center gap-2">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all flex items-center gap-1" title="สร้างใบสั่งซื้อ">
+<span class="material-symbols-outlined text-[18px]">shopping_cart_checkout</span>
+<span class="text-xs font-bold hidden xl:block">สร้าง PO</span>
+</button>
+<div class="w-[1px] h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="ดูโปรไฟล์">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="แก้ไข">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-lg">ป</div>
+<div>
+<p class="font-bold text-sm">หจก. ปริ้นท์พลัส แพคเกจจิ้ง</p>
+<p class="text-xs text-slate-500">VD-00125</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">บรรจุภัณฑ์</span>
+</td>
+<td class="px-6 py-4 text-sm">คุณพรรณิภา สวยงาม</td>
+<td class="px-6 py-4 text-sm font-mono text-slate-600 dark:text-slate-400">02-998-1122</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+<span class="size-1.5 rounded-full bg-green-500"></span>
+                                        ใช้งานอยู่
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex justify-end items-center gap-2">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all flex items-center gap-1" title="สร้างใบสั่งซื้อ">
+<span class="material-symbols-outlined text-[18px]">shopping_cart_checkout</span>
+<span class="text-xs font-bold hidden xl:block">สร้าง PO</span>
+</button>
+<div class="w-[1px] h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="ดูโปรไฟล์">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="แก้ไข">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-lg">ด</div>
+<div>
+<p class="font-bold text-sm">บริษัท ดิจิทัลลอจิสติกส์ จำกัด</p>
+<p class="text-xs text-slate-500">VD-00126</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">บริการขนส่ง</span>
+</td>
+<td class="px-6 py-4 text-sm">คุณก้องเกียรติ ไวไว</td>
+<td class="px-6 py-4 text-sm font-mono text-slate-600 dark:text-slate-400">099-888-7766</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500">
+<span class="size-1.5 rounded-full bg-slate-400"></span>
+                                        ยกเลิกใช้งาน
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex justify-end items-center gap-2">
+<button class="p-2 text-slate-300 cursor-not-allowed flex items-center gap-1" title="สร้างใบสั่งซื้อ">
+<span class="material-symbols-outlined text-[18px]">shopping_cart_checkout</span>
+<span class="text-xs font-bold hidden xl:block">สร้าง PO</span>
+</button>
+<div class="w-[1px] h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="ดูโปรไฟล์">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="แก้ไข">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-lg">อ</div>
+<div>
+<p class="font-bold text-sm">หจก. ออฟฟิศเอ็กซ์เพรส</p>
+<p class="text-xs text-slate-500">VD-00127</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">เครื่องใช้สำนักงาน</span>
+</td>
+<td class="px-6 py-4 text-sm">คุณสมิธ ทำงานดี</td>
+<td class="px-6 py-4 text-sm font-mono text-slate-600 dark:text-slate-400">085-555-4433</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+<span class="size-1.5 rounded-full bg-green-500"></span>
+                                        ใช้งานอยู่
+                                    </span>
+</td>
+<td class="px-6 py-4">
+<div class="flex justify-end items-center gap-2">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all flex items-center gap-1" title="สร้างใบสั่งซื้อ">
+<span class="material-symbols-outlined text-[18px]">shopping_cart_checkout</span>
+<span class="text-xs font-bold hidden xl:block">สร้าง PO</span>
+</button>
+<div class="w-[1px] h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="ดูโปรไฟล์">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title="แก้ไข">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Area -->
+<div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+<p class="text-sm text-slate-500">แสดง 1 ถึง 4 จากทั้งหมด 128 รายการ</p>
+<div class="flex items-center gap-1">
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="size-8 rounded-lg bg-primary text-white font-bold text-sm">1</button>
+<button class="size-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium transition-colors">2</button>
+<button class="size-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium transition-colors">3</button>
+<span class="px-1 text-slate-400">...</span>
+<button class="size-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium transition-colors">12</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Bulk PO Action Floating Bar (Contextual) -->
+<div class="mt-8 p-6 bg-primary/10 border border-primary/20 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[28px]">info</span>
+</div>
+<div>
+<h4 class="font-bold text-primary">ต้องการสั่งซื้อสินค้าจำนวนมาก?</h4>
+<p class="text-sm text-slate-600 dark:text-slate-400">คุณสามารถเลือกผู้ขายหลายรายและคลิกปุ่มเพื่อเริ่มสร้างใบสั่งซื้อรวมได้ทันที</p>
+</div>
+</div>
+<button class="w-full md:w-auto px-6 py-3 bg-white dark:bg-slate-800 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-white transition-all">
+                    สร้างใบสั่งซื้อแบบกลุ่ม
+                </button>
+</div>
+</main>
+<footer class="mt-12 py-8 border-t border-slate-200 dark:border-slate-800 text-center">
+<p class="text-xs text-slate-400 tracking-wide uppercase">Business Management System © 2024 • เวอร์ชั่น 2.4.0</p>
+</footer>
+</div>
+</body></html>

@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Skyline Residencies Phase II",
+    "code": "SKY-P2",
+    "budget": 5000000,
+    "location": "Bang Na, Bangkok",
+    "status": "active"
+  },
+  {
+    "name": "Marina Bay Sands (Site B)",
+    "code": "MBS-B",
+    "budget": 8000000,
+    "location": "Sukhumvit, Bangkok",
+    "status": "active"
+  },
+  {
+    "name": "Oakwood Commercial",
+    "code": "OWC-01",
+    "budget": 3500000,
+    "location": "Phayathai, Bangkok",
+    "status": "active"
+  }
+]

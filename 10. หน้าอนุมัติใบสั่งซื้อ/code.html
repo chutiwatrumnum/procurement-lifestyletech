@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>อนุมัติใบสั่งซื้อ - ระบบจัดซื้อ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-slate-900 font-display">
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-primary/10 bg-white px-6 md:px-20 py-3 shadow-sm">
+<div class="flex items-center gap-4 text-primary">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">shopping_cart</span>
+</div>
+<h2 class="text-slate-900 text-lg font-bold leading-tight tracking-[-0.015em]">ระบบจัดซื้อ</h2>
+</div>
+<div class="flex flex-1 justify-end gap-8 items-center">
+<nav class="hidden md:flex items-center gap-9">
+<a class="text-slate-600 hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">หน้าแรก</a>
+<a class="text-primary text-sm font-bold leading-normal" href="#">ใบสั่งซื้อ</a>
+<a class="text-slate-600 hover:text-primary text-sm font-medium leading-normal transition-colors" href="#">รายงาน</a>
+</nav>
+<div class="flex gap-3">
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-primary/5 text-slate-600 hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-primary/5 text-slate-600 hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex flex-1 justify-center py-8 px-4 md:px-10">
+<div class="layout-content-container flex flex-col max-w-[1100px] flex-1 gap-6">
+<!-- Breadcrumbs & Header -->
+<div class="flex flex-col gap-2">
+<nav class="flex items-center gap-2 text-primary/70 text-sm font-medium">
+<a class="hover:underline" href="#">หน้าแรก</a>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<a class="hover:underline" href="#">รายการใบสั่งซื้อ</a>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-slate-900">อนุมัติใบสั่งซื้อ</span>
+</nav>
+<div class="flex flex-wrap justify-between items-end gap-4 pt-2">
+<div class="flex flex-col gap-1">
+<h1 class="text-slate-900 text-3xl font-black leading-tight tracking-tight">อนุมัติใบสั่งซื้อ</h1>
+<p class="text-slate-500 text-base font-normal">
+                                    เลขที่: <span class="font-semibold text-primary">PO-2023-0891</span> | วันที่ออกเอกสาร: 24 ต.ค. 2566
+                                </p>
+</div>
+<div class="flex items-center px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg font-bold text-sm">
+<span class="material-symbols-outlined mr-2 text-sm">pending_actions</span>
+                                สถานะ: รออนุมัติ
+                            </div>
+</div>
+</div>
+<!-- Information Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Main Content (Left) -->
+<div class="lg:col-span-2 flex flex-col gap-6">
+<!-- Supplier Card -->
+<div class="bg-white rounded-xl border border-primary/10 p-6 shadow-sm">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary">store</span>
+<h2 class="text-slate-900 text-lg font-bold leading-tight">ข้อมูลผู้ขาย</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+<div class="flex flex-col gap-1">
+<p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">ชื่อบริษัท</p>
+<p class="text-slate-900 text-sm font-medium">บริษัท เอบีซี ซัพพลาย จำกัด (สำนักงานใหญ่)</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">ผู้ติดต่อ</p>
+<p class="text-slate-900 text-sm font-medium">คุณสมชาย ใจดี (081-234-5678)</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">เงื่อนไขการชำระเงิน</p>
+<p class="text-slate-900 text-sm font-medium italic">Credit 30 Days</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">ที่อยู่จัดส่ง</p>
+<p class="text-slate-900 text-sm font-normal leading-relaxed">123/45 ถนนสีลม แขวงสุริยวงศ์ เขตบางรัก กรุงเทพมหานคร 10500</p>
+</div>
+</div>
+</div>
+<!-- Item List Table -->
+<!-- Supporting Documents Card -->
+<div class="bg-white rounded-xl border border-primary/10 p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">attach_file</span>
+<h2 class="text-slate-900 text-lg font-bold leading-tight">เอกสารแนบประกอบ</h2>
+</div>
+<span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-medium">3 ไฟล์</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<!-- PDF Document -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
+<div class="flex items-center gap-3 overflow-hidden">
+<span class="material-symbols-outlined text-red-500">picture_as_pdf</span>
+<div class="flex flex-col overflow-hidden">
+<span class="text-sm font-medium text-slate-900 truncate">ใบเสนอราคา_ABC_Supply.pdf</span>
+<span class="text-[10px] text-slate-400">จาก PR-2023-0542 | 1.2 MB</span>
+</div>
+</div>
+<div class="flex gap-1">
+<button class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="ดูเอกสาร">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="ดาวน์โหลด">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</div>
+</div>
+<!-- Image Document -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
+<div class="flex items-center gap-3 overflow-hidden">
+<span class="material-symbols-outlined text-blue-500">image</span>
+<div class="flex flex-col overflow-hidden">
+<span class="text-sm font-medium text-slate-900 truncate">สเปกสินค้า_Laptop.jpg</span>
+<span class="text-[10px] text-slate-400">จาก PR-2023-0542 | 2.5 MB</span>
+</div>
+</div>
+<div class="flex gap-1">
+<button class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="ดูเอกสาร">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="ดาวน์โหลด">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</div>
+</div>
+<!-- Spreadsheet/Other -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
+<div class="flex items-center gap-3 overflow-hidden">
+<span class="material-symbols-outlined text-green-600">description</span>
+<div class="flex flex-col overflow-hidden">
+<span class="text-sm font-medium text-slate-900 truncate">ตารางเปรียบเทียบราคา.xlsx</span>
+<span class="text-[10px] text-slate-400">แนบใน PO | 450 KB</span>
+</div>
+</div>
+<div class="flex gap-1">
+<button class="p-1.5 text-slate-400 hover:text-primary transition-colors" title="ดาวน์โหลด">
+<span class="material-symbols-outlined text-[20px]">download</span>
+</button>
+</div>
+</div>
+</div>
+</div><div class="bg-white rounded-xl border border-primary/10 overflow-hidden shadow-sm">
+<div class="p-6 border-b border-primary/5 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">list_alt</span>
+<h2 class="text-slate-900 text-lg font-bold leading-tight">รายการสินค้า</h2>
+</div>
+<span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-medium">3 รายการ</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+<th class="px-6 py-4">รายการ</th>
+<th class="px-6 py-4 text-center">จำนวน</th>
+<th class="px-6 py-4 text-right">ราคาต่อหน่วย</th>
+<th class="px-6 py-4 text-right">จำนวนเงิน</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="text-slate-900 font-medium">คอมพิวเตอร์แล็ปท็อป High-End</span>
+<span class="text-slate-400 text-xs">SKU: HW-LP-001</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center text-slate-900">5 เครื่อง</td>
+<td class="px-6 py-4 text-right text-slate-900">45,000.00</td>
+<td class="px-6 py-4 text-right text-slate-900 font-semibold">225,000.00</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="text-slate-900 font-medium">จอมอนิเตอร์ 27 นิ้ว 4K</span>
+<span class="text-slate-400 text-xs">SKU: HW-MN-027</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center text-slate-900">10 ชุด</td>
+<td class="px-6 py-4 text-right text-slate-900">12,500.00</td>
+<td class="px-6 py-4 text-right text-slate-900 font-semibold">125,000.00</td>
+</tr>
+<tr class="hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="text-slate-900 font-medium">อุปกรณ์เสริมและสายเชื่อมต่อ</span>
+<span class="text-slate-400 text-xs">SKU: ACC-CAB-ALL</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center text-slate-900">1 ล็อต</td>
+<td class="px-6 py-4 text-right text-slate-900">15,000.00</td>
+<td class="px-6 py-4 text-right text-slate-900 font-semibold">15,000.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Sidebar (Right) -->
+<div class="flex flex-col gap-6">
+<!-- Summary Card -->
+<div class="bg-primary text-white rounded-xl p-6 shadow-lg shadow-primary/20">
+<h3 class="text-sm font-bold uppercase tracking-widest opacity-80 mb-6">สรุปยอดรวม</h3>
+<div class="space-y-4">
+<div class="flex justify-between items-center text-sm">
+<span class="opacity-80">รวมเป็นเงิน</span>
+<span>365,000.00</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="opacity-80">ภาษีมูลค่าเพิ่ม (7%)</span>
+<span>25,550.00</span>
+</div>
+<div class="pt-4 border-t border-white/20 flex justify-between items-end">
+<span class="text-base font-bold">ยอดรวมสุทธิ</span>
+<div class="text-right">
+<span class="block text-xs opacity-80 leading-none mb-1">THB</span>
+<span class="text-3xl font-black">390,550.00</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Comment/Review Section -->
+<div class="bg-white rounded-xl border border-primary/10 p-6 shadow-sm flex flex-col gap-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">comment</span>
+<h2 class="text-slate-900 text-base font-bold">ความคิดเห็นเพิ่มเติม</h2>
+</div>
+<textarea class="w-full min-h-[120px] rounded-lg border-slate-200 focus:border-primary focus:ring-primary text-sm p-3 placeholder:text-slate-400" placeholder="ระบุเหตุผลในการอนุมัติ หรือเหตุผลที่ปฏิเสธเพื่อแจ้งไปยังผู้จัดซื้อ..."></textarea>
+<div class="flex flex-col gap-3 pt-2">
+<button class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-green-200">
+<span class="material-symbols-outlined">check_circle</span>
+                                        อนุมัติใบสั่งซื้อ
+                                    </button>
+<button class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-red-100">
+<span class="material-symbols-outlined">cancel</span>
+                                        ไม่อนุมัติ / ส่งคืนแก้ไข
+                                    </button>
+</div>
+</div>
+<!-- Audit Mini-Log -->
+<div class="bg-slate-50 rounded-xl p-5 border border-slate-200">
+<h3 class="text-slate-500 text-xs font-bold uppercase mb-4">ประวัติการดำเนินการ</h3>
+<div class="space-y-4">
+<div class="flex gap-3 relative">
+<div class="h-full w-[2px] bg-slate-200 absolute left-[11px] top-6"></div>
+<div class="size-6 rounded-full bg-primary/20 text-primary flex items-center justify-center relative z-10">
+<span class="material-symbols-outlined text-[14px] font-bold">add</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-slate-800">สร้างใบสั่งซื้อ</span>
+<span class="text-[10px] text-slate-500">โดย: คุณนิภาพร | 24 ต.ค. 10:30</span>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="size-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center relative z-10">
+<span class="material-symbols-outlined text-[14px] font-bold">schedule</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-slate-800">รอการอนุมัติ</span>
+<span class="text-[10px] text-slate-500">สถานะปัจจุบัน</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="mt-8 pb-12 text-center text-slate-400 text-xs">
+<p>© 2023 Procurement Management System v2.4.0</p>
+</footer>
+</div>
+</main>
+</div>
+</div>
+</body></html>
