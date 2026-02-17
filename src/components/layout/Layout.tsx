@@ -36,7 +36,6 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   badge?: number;
-  badgeKey?: 'pr_pending' | 'po_pending';
   children?: { title: string; href: string }[];
 }
 
@@ -132,10 +131,10 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/login');
   };
 
-  const NavLink = ({ item, mobile = false }: { item: NavItem; mobile?: boolean }) => {
+  const NavLink = ({ item, mobile = false }: { item: NavItem & { badgeKey?: string }; mobile?: boolean }) => {
     const isActive = location.pathname === item.href;
     const Icon = item.icon;
-    const badge = item.badgeKey ? pendingCounts[item.badgeKey] : item.badge;
+    const badge = item.badgeKey ? pendingCounts[item.badgeKey as keyof typeof pendingCounts] : item.badge;
 
     return (
       <Link
@@ -150,7 +149,7 @@ export default function Layout({ children }: LayoutProps) {
       >
         <Icon className={cn('h-5 w-5', isActive ? 'text-white' : 'text-[#6B7280]')} />
         <span className="flex-1">{item.title}</span>
-        {badge !== undefined && badge > 0 && (
+        {badge > 0 && (
           <span className={cn(
             "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
             isActive ? "bg-white text-[#2563EB]" : "bg-blue-600 text-white"

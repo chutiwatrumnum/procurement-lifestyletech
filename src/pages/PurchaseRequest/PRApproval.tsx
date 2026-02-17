@@ -344,18 +344,20 @@ export default function PRApproval() {
                           {editHistory.length} รายการ
                         </span>
                       </h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setHistoryExpanded(!historyExpanded)}
-                        className="text-blue-400 hover:text-blue-600 hover:bg-blue-100"
-                      >
-                        {historyExpanded ? (
-                          <><ChevronUp className="w-4 h-4 mr-1" /> ย่อ</>
-                        ) : (
-                          <><ChevronDown className="w-4 h-4 mr-1" /> ขยาย ({editHistory.length - 3} รายการ)</>
-                        )}
-                      </Button>
+                      {editHistory.length > 3 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setHistoryExpanded(!historyExpanded)}
+                          className="text-blue-400 hover:text-blue-600 hover:bg-blue-100"
+                        >
+                          {historyExpanded ? (
+                            <><ChevronUp className="w-4 h-4 mr-1" /> ย่อ</>
+                          ) : (
+                            <><ChevronDown className="w-4 h-4 mr-1" /> ขยาย ({editHistory.length - 3} รายการ)</>
+                          )}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-4">
                       {(historyExpanded ? editHistory : editHistory.slice(0, 3)).map((history, index) => (
