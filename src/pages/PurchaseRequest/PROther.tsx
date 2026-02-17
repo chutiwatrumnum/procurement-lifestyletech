@@ -91,7 +91,6 @@ export default function PROther() {
     setIsSubmitting(true);
     try {
       const prData = {
-        pr_number: `GEN-${Date.now().toString().slice(-6)}`,
         type: 'other',
         vendor: vendorId,
         requester: user?.id,

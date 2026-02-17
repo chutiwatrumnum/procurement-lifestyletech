@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import pb, { getCurrentUser, logout as pbLogout, isAuthenticated } from '@/lib/pocketbase';
-import type { User } from '@/types';
+import type { User, UserRole } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +9,15 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (email: string, password: string, name: string) => Promise<void>;
+  // RBAC helpers
+  hasRole: (roles: UserRole[]) => boolean;
+  isSuperAdmin: () => boolean;
+  isHeadOfDept: () => boolean;
+  isManager: () => boolean;
+  isEmployee: () => boolean;
+  canApprovePR: () => boolean;
+  canManageUsers: () => boolean;
+  canViewAllPR: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,16 +28,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function validateAuth() {
-      // Check if user is already logged in via PocketBase
       if (isAuthenticated()) {
         const currentUser = getCurrentUser();
         if (currentUser?.id) {
           try {
-            // Verify user still exists in database
-            await pb.collection('users').getOne(currentUser.id);
-            setUser(currentUser as unknown as User);
+            // Fetch full user data with relations
+            const userData = await pb.collection('users').getOne(currentUser.id, {
+              expand: 'department,manager'
+            });
+            
+            const enrichedUser: User = {
+              id: userData.id,
+              email: userData.email,
+              name: userData.name,
+              role: userData.role as UserRole,
+              department: userData.department,
+              departmentName: userData.expand?.department?.name,
+              manager: userData.manager,
+              managerName: userData.expand?.manager?.name,
+              isActive: userData.is_active ?? true,
+              phone: userData.phone,
+              position: userData.position,
+              avatar: userData.avatar,
+              created: userData.created,
+              updated: userData.updated,
+            };
+            
+            setUser(enrichedUser);
           } catch (error) {
-            // User not found in database, clear auth
             console.log('User not found in database, logging out');
             logout();
           }
@@ -39,17 +66,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     validateAuth();
 
-    // Listen for auth state changes
     pb.authStore.onChange(() => {
       const currentUser = getCurrentUser();
-      setUser(currentUser as unknown as User | null);
+      if (currentUser) {
+        // Re-fetch user data on auth change
+        validateAuth();
+      } else {
+        setUser(null);
+      }
     });
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
       const authData = await pb.collection('users').authWithPassword(email, password);
-      setUser(authData.record as unknown as User);
+      
+      // Fetch full user data with relations
+      const userData = await pb.collection('users').getOne(authData.record.id, {
+        expand: 'department,manager'
+      });
+      
+      const enrichedUser: User = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role as UserRole,
+        department: userData.department,
+        departmentName: userData.expand?.department?.name,
+        manager: userData.manager,
+        managerName: userData.expand?.manager?.name,
+        isActive: userData.is_active ?? true,
+        phone: userData.phone,
+        position: userData.position,
+        avatar: userData.avatar,
+        created: userData.created,
+        updated: userData.updated,
+      };
+      
+      setUser(enrichedUser);
     } catch (error: any) {
       console.error('Login error:', error);
       throw error;
@@ -68,13 +122,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         passwordConfirm: password,
         name,
-        role: 'user',
+        role: 'employee',
+        is_active: true,
       });
       await login(email, password);
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
     }
+  };
+
+  // RBAC helper functions
+  const hasRole = (roles: UserRole[]): boolean => {
+    if (!user) return false;
+    return roles.includes(user.role);
+  };
+
+  const isSuperAdmin = (): boolean => {
+    return user?.role === 'superadmin';
+  };
+
+  const isHeadOfDept = (): boolean => {
+    return user?.role === 'head_of_dept';
+  };
+
+  const isManager = (): boolean => {
+    return user?.role === 'manager';
+  };
+
+  const isEmployee = (): boolean => {
+    return user?.role === 'employee';
+  };
+
+  const canApprovePR = (): boolean => {
+    return hasRole(['superadmin', 'head_of_dept', 'manager']);
+  };
+
+  const canManageUsers = (): boolean => {
+    return hasRole(['superadmin', 'head_of_dept']);
+  };
+
+  const canViewAllPR = (): boolean => {
+    return hasRole(['superadmin', 'head_of_dept', 'manager']);
   };
 
   return (
@@ -86,6 +175,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         register,
+        hasRole,
+        isSuperAdmin,
+        isHeadOfDept,
+        isManager,
+        isEmployee,
+        canApprovePR,
+        canManageUsers,
+        canViewAllPR,
       }}
     >
       {children}

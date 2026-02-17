@@ -60,10 +60,54 @@ export const prService = {
     });
   },
   async create(data: any, items: any[]) {
-    const pr = await pb.collection('purchase_requests').create(data);
+    // Generate PR number with format: PR-YYYY-MM-DD-{daily_sequence}
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const datePrefix = `PR-${year}-${month}-${day}`;
+    
+    let prNumber: string;
+    
+    try {
+      // Count how many PRs were created today by checking pr_number prefix
+      const todayPRs = await pb.collection('purchase_requests').getFullList({
+        filter: `pr_number ~ "${datePrefix}-"`,
+        fields: 'pr_number',
+        sort: '-created'
+      });
+      
+      // Find the highest sequence number for today
+      let maxSequence = 0;
+      for (const pr of todayPRs) {
+        const match = pr.pr_number?.match(new RegExp(`${datePrefix}-(\\d+)`));
+        if (match) {
+          const seq = parseInt(match[1], 10);
+          if (seq > maxSequence && seq < 10000) { // Ignore timestamp fallback numbers (> 10000)
+            maxSequence = seq;
+          }
+        }
+      }
+      
+      const dailySequence = maxSequence + 1;
+      prNumber = `${datePrefix}-${dailySequence}`;
+    } catch (err) {
+      // Fallback: use timestamp-based number
+      console.error('Error counting PRs, using fallback:', err);
+      const timestamp = Date.now().toString().slice(-4);
+      prNumber = `${datePrefix}-${timestamp}`;
+    }
+    
+    // Create PR with generated number
+    const pr = await pb.collection('purchase_requests').create({
+      ...data,
+      pr_number: prNumber
+    });
+    
     for (const item of items) {
       await pb.collection('pr_items').create({ ...item, pr: pr.id });
     }
+    
     // Add history entry
     await pb.collection('pr_history').create({
       pr: pr.id,
@@ -71,6 +115,7 @@ export const prService = {
       by: data.requester,
       details: `สร้างใบขอซื้อ ${pr.pr_number}`
     });
+    
     return pr;
   },
   async updateStatus(id: string, status: string, reason = '', userId?: string, oldAttachments?: string[]) {
@@ -85,6 +130,9 @@ export const prService = {
       old_attachments: oldAttachments || []
     });
     return pr;
+  },
+  async delete(id: string) {
+    return await pb.collection('purchase_requests').delete(id);
   }
 };
 

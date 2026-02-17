@@ -287,7 +287,12 @@ export default function PRApproval() {
                       <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                         <Building2 className="w-3 h-3" /> โครงการ (Project)
                       </h4>
-                      <p className="font-bold text-[#1F2937] text-lg">{selectedPR.expand?.project?.name || 'รายการจัดซื้อทั่วไป'}</p>
+                      <p className="font-bold text-[#1F2937] text-lg">
+                        {selectedPR.expand?.project?.code && (
+                          <span className="text-blue-600 mr-2">[{selectedPR.expand.project.code}]</span>
+                        )}
+                        {selectedPR.expand?.project?.name || 'รายการจัดซื้อทั่วไป'}
+                      </p>
                       <p className="text-sm text-gray-500 mt-1">{selectedPR.expand?.project?.location || 'สำนักงานใหญ่'}</p>
                       {selectedPR.po_ref && (
                         <p className="text-sm text-blue-600 mt-2 font-medium">อ้างอิง PO: {selectedPR.po_ref}</p>

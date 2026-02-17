@@ -60,8 +60,7 @@ export default function PRProject() {
   
   // Form state
   const [projectId, setProjectId] = useState('');
-  const [vendorId, setVendorId] = useState('');
-  const [poRef, setPoRef] = useState('');
+  const [vendorIds, setVendorIds] = useState<string[]>([]);
   const [location, setLocation] = useState('');
   const [items, setItems] = useState<LineItem[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -142,7 +141,7 @@ export default function PRProject() {
   const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
   const handleSubmit = async (status: string) => {
-    if (!projectId || !vendorId) {
+    if (!projectId || vendorIds.length === 0) {
       toast.error('กรุณาเลือกโครงการและผู้ขาย');
       return;
     }
@@ -155,11 +154,9 @@ export default function PRProject() {
     setIsSubmitting(true);
     try {
       const prData: any = {
-        pr_number: `PR-${Date.now().toString().slice(-6)}`,
         type: 'project',
         project: projectId,
-        vendor: vendorId,
-        po_ref: poRef,
+        vendor: vendorIds[0] || '', // Use first vendor as primary (for backward compatibility)
         delivery_location: location,
         status: status,
         total_amount: totalAmount,
@@ -205,7 +202,7 @@ export default function PRProject() {
     }
   };
 
-  const selectedVendor = vendors.find(v => v.id === vendorId);
+  const selectedVendors = vendors.filter(v => vendorIds.includes(v.id));
 
   if (loading) {
     return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
@@ -251,25 +248,16 @@ export default function PRProject() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">ชื่อโครงการ *</Label>
-                  <Select onValueChange={setProjectId}>
-                    <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
-                      <SelectValue placeholder="เลือกโครงการที่ต้องการ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold text-sm">อ้างอิง PO จากผู้พัฒนา (แนบไฟล์) *</Label>
-                  <div className="relative">
-                    <Input value={poRef} onChange={(e) => setPoRef(e.target.value)} className="h-11 rounded-xl bg-gray-50 border-none pl-10" />
-                    <Paperclip className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-gray-700 font-semibold">ชื่อโครงการ *</Label>
+                <Select onValueChange={setProjectId}>
+                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
+                    <SelectValue placeholder="เลือกโครงการที่ต้องการ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -298,7 +286,6 @@ export default function PRProject() {
                   <thead>
                     <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
                       <th className="py-4 text-left">รายละเอียดสินค้า</th>
-                      <th className="py-4 text-center w-20">หน่วย</th>
                       <th className="py-4 text-center w-20">จำนวน</th>
                       <th className="py-4 text-right w-28">ราคาต่อหน่วย</th>
                       <th className="py-4 text-right w-28">รวมเงิน</th>
@@ -312,16 +299,13 @@ export default function PRProject() {
                           <Input value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} placeholder="ระบุชื่อสินค้า..." className="h-10 border-none bg-gray-50 rounded-xl" />
                         </td>
                         <td className="py-4 px-1">
-                          <Input value={item.unit} onChange={(e) => updateItem(item.id, 'unit', e.target.value)} className="h-10 border-none bg-gray-50 rounded-xl text-center" />
-                        </td>
-                        <td className="py-4 px-1">
                           <Input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)} className="h-10 border-none bg-gray-50 rounded-xl text-center font-bold" />
                         </td>
                         <td className="py-4 px-1">
                           <Input type="number" value={item.unit_price} onChange={(e) => updateItem(item.id, 'unit_price', e.target.value)} className="h-10 border-none bg-gray-50 rounded-xl text-right font-bold" />
                         </td>
                         <td className="py-4 pl-4 text-right font-black text-gray-900 leading-10">
-                          {item.total_price.toLocaleString()}.00
+                          {item.total_price.toLocaleString()}
                         </td>
                         <td className="py-4 pl-2 text-right">
                           <Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} className="h-8 w-8 text-red-200 hover:text-red-500 rounded-full">
@@ -336,7 +320,7 @@ export default function PRProject() {
               <div className="p-6 bg-gray-50 flex justify-end">
                 <div className="text-right">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ยอดรวมทั้งหมด</p>
-                  <p className="text-4xl font-black text-blue-600 tracking-tighter">฿{totalAmount.toLocaleString()}.00</p>
+                  <p className="text-4xl font-black text-blue-600 tracking-tighter">฿{totalAmount.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -355,22 +339,54 @@ export default function PRProject() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขายหลัก *</Label>
-                <Select onValueChange={setVendorId}>
+                <Select 
+                  onValueChange={(value) => {
+                    if (!vendorIds.includes(value)) {
+                      setVendorIds([...vendorIds, value]);
+                    }
+                  }}
+                >
                   <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
                     <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
                   </SelectTrigger>
                   <SelectContent>
-                    {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                    {vendors.filter(v => !vendorIds.includes(v.id)).map(v => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                
+                {/* Selected vendors tags */}
+                {vendorIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedVendors.map(vendor => (
+                      <span 
+                        key={vendor.id} 
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                      >
+                        {vendor.name}
+                        <button 
+                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
+                          className="hover:text-blue-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {selectedVendor && (
-                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2 animate-in fade-in slide-in-from-top-2">
-                  <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">ข้อมูลติดต่อผู้ขาย</p>
-                  <p className="font-bold text-blue-900">{selectedVendor.contact_person}</p>
-                  <p className="text-sm text-blue-700">{selectedVendor.email}</p>
-                  <p className="text-sm text-blue-700">{selectedVendor.phone}</p>
+              {selectedVendors.length > 0 && (
+                <div className="space-y-3">
+                  {selectedVendors.map(vendor => (
+                    <div key={vendor.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
+                      <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{vendor.name}</p>
+                      <p className="font-bold text-blue-900">{vendor.contact_person}</p>
+                      <p className="text-sm text-blue-700">{vendor.email}</p>
+                      <p className="text-sm text-blue-700">{vendor.phone}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

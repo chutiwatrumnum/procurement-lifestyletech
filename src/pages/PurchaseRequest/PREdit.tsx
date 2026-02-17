@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,17 +29,26 @@ import { prService, projectService, vendorService } from '@/services/api';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function PREdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [prData, setPrData] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [vendorIds, setVendorIds] = useState<string[]>([]);
   const [budgetInfo, setBudgetInfo] = useState<{ budget: number; spent: number; percentage: number } | null>(null);
   const [editHistory, setEditHistory] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -61,6 +70,17 @@ export default function PREdit() {
         setProjects(projList);
         setVendors(vendList);
         setAttachments(pr.attachments || []);
+        
+        // Load vendorIds from pr.vendor (handle both single and array)
+        if (pr.vendor) {
+          if (Array.isArray(pr.vendor)) {
+            setVendorIds(pr.vendor);
+          } else {
+            setVendorIds([pr.vendor]);
+          }
+        } else {
+          setVendorIds([]);
+        }
         
         // Load budget info
         if (pr.expand?.project?.id) {
@@ -144,7 +164,12 @@ export default function PREdit() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+
     setNewAttachments(prev => [...prev, ...Array.from(files)]);
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const removeNewAttachment = (index: number) => {
@@ -166,6 +191,11 @@ export default function PREdit() {
   };
 
   const handleUpdate = async () => {
+    if (!prData?.project || vendorIds.length === 0) {
+      toast.error('กรุณาเลือกโครงการและผู้ขาย');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Upload new attachments if any
@@ -176,6 +206,12 @@ export default function PREdit() {
         });
         await pb.collection('purchase_requests').update(id, formData);
       }
+      
+      // Update PR with vendors array
+      await pb.collection('purchase_requests').update(id!, {
+        vendor: vendorIds[0], // Primary vendor (for backward compatibility)
+        vendors: vendorIds,   // All selected vendors
+      });
       
       // Update PR status with user ID for history
       await prService.updateStatus(id!, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);
@@ -189,7 +225,7 @@ export default function PREdit() {
   };
 
   const selectedProject = projects.find(p => p.id === prData?.project);
-  const selectedVendor = vendors.find(v => v.id === prData?.vendor);
+  const selectedVendors = vendors.filter(v => vendorIds.includes(v.id));
 
   if (loading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
 
@@ -230,24 +266,15 @@ export default function PREdit() {
               <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">โครงการ</Label>
               <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
                 <Building2 className="w-4 h-4 text-gray-400" />
-                <span className="font-bold text-gray-900">{selectedProject?.name || 'ไม่ระบุ'}</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">ผู้ขาย</Label>
-              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="font-bold text-gray-900">{selectedVendor?.name || 'ไม่ระบุ'}</span>
+                <span className="font-bold text-gray-900">
+                  {selectedProject?.code && (
+                    <span className="text-blue-600 mr-2">[{selectedProject.code}]</span>
+                  )}
+                  {selectedProject?.name || 'ไม่ระบุ'}
+                </span>
               </div>
             </div>
           </div>
-          
-          {prData?.po_ref && (
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">อ้างอิง PO</Label>
-              <p className="font-bold text-blue-600">{prData.po_ref}</p>
-            </div>
-          )}
           
           {prData?.delivery_location && (
             <div className="space-y-2">
@@ -361,16 +388,16 @@ export default function PREdit() {
           )}
 
           {/* Existing Attachments */}
-          {attachments.length > 0 && (
-            <Card className="border-none shadow-sm rounded-2xl">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  เอกสารแนบเดิม
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {attachments.map((file, index) => (
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <FileText className="w-4 h-4 text-gray-600" />
+                เอกสารแนบเดิม
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {attachments.length > 0 ? (
+                attachments.map((file, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group">
                     <div className="p-2 bg-white rounded-lg shadow-sm">
                       <FileText className="h-4 w-4 text-red-500" />
@@ -397,10 +424,76 @@ export default function PREdit() {
                       </Button>
                     </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                ))
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-4">ไม่มีเอกสารแนบ</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Vendor Card */}
+          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="bg-white pb-2">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                <User className="w-5 h-5 text-blue-600" /> ข้อมูลผู้ขาย
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขาย *</Label>
+                <Select 
+                  onValueChange={(value) => {
+                    if (!vendorIds.includes(value)) {
+                      setVendorIds([...vendorIds, value]);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
+                    <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendors.filter(v => !vendorIds.includes(v.id)).map(v => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {/* Selected vendors tags */}
+                {vendorIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedVendors.map(vendor => (
+                      <span 
+                        key={vendor.id} 
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                      >
+                        {vendor.name}
+                        <button 
+                          type="button"
+                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
+                          className="hover:text-blue-900 ml-1"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedVendors.length > 0 && (
+                <div className="space-y-3">
+                  {selectedVendors.map(vendor => (
+                    <div key={vendor.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
+                      <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{vendor.name}</p>
+                      <p className="font-bold text-blue-900">{vendor.contact_person}</p>
+                      <p className="text-sm text-blue-700">{vendor.email}</p>
+                      <p className="text-sm text-blue-700">{vendor.phone}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* New Attachments Upload */}
           <Card className="border-none shadow-sm rounded-2xl">
@@ -410,21 +503,22 @@ export default function PREdit() {
             <CardContent className="space-y-4">
               <input
                 type="file"
-                id="file-upload"
-                multiple
+                ref={fileInputRef}
                 onChange={handleFileSelect}
+                multiple
+                accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
                 className="hidden"
               />
-              <label 
-                htmlFor="file-upload"
-                className="border-2 border-dashed border-gray-100 rounded-2xl p-8 text-center hover:bg-gray-50 cursor-pointer transition-all group block"
+              <div 
+                className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 cursor-pointer transition-colors group"
+                onClick={triggerFileInput}
               >
-                <div className="p-3 bg-white rounded-2xl shadow-sm w-fit mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <div className="p-3 bg-white rounded-2xl shadow-sm w-fit mx-auto mb-3 group-hover:scale-110 transition-transform">
                   <Upload className="h-6 w-6 text-blue-600" />
                 </div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">อัปโหลดใบเสนอราคาล่าสุด</p>
-                <p className="text-xs text-gray-400 mt-1">คลิกหรือลากไฟล์มาวาง</p>
-              </label>
+                <p className="text-sm font-bold text-gray-700">อัปโหลดไฟล์</p>
+                <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, XLSX (MAX 10MB)</p>
+              </div>
               
               {newAttachments.length > 0 && (
                 <div className="space-y-2">

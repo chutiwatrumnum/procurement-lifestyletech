@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import type { UserRole } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,8 @@ import {
   Check,
   ClipboardCheck,
   Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 
@@ -36,15 +39,17 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   badge?: number;
+  roles?: UserRole[];
   children?: { title: string; href: string }[];
 }
 
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   { title: 'หน้าแรก', href: '/', icon: LayoutDashboard },
   {
     title: 'จัดการโครงการ',
     href: '/projects',
     icon: Building2,
+    roles: ['superadmin', 'head_of_dept', 'manager'],
   },
   {
     title: 'รายการใบขอซื้อ',
@@ -70,13 +75,13 @@ const navItems: NavItem[] = [
     title: 'อนุมัติใบขอซื้อ',
     href: '/purchase-requests/approval',
     icon: Check,
-    badgeKey: 'pr_pending',
+    roles: ['superadmin', 'head_of_dept', 'manager'],
   },
   {
     title: 'อนุมัติใบสั่งซื้อ',
     href: '/purchase-orders/approval',
     icon: ClipboardCheck,
-    badgeKey: 'po_pending',
+    roles: ['superadmin', 'head_of_dept', 'manager'],
   },
   {
     title: 'รายชื่อผู้ขาย',
@@ -87,6 +92,13 @@ const navItems: NavItem[] = [
     title: 'รายงาน',
     href: '/reports',
     icon: BarChart3,
+    roles: ['superadmin', 'head_of_dept', 'manager'],
+  },
+  {
+    title: 'จัดการผู้ใช้',
+    href: '/admin/users',
+    icon: Users,
+    roles: ['superadmin', 'head_of_dept'],
   },
 ];
 
@@ -95,11 +107,19 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [pendingCounts, setPendingCounts] = useState({ pr_pending: 0, po_pending: 0 });
+
+  // Filter nav items based on user role
+  const navItems = allNavItems.filter(item => {
+    if (!item.roles) return true; // No role restriction
+    if (!user) return false;
+    return item.roles.includes(user.role);
+  });
 
   // Fetch pending counts
   useEffect(() => {
@@ -131,27 +151,46 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/login');
   };
 
-  const NavLink = ({ item, mobile = false }: { item: NavItem & { badgeKey?: string }; mobile?: boolean }) => {
+  const NavLink = ({ item, mobile = false, collapsed = false }: { item: NavItem; mobile?: boolean; collapsed?: boolean }) => {
     const isActive = location.pathname === item.href;
     const Icon = item.icon;
-    const badge = item.badgeKey ? pendingCounts[item.badgeKey as keyof typeof pendingCounts] : item.badge;
+    
+    // Get badge count for approval pages
+    let badge = 0;
+    if (item.href === '/purchase-requests/approval') {
+      badge = pendingCounts.pr_pending;
+    } else if (item.href === '/purchase-orders/approval') {
+      badge = pendingCounts.po_pending;
+    } else {
+      badge = item.badge || 0;
+    }
 
     return (
       <Link
         to={item.href}
         className={cn(
           'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
+          collapsed && 'justify-center px-2',
           isActive
             ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20'
             : 'text-[#9CA3AF] hover:text-white hover:bg-white/5'
         )}
         onClick={() => mobile && setIsMobileMenuOpen(false)}
+        title={collapsed ? item.title : undefined}
       >
-        <Icon className={cn('h-5 w-5', isActive ? 'text-white' : 'text-[#6B7280]')} />
-        <span className="flex-1">{item.title}</span>
-        {badge > 0 && (
+        <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-white' : 'text-[#6B7280]')} />
+        {!collapsed && <span className="flex-1">{item.title}</span>}
+        {!collapsed && badge > 0 && (
           <span className={cn(
-            "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+            "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0",
+            isActive ? "bg-white text-[#2563EB]" : "bg-blue-600 text-white"
+          )}>
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+        {collapsed && badge > 0 && (
+          <span className={cn(
+            "absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold",
             isActive ? "bg-white text-[#2563EB]" : "bg-blue-600 text-white"
           )}>
             {badge > 99 ? '99+' : badge}
@@ -161,65 +200,101 @@ export default function Layout({ children }: LayoutProps) {
     );
   };
 
-  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="flex h-full flex-col gap-2 bg-[#1F2937] text-white">
-      <div className="flex h-20 items-center px-6 mb-4">
+  const roleLabels: Record<UserRole, string> = {
+    superadmin: 'ผู้ดูแลระบบ',
+    head_of_dept: 'หัวหน้าแผนก',
+    manager: 'ผู้จัดการ',
+    employee: 'พนักงาน',
+  };
+
+  const Sidebar = ({ mobile = false, collapsed = false }: { mobile?: boolean; collapsed?: boolean }) => (
+    <div className="flex h-full flex-col gap-2 bg-[#1F2937] text-white relative">
+      <div className={cn("flex items-center mb-4", collapsed ? "h-16 px-4 justify-center" : "h-20 px-6")}>
         <Link to="/" className="flex items-center gap-3">
-          <div className="p-1.5 bg-[#2563EB] rounded-lg">
+          <div className="p-1.5 bg-[#2563EB] rounded-lg flex-shrink-0">
             <Building2 className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <h2 className="text-lg font-bold tracking-tight">ProcureReal</h2>
-            <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest leading-none">REAL ESTATE ERP</p>
-          </div>
+          {!collapsed && (
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">ProcureReal</h2>
+              <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest leading-none">REAL ESTATE ERP</p>
+            </div>
+          )}
         </Link>
       </div>
-      <div className="flex-1 px-4 space-y-1">
-        <ScrollArea className="h-[calc(100vh-220px)]">
+      
+      {/* Toggle Button */}
+      {!mobile && (
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="absolute -right-3 top-24 bg-[#2563EB] text-white rounded-full p-1.5 shadow-lg hover:bg-[#1D4ED8] transition-colors z-50"
+          title={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
+      )}
+
+      <div className={cn("flex-1 space-y-1", collapsed ? "px-2" : "px-4")}>
+        <ScrollArea className={cn(collapsed ? "h-[calc(100vh-180px)]" : "h-[calc(100vh-220px)]")}>
           {navItems.map((item) => (
-            <NavLink key={item.title} item={item} mobile={mobile} />
+            <div key={item.title} className={cn("relative", collapsed && "mb-1")}>
+              <NavLink item={item} mobile={mobile} collapsed={collapsed} />
+            </div>
           ))}
           
-          <div className="pt-6 pb-2 px-4">
-            <p className="text-[10px] font-bold text-[#4B5563] uppercase tracking-widest">บัญชีผู้ใช้</p>
-          </div>
+          {!collapsed && (
+            <div className="pt-6 pb-2 px-4">
+              <p className="text-[10px] font-bold text-[#4B5563] uppercase tracking-widest">บัญชีผู้ใช้</p>
+            </div>
+          )}
           
           <Link
             to="/settings"
             className={cn(
-              'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[#9CA3AF] hover:text-white hover:bg-white/5 transition-all'
+              'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[#9CA3AF] hover:text-white hover:bg-white/5 transition-all',
+              collapsed && 'justify-center px-2'
             )}
+            title={collapsed ? "ตั้งค่า" : undefined}
           >
-            <Settings className="h-5 w-5 text-[#6B7280]" />
-            <span>ตั้งค่า</span>
+            <Settings className="h-5 w-5 text-[#6B7280] flex-shrink-0" />
+            {!collapsed && <span>ตั้งค่า</span>}
           </Link>
         </ScrollArea>
       </div>
       
-      <div className="p-4 mt-auto">
-        <div className="bg-[#111827] rounded-2xl p-4 flex items-center gap-3">
-          <Avatar className="h-10 w-10 border-2 border-[#374151]">
+      <div className={cn("mt-auto", collapsed ? "p-2" : "p-4")}>
+        <div className={cn("bg-[#111827] rounded-2xl flex items-center gap-3", collapsed ? "p-2 justify-center" : "p-4")}>
+          <Avatar className="h-10 w-10 border-2 border-[#374151] flex-shrink-0">
             <AvatarImage src={user?.avatar ? `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${user.id}/${user.avatar}` : ''} />
             <AvatarFallback className="bg-[#2563EB] text-white font-bold uppercase">
               {user?.name?.charAt(0) || user?.email?.charAt(0) || '?'}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate text-white">{user?.name || 'พนักงานใหม่'}</p>
-            <p className="text-[10px] text-[#6B7280] truncate font-bold uppercase tracking-wider">{user?.role || 'User'}</p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-[#9CA3AF] hover:text-red-400 transition-colors">
-            <LogOut className="h-4 w-4" />
-          </Button>
+          {!collapsed && (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate text-white">{user?.name || 'พนักงานใหม่'}</p>
+                <p className="text-[10px] text-[#6B7280] truncate font-bold uppercase tracking-wider">{user?.role ? roleLabels[user.role as UserRole] : 'ผู้ใช้'}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="text-[#9CA3AF] hover:text-red-400 transition-colors flex-shrink-0">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr] bg-[#F9FAFB]">
+    <div className={cn(
+      "grid min-h-screen w-full bg-[#F9FAFB] transition-all duration-300",
+      isSidebarCollapsed 
+        ? "md:grid-cols-[70px_1fr]" 
+        : "md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr]"
+    )}>
       <div className="hidden md:block sticky top-0 h-screen overflow-y-auto shadow-xl">
-        <Sidebar />
+        <Sidebar collapsed={isSidebarCollapsed} />
       </div>
 
       <div className="flex flex-col min-h-screen">
@@ -231,7 +306,7 @@ export default function Layout({ children }: LayoutProps) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-[280px] border-none">
-              <Sidebar mobile />
+              <Sidebar mobile={true} collapsed={false} />
             </SheetContent>
           </Sheet>
 
