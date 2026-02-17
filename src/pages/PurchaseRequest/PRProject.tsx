@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,12 +22,14 @@ import {
   Save,
   Send,
   Loader2,
-  Paperclip
+  Paperclip,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { prService, projectService, vendorService } from '@/services/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import pb from '@/lib/pocketbase';
 
 interface LineItem {
   id: string;
@@ -38,9 +40,17 @@ interface LineItem {
   total_price: number;
 }
 
+interface Attachment {
+  id: string;
+  file: File;
+  name: string;
+  size: string;
+}
+
 export default function PRProject() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -51,12 +61,10 @@ export default function PRProject() {
   // Form state
   const [projectId, setProjectId] = useState('');
   const [vendorId, setVendorId] = useState('');
-  const [poRef, setPoRef] = useState('PO-8829-X');
-  const [location, setLocation] = useState('ระบุที่อยู่ในการจัดส่งสินค้า');
-  const [items, setItems] = useState<LineItem[]>([
-    { id: '1', name: 'Concrete Mix (240 ksc)', unit: 'คิว (m3)', quantity: 50, unit_price: 2200, total_price: 110000 },
-    { id: '2', name: 'Steel Rebar DB12', unit: 'เส้น (PCS)', quantity: 200, unit_price: 245, total_price: 49000 },
-  ]);
+  const [poRef, setPoRef] = useState('');
+  const [location, setLocation] = useState('');
+  const [items, setItems] = useState<LineItem[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   useEffect(() => {
     async function loadData() {
@@ -97,6 +105,40 @@ export default function PRProject() {
     }));
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newAttachments: Attachment[] = Array.from(files).map(file => ({
+      id: Date.now().toString() + Math.random(),
+      file,
+      name: file.name,
+      size: (file.size / 1024 / 1024).toFixed(2) + ' MB'
+    }));
+
+    setAttachments(prev => [...prev, ...newAttachments]);
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
+  };
+
+  const uploadAttachments = async (prId: string) => {
+    if (attachments.length === 0) return;
+
+    const formData = new FormData();
+    attachments.forEach(att => {
+      formData.append('attachments', att.file);
+    });
+
+    try {
+      await pb.collection('purchase_requests').update(prId, formData);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      toast.error('อัปโหลดไฟล์ไม่สำเร็จ');
+    }
+  };
+
   const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
   const handleSubmit = async (status: string) => {
@@ -105,27 +147,56 @@ export default function PRProject() {
       return;
     }
 
+    if (!user?.id) {
+      toast.error('กรุณาเข้าสู่ระบบก่อน');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const prData = {
+      const prData: any = {
         pr_number: `PR-${Date.now().toString().slice(-6)}`,
         type: 'project',
         project: projectId,
         vendor: vendorId,
         po_ref: poRef,
         delivery_location: location,
-        requester: user?.id,
         status: status,
         total_amount: totalAmount,
       };
+
+      // Only add requester if user is logged in and exists in users collection
+      // Skip if causes validation error - can be updated later
+      try {
+        if (user?.id) {
+          // Verify user exists in collection
+          await pb.collection('users').getOne(user.id);
+          prData.requester = user.id;
+        }
+      } catch (e) {
+        console.log('User not found in users collection, skipping requester field');
+        // requester field will be empty, can be updated later
+      }
 
       const prItems = items.map(({ name, unit, quantity, unit_price, total_price }) => ({
         name, unit, quantity, unit_price, total_price
       }));
 
-      await prService.create(prData, prItems);
+      const pr = await prService.create(prData, prItems);
+      
+      // Upload attachments if any
+      if (attachments.length > 0) {
+        await uploadAttachments(pr.id);
+      }
+
       toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : 'ส่งใบขอซื้อเรียบร้อยแล้ว');
-      navigate('/purchase-requests');
+      
+      // Navigate to approval page after submit
+      if (status === 'pending') {
+        navigate('/purchase-requests/approval');
+      } else {
+        navigate('/purchase-requests');
+      }
     } catch (error) {
       console.error(error);
       toast.error('บันทึกไม่สำเร็จ');
@@ -142,11 +213,21 @@ export default function PRProject() {
 
   return (
     <div className="space-y-6 pb-20">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        multiple
+        accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
+        className="hidden"
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">สร้างใบขอซื้อ - โครงการ</h1>
-          <p className="text-sm text-gray-500 mt-1">เลขที่ใบขอซื้อ: PR-2023-0042 • วันที่: 24 ต.ค. 2566</p>
+          <p className="text-sm text-gray-500 mt-1">วันที่: {new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB] font-bold" onClick={() => handleSubmit('draft')} disabled={isSubmitting}>
@@ -301,7 +382,10 @@ export default function PRProject() {
               <CardTitle className="text-base font-bold">เอกสารแนบ</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 cursor-pointer transition-colors group">
+              <div 
+                className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 cursor-pointer transition-colors group"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 <div className="p-3 bg-white rounded-2xl shadow-sm w-fit mx-auto mb-3 group-hover:scale-110 transition-transform">
                   <Upload className="h-6 w-6 text-blue-600" />
                 </div>
@@ -309,16 +393,26 @@ export default function PRProject() {
                 <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, XLSX (MAX 10MB)</p>
               </div>
               
-              <div className="p-3 bg-gray-50 rounded-xl flex items-center justify-between group">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white rounded-lg shadow-xs"><FileText className="h-4 w-4 text-red-500" /></div>
-                  <div>
-                    <p className="text-xs font-bold text-gray-700 truncate w-32">Initial PO Spec.pdf</p>
-                    <p className="text-[10px] text-gray-400">1.2 MB</p>
+              {attachments.map((att) => (
+                <div key={att.id} className="p-3 bg-gray-50 rounded-xl flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white rounded-lg shadow-xs"><FileText className="h-4 w-4 text-red-500" /></div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-700 truncate w-32">{att.name}</p>
+                      <p className="text-[10px] text-gray-400">{att.size}</p>
+                    </div>
                   </div>
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-gray-300 hover:text-red-500 transition-colors"
+                    onClick={() => removeAttachment(att.id)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-300 hover:text-red-500 transition-colors"><Trash2 className="h-3.5 w-3.5" /></Button>
-              </div>
+              ))}
             </CardContent>
           </Card>
 

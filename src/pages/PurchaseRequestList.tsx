@@ -46,9 +46,9 @@ export default function PurchaseRequestList() {
         setPrs(data.map(pr => ({
           id: pr.id,
           pr_number: pr.pr_number,
-          project: pr.expand?.project?.name || 'รายการทั่วไป',
+          project: pr.expand?.project_id?.name || 'รายการทั่วไป',
           type: (pr.type || 'N/A').toUpperCase(),
-          requester: pr.expand?.requester?.name || 'N/A',
+          requester: pr.expand?.requester_id?.name || 'N/A',
           date: new Date(pr.created).toLocaleDateString('th-TH'),
           amount: pr.total_amount || 0,
           status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,

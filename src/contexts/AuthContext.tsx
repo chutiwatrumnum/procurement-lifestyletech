@@ -18,14 +18,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in via PocketBase
-    if (isAuthenticated()) {
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser as unknown as User);
+    async function validateAuth() {
+      // Check if user is already logged in via PocketBase
+      if (isAuthenticated()) {
+        const currentUser = getCurrentUser();
+        if (currentUser?.id) {
+          try {
+            // Verify user still exists in database
+            await pb.collection('users').getOne(currentUser.id);
+            setUser(currentUser as unknown as User);
+          } catch (error) {
+            // User not found in database, clear auth
+            console.log('User not found in database, logging out');
+            logout();
+          }
+        }
       }
+      setIsLoading(false);
     }
-    setIsLoading(false);
+    
+    validateAuth();
 
     // Listen for auth state changes
     pb.authStore.onChange(() => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -29,12 +29,14 @@ import {
   ClipboardCheck,
   Search,
 } from 'lucide-react';
+import pb from '@/lib/pocketbase';
 
 interface NavItem {
   title: string;
   href: string;
   icon: React.ElementType;
   badge?: number;
+  badgeKey?: 'pr_pending' | 'po_pending';
   children?: { title: string; href: string }[];
 }
 
@@ -44,6 +46,11 @@ const navItems: NavItem[] = [
     title: 'จัดการโครงการ',
     href: '/projects',
     icon: Building2,
+  },
+  {
+    title: 'รายการใบขอซื้อ',
+    href: '/purchase-requests',
+    icon: FileText,
   },
   {
     title: 'ใบขอซื้อโครงการ',
@@ -64,13 +71,13 @@ const navItems: NavItem[] = [
     title: 'อนุมัติใบขอซื้อ',
     href: '/purchase-requests/approval',
     icon: Check,
-    badge: 12,
+    badgeKey: 'pr_pending',
   },
   {
     title: 'อนุมัติใบสั่งซื้อ',
     href: '/purchase-orders/approval',
     icon: ClipboardCheck,
-    badge: 5,
+    badgeKey: 'po_pending',
   },
   {
     title: 'รายชื่อผู้ขาย',
@@ -93,6 +100,32 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingCounts, setPendingCounts] = useState({ pr_pending: 0, po_pending: 0 });
+
+  // Fetch pending counts
+  useEffect(() => {
+    async function fetchPendingCounts() {
+      try {
+        const prResult = await pb.collection('purchase_requests').getList(1, 1, {
+          filter: 'status = "pending"',
+        });
+        const poResult = await pb.collection('purchase_orders').getList(1, 1, {
+          filter: 'status = "pending_vendor"',
+        });
+        setPendingCounts({
+          pr_pending: prResult.totalItems,
+          po_pending: poResult.totalItems,
+        });
+      } catch (err) {
+        console.error('Failed to fetch pending counts:', err);
+      }
+    }
+    
+    fetchPendingCounts();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -102,6 +135,7 @@ export default function Layout({ children }: LayoutProps) {
   const NavLink = ({ item, mobile = false }: { item: NavItem; mobile?: boolean }) => {
     const isActive = location.pathname === item.href;
     const Icon = item.icon;
+    const badge = item.badgeKey ? pendingCounts[item.badgeKey] : item.badge;
 
     return (
       <Link
@@ -116,12 +150,12 @@ export default function Layout({ children }: LayoutProps) {
       >
         <Icon className={cn('h-5 w-5', isActive ? 'text-white' : 'text-[#6B7280]')} />
         <span className="flex-1">{item.title}</span>
-        {item.badge && (
+        {badge !== undefined && badge > 0 && (
           <span className={cn(
             "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
             isActive ? "bg-white text-[#2563EB]" : "bg-blue-600 text-white"
           )}>
-            {item.badge}
+            {badge > 99 ? '99+' : badge}
           </span>
         )}
       </Link>
