@@ -44,7 +44,7 @@ export default function PROther() {
   const [vendorId, setVendorId] = useState('');
   const [otherType, setOtherType] = useState('office');
   const [items, setItems] = useState<LineItem[]>([
-    { id: '1', name: '', unit: 'ชิ้น', quantity: 1, unit_price: 0, total_price: 0 },
+    { id: '1', name: '', quantity: 1, unit_price: 0, total_price: 0 },
   ]);
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function PROther() {
   }, []);
 
   const addItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: '', unit: 'ชิ้น', quantity: 1, unit_price: 0, total_price: 0 }]);
+    setItems([...items, { id: Date.now().toString(), name: '', quantity: 1, unit_price: 0, total_price: 0 }]);
   };
 
   const removeItem = (id: string) => {
@@ -98,8 +98,8 @@ export default function PROther() {
         total_amount: totalAmount,
       };
 
-      const prItems = items.map(({ name, unit, quantity, unit_price, total_price }) => ({
-        name, unit, quantity, unit_price, total_price
+      const prItems = items.map(({ name, quantity, unit_price, total_price }) => ({
+        name, quantity, unit_price, total_price
       }));
 
       await prService.create(prData, prItems);

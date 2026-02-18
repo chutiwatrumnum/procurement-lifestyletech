@@ -27,11 +27,71 @@ export const vendorService = {
 
 export const prService = {
   async getAll(filter = '') {
-    return await pb.collection('purchase_requests').getFullList({
+    // ดึง PRs โดยไม่ expand requester (เพราะ API Rules จำกัด)
+    const prs = await pb.collection('purchase_requests').getFullList({
       filter,
-      expand: 'project,vendor,requester',
+      expand: 'project,vendor',
       sort: '-created'
     });
+
+    // เก็บ requester IDs ที่ unique
+    const requesterIds = [...new Set(prs.map(pr => pr.requester).filter(Boolean))];
+    
+    // ดึงข้อมูล users ที่เป็น requester
+    const userMap: Record<string, any> = {};
+    
+    if (requesterIds.length > 0) {
+      try {
+        // วิธีที่ 1: ใช้ข้อมูลจาก authStore ถ้าตรงกับ requester
+        const currentUser = pb.authStore.record || pb.authStore.model;
+        if (currentUser && requesterIds.includes(currentUser.id)) {
+          userMap[currentUser.id] = currentUser;
+        }
+
+        // วิธีที่ 2: ดึงข้อมูล users ทั้งหมดที่อนุญาตให้ list ได้
+        // ใช้ filter id รวมกันแทนการดึงทีละคน
+        const idsFilter = requesterIds
+          .filter(id => !userMap[id]) // กรองที่ยังไม่มีข้อมูล
+          .map(id => `id = "${id}"`)
+          .join(' || ');
+        
+        if (idsFilter) {
+          try {
+            const usersResult = await pb.collection('users').getFullList({
+              filter: idsFilter,
+              fields: 'id,name,email,username'
+            });
+            
+            usersResult.forEach(user => {
+              userMap[user.id] = user;
+            });
+          } catch (listErr) {
+            console.log('List users not allowed, trying individual fetch...');
+            
+            // Fallback: ดึงทีละคน (สำหรับกรณีที่ list ไม่ได้แต่ getOne ได้)
+            for (const userId of requesterIds.filter(id => !userMap[id])) {
+              try {
+                const user = await pb.collection('users').getOne(userId);
+                userMap[userId] = user;
+              } catch (e) {
+                userMap[userId] = null;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching users:', e);
+      }
+    }
+
+    // แนบข้อมูล requester เข้าไปในแต่ละ PR
+    return prs.map(pr => ({
+      ...pr,
+      expand: {
+        ...pr.expand,
+        requester: userMap[pr.requester] || null
+      }
+    }));
   },
   async getById(id: string) {
     return await pb.collection('purchase_requests').getOne(id, {
@@ -98,10 +158,15 @@ export const prService = {
       prNumber = `${datePrefix}-${timestamp}`;
     }
     
-    // Create PR with generated number
+    // Get requester name from authStore if not provided
+    const currentUser = pb.authStore.record || pb.authStore.model;
+    const requesterName = data.requester_name || currentUser?.name || currentUser?.email || '';
+    
+    // Create PR with generated number and requester_name
     const pr = await pb.collection('purchase_requests').create({
       ...data,
-      pr_number: prNumber
+      pr_number: prNumber,
+      requester_name: requesterName
     });
     
     for (const item of items) {
@@ -130,6 +195,119 @@ export const prService = {
       old_attachments: oldAttachments || []
     });
     return pr;
+  },
+  async approveSub(id: string, userId?: string, comment?: string) {
+    try {
+      // 1. ดึง PR ก่อน
+      const pr = await pb.collection('purchase_requests').getOne(id);
+      
+      if (!pr.project) {
+        throw new Error('PR นี้ไม่มีข้อมูลโครงการ');
+      }
+      
+      // 2. อนุมัติ PR
+      await pb.collection('purchase_requests').update(id, { status: 'approved' });
+      
+      // 3. ดึง items ของ PR พร้อม expand project_item
+      let prItems: any[] = [];
+      try {
+        prItems = await pb.collection('pr_items').getFullList({
+          filter: `pr = "${id}"`,
+          expand: 'project_item'
+        });
+      } catch (e) {
+        console.log('No PR items found');
+      }
+      
+      console.log('PR Items found:', prItems.length);
+      
+      // 4. ตัด stock จาก project_items โดยใช้ ID
+      let updatedCount = 0;
+      let notFoundItems: string[] = [];
+      
+      for (const item of prItems) {
+        // ใช้ project_item ID จาก relation
+        const projectItemId = item.project_item || (item.expand?.project_item?.id);
+        
+        if (projectItemId) {
+          // มี ID → อัปเดตโดยตรง
+          try {
+            const projItem = await pb.collection('project_items').getOne(projectItemId);
+            const currentQty = projItem.quantity || 0;
+            const deductQty = item.quantity || 0;
+            const newQuantity = Math.max(0, currentQty - deductQty);
+            
+            await pb.collection('project_items').update(projectItemId, {
+              quantity: newQuantity
+            });
+            updatedCount++;
+            console.log(`Updated ${projItem.name}: ${currentQty} -> ${newQuantity}`);
+          } catch (e: any) {
+            console.error('Error updating by ID:', projectItemId, e.message);
+            notFoundItems.push(item.name || 'ไม่มีชื่อ');
+          }
+        } else {
+          // ไม่มี ID → fallback หาด้วยชื่อ (backward compatibility)
+          console.log('No project_item ID, falling back to name search:', item.name);
+          
+          try {
+            const itemName = (item.name || '').replace(/"/g, '\\"').trim();
+            if (!itemName) continue;
+            
+            const projectItems = await pb.collection('project_items').getFullList({
+              filter: `project = "${pr.project}" && name = "${itemName}"`
+            });
+            
+            if (projectItems.length === 0) {
+              notFoundItems.push(item.name);
+              continue;
+            }
+            
+            for (const projItem of projectItems) {
+              const currentQty = projItem.quantity || 0;
+              const deductQty = item.quantity || 0;
+              const newQuantity = Math.max(0, currentQty - deductQty);
+              
+              await pb.collection('project_items').update(projItem.id, {
+                quantity: newQuantity
+              });
+              updatedCount++;
+            }
+          } catch (e: any) {
+            console.error('Error updating by name:', item.name, e.message);
+            notFoundItems.push(item.name);
+          }
+        }
+      }
+      
+      // 5. เพิ่ม history
+      let details = `อนุมัติใบขอซื้อย่อย ${pr.pr_number}`;
+      if (updatedCount > 0) {
+        details += ` (อัปเดต ${updatedCount} รายการ)`;
+      }
+      if (notFoundItems.length > 0) {
+        details += ` [ไม่พบ: ${notFoundItems.join(', ')}]`;
+      }
+      
+      await pb.collection('pr_history').create({
+        pr: id,
+        action: 'อนุมัติใบขอซื้อย่อย',
+        by: userId || '',
+        details: comment || details
+      });
+      
+      return { 
+        ...pr, 
+        status: 'approved',
+        _meta: {
+          updatedCount,
+          notFoundItems
+        }
+      };
+    } catch (error: any) {
+      console.error('approveSub error:', error);
+      throw new Error(error.message || 'อนุมัติไม่สำเร็จ');
+    }
   },
   async delete(id: string) {
     return await pb.collection('purchase_requests').delete(id);

@@ -54,10 +54,13 @@ export default function PRApproval() {
   async function loadPRs() {
     setLoading(true);
     try {
+      // ดึงเฉพาะ PR Project (type = 'project' หรือไม่มี type) ที่ status = 'pending'
       const data = await prService.getAll('status = "pending"');
-      setPendingPRs(data);
-      if (data.length > 0) {
-        handleSelectPR(data[0]);
+      // กรองเอาเฉพาะ PR Project (type = 'project' หรือ type เป็น null/undefined)
+      const projectPRs = data.filter(pr => pr.type === 'project' || !pr.type);
+      setPendingPRs(projectPRs);
+      if (projectPRs.length > 0) {
+        handleSelectPR(projectPRs[0]);
       }
     } catch (err) {
       console.error(err);
@@ -560,40 +563,36 @@ export default function PRApproval() {
 
           {selectedPR && (
             <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
-              <DialogContent className="sm:max-w-md rounded-2xl border-0 shadow-2xl">
-                <DialogHeader className="space-y-4">
-                  <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${
+              <DialogContent className="max-w-md rounded-2xl">
+                <DialogHeader className="text-center">
+                  <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
                     confirmDialog.action === 'approved' ? 'bg-green-100' : 'bg-orange-100'
                   }`}>
-                    <AlertTriangle className={`h-8 w-8 ${
-                      confirmDialog.action === 'approved' ? 'text-green-600' : 'text-orange-600'
-                    }`} />
+                    {confirmDialog.action === 'approved' ? (
+                      <Check className="h-8 w-8 text-green-600" />
+                    ) : (
+                      <AlertTriangle className="h-8 w-8 text-orange-600" />
+                    )}
                   </div>
-                  <DialogTitle className="text-center text-xl font-bold text-gray-900">
+                  <DialogTitle className="text-xl font-bold text-center">
                     {confirmDialog.action === 'approved' ? 'ยืนยันการอนุมัติ' : 'ยืนยันการตีกลับ'}
                   </DialogTitle>
-                  <DialogDescription className="text-center text-gray-500">
+                  <DialogDescription className="text-center">
                     คุณต้องการ{confirmDialog.action === 'approved' ? 'อนุมัติ' : 'ตีกลับ'}ใบขอซื้อนี้ใช่หรือไม่?
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="py-4 px-5 bg-gray-50 rounded-xl space-y-2 my-4">
-                  <p className="font-bold text-gray-900 text-lg">{selectedPR.pr_number}</p>
-                  <p className="text-sm text-gray-600">โครงการ: {selectedPR.expand?.project?.name || 'ไม่ระบุ'}</p>
-                  <p className="text-sm text-gray-600">จำนวนเงิน: <span className="font-bold text-blue-600">฿{selectedPR.total_amount?.toLocaleString() || 0}</span></p>
-                  {comment && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <p className="text-xs text-gray-400 mb-1">ความเห็น:</p>
-                      <p className="text-sm text-gray-600">{comment}</p>
-                    </div>
-                  )}
+                <div className="py-4 text-center border-t border-b border-gray-100 my-4">
+                  <p className="text-xl font-black text-gray-900">{selectedPR.pr_number}</p>
+                  <p className="text-sm text-gray-600 mt-1">โครงการ: {selectedPR.expand?.project?.name || 'ไม่ระบุ'}</p>
+                  <p className="text-lg font-bold text-blue-600 mt-2">จำนวนเงิน: ฿{selectedPR.total_amount?.toLocaleString() || 0}</p>
                 </div>
 
-                <DialogFooter className="gap-3 sm:gap-3">
+                <DialogFooter className="gap-3">
                   <Button 
                     variant="outline" 
                     onClick={() => setConfirmDialog({ open: false, action: null })}
-                    className="flex-1 rounded-xl h-12 font-bold border-gray-200 hover:bg-gray-50"
+                    className="flex-1 rounded-xl h-12 font-bold"
                   >
                     ยกเลิก
                   </Button>
@@ -602,16 +601,16 @@ export default function PRApproval() {
                     disabled={submitting}
                     className={`flex-1 rounded-xl h-12 font-bold ${
                       confirmDialog.action === 'approved' 
-                        ? 'bg-green-600 hover:bg-green-700 shadow-lg shadow-green-500/20' 
-                        : 'bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/20'
+                        ? 'bg-green-600 hover:bg-green-700' 
+                        : 'bg-orange-500 hover:bg-orange-600'
                     }`}
                   >
                     {submitting ? (
-                      <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : confirmDialog.action === 'approved' ? (
-                      <span className="flex items-center"><Check className="w-4 h-4 mr-2" /> ยืนยันอนุมัติ</span>
+                      <><Check className="w-4 h-4 mr-2" /> ยืนยันอนุมัติ</>
                     ) : (
-                      <span className="flex items-center"><X className="w-4 h-4 mr-2" /> ยืนยันตีกลับ</span>
+                      <><X className="w-4 h-4 mr-2" /> ยืนยันตีกลับ</>
                     )}
                   </Button>
                 </DialogFooter>

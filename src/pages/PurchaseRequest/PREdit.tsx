@@ -17,12 +17,14 @@ import {
   ArrowLeft,
   Loader2,
   DollarSign,
-  MapPin,
   Package,
   User,
   History,
   X,
-  Download
+  Download,
+  Check,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { prService, projectService, vendorService } from '@/services/api';
@@ -51,6 +53,7 @@ export default function PREdit() {
   const [vendorIds, setVendorIds] = useState<string[]>([]);
   const [budgetInfo, setBudgetInfo] = useState<{ budget: number; spent: number; percentage: number } | null>(null);
   const [editHistory, setEditHistory] = useState<any[]>([]);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
 
@@ -71,7 +74,6 @@ export default function PREdit() {
         setVendors(vendList);
         setAttachments(pr.attachments || []);
         
-        // Load vendorIds from pr.vendor (handle both single and array)
         if (pr.vendor) {
           if (Array.isArray(pr.vendor)) {
             setVendorIds(pr.vendor);
@@ -82,7 +84,6 @@ export default function PREdit() {
           setVendorIds([]);
         }
         
-        // Load budget info
         if (pr.expand?.project?.id) {
           const projectBudget = pr.expand.project.budget || 0;
           const totalSpent = await prService.getProjectTotalSpent(pr.expand.project.id);
@@ -94,7 +95,6 @@ export default function PREdit() {
           });
         }
         
-        // Mock edit history - in real app, fetch from backend
         try {
           const history = await prService.getHistory(pr.id);
           const historyData = history.map((h: any) => ({
@@ -103,7 +103,6 @@ export default function PREdit() {
             by: h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ'
           }));
           
-          // Check if 'สร้าง PR' is in history, if not add it
           const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR');
           if (!hasCreateAction) {
             const createdDate = pr.created;
@@ -115,12 +114,9 @@ export default function PREdit() {
             });
           }
           
-          // Sort by date ascending (oldest first)
           historyData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          
           setEditHistory(historyData);
         } catch (err) {
-          // Fallback to mock data if history not available
           const createdDate = pr.created || pr.expand?.requester?.created;
           const requesterName = pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
           
@@ -159,13 +155,31 @@ export default function PREdit() {
     }));
   };
 
+  const addItem = () => {
+    const newItem = {
+      id: Date.now().toString(),
+      name: '',
+      quantity: 1,
+      unit_price: 0,
+      total_price: 0,
+      pr: id
+    };
+    setItems([...items, newItem]);
+  };
+
+  const removeItem = (itemId: string) => {
+    if (items.length > 1) {
+      setItems(items.filter(item => item.id !== itemId));
+    }
+  };
+
   const totalAmount = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
-
-    setNewAttachments(prev => [...prev, ...Array.from(files)]);
+    if (files) {
+      setNewAttachments([...newAttachments, ...Array.from(files)]);
+    }
   };
 
   const triggerFileInput = () => {
@@ -173,17 +187,11 @@ export default function PREdit() {
   };
 
   const removeNewAttachment = (index: number) => {
-    setNewAttachments(prev => prev.filter((_, i) => i !== index));
+    setNewAttachments(newAttachments.filter((_, i) => i !== index));
   };
 
-  const removeExistingAttachment = async (filename: string) => {
-    try {
-      // In real implementation, call API to remove attachment
-      setAttachments(prev => prev.filter(f => f !== filename));
-      toast.success('ลบไฟล์เรียบร้อย');
-    } catch (err) {
-      toast.error('ลบไฟล์ไม่สำเร็จ');
-    }
+  const removeExistingAttachment = (file: string) => {
+    setAttachments(attachments.filter(a => a !== file));
   };
 
   const getFileUrl = (recordId: string, filename: string) => {
@@ -191,15 +199,31 @@ export default function PREdit() {
   };
 
   const handleUpdate = async () => {
-    if (!prData?.project || vendorIds.length === 0) {
-      toast.error('กรุณาเลือกโครงการและผู้ขาย');
-      return;
-    }
-
+    if (!id) return;
     setIsSubmitting(true);
+    
     try {
-      // Upload new attachments if any
-      if (newAttachments.length > 0 && id) {
+      // Update items
+      for (const item of items) {
+        if (item.id?.length === 15) {
+          await pb.collection('pr_items').update(item.id, {
+            name: item.name,
+            quantity: Number(item.quantity),
+            unit_price: Number(item.unit_price),
+            total_price: Number(item.total_price)
+          });
+        } else {
+          await pb.collection('pr_items').create({
+            pr: id,
+            name: item.name,
+            quantity: Number(item.quantity),
+            unit_price: Number(item.unit_price),
+            total_price: Number(item.total_price)
+          });
+        }
+      }
+      
+      if (newAttachments.length > 0) {
         const formData = new FormData();
         newAttachments.forEach(file => {
           formData.append('attachments', file);
@@ -207,13 +231,11 @@ export default function PREdit() {
         await pb.collection('purchase_requests').update(id, formData);
       }
       
-      // Update PR with vendors array
       await pb.collection('purchase_requests').update(id!, {
-        vendor: vendorIds[0], // Primary vendor (for backward compatibility)
-        vendors: vendorIds,   // All selected vendors
+        vendor: vendorIds[0],
+        vendors: vendorIds,
       });
       
-      // Update PR status with user ID for history
       await prService.updateStatus(id!, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);
       toast.success('อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
       navigate('/purchase-requests');
@@ -231,16 +253,47 @@ export default function PREdit() {
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">แก้ไขใบขอซื้อ (Edit PR)</h1>
-          <p className="text-sm text-gray-500 mt-1 font-bold uppercase tracking-widest">รหัสใบขอซื้อ: {prData?.pr_number}</p>
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        multiple
+        accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
+        className="hidden"
+      />
+
+      {/* Header with Action Buttons */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">แก้ไขใบขอซื้อ (Edit PR)</h1>
+            <p className="text-sm text-gray-500 mt-1 font-bold uppercase tracking-widest">รหัสใบขอซื้อ: {prData?.pr_number}</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            className="rounded-xl px-6 border-gray-200 font-bold"
+            onClick={() => navigate(-1)}
+          >
+            ยกเลิก
+          </Button>
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700 rounded-xl px-8 font-bold shadow-lg shadow-blue-500/20"
+            onClick={handleUpdate}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+            ส่งกลับเพื่อขออนุมัติใหม่
+          </Button>
         </div>
       </div>
 
+      {/* Rejection Reason Banner */}
       <Card className="bg-red-50 border-none rounded-2xl shadow-sm">
         <CardContent className="p-6 flex gap-4">
           <div className="p-3 bg-red-100 rounded-2xl h-fit">
@@ -253,89 +306,98 @@ export default function PREdit() {
         </CardContent>
       </Card>
 
-      {/* PR Info Card */}
-      <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-        <CardHeader className="py-5 px-8 bg-gray-50">
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <Package className="w-5 h-5 text-blue-600" /> ข้อมูลใบขอซื้อ
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-8 space-y-6">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider">โครงการ</Label>
-              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
-                <Building2 className="w-4 h-4 text-gray-400" />
-                <span className="font-bold text-gray-900">
-                  {selectedProject?.code && (
-                    <span className="text-blue-600 mr-2">[{selectedProject.code}]</span>
-                  )}
-                  {selectedProject?.name || 'ไม่ระบุ'}
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          {prData?.delivery_location && (
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                <MapPin className="w-4 h-4" /> สถานที่ส่งของ
-              </Label>
-              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl">{prData.delivery_location}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <CardHeader className="py-6 px-8 flex-row items-center justify-between">
-              <CardTitle className="text-lg font-bold text-[#111827]">รายการวัสดุอุปกรณ์ (ฉบับแก้ไข)</CardTitle>
+          {/* Project Info */}
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                <Building2 className="w-5 h-5 text-blue-600" /> ข้อมูลโครงการ
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-gray-700 font-semibold">โครงการ</Label>
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
+                  <Building2 className="w-4 h-4 text-gray-400" />
+                  <span className="font-bold text-gray-900">
+                    {selectedProject?.code && (
+                      <span className="text-blue-600 mr-2">[{selectedProject.code}]</span>
+                    )}
+                    {selectedProject?.name || 'ไม่ระบุ'}
+                  </span>
+                </div>
+              </div>
+
+              {prData?.delivery_location && (
+                <div className="space-y-2">
+                  <Label className="text-gray-700 font-semibold">สถานที่ส่งของ</Label>
+                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl">{prData.delivery_location}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Items Table */}
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between py-5 px-6">
+              <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                <FileText className="w-5 h-5 text-blue-600" /> รายการวัสดุอุปกรณ์
+              </CardTitle>
+              <Button variant="ghost" onClick={addItem} className="text-blue-600 font-bold hover:bg-blue-50 h-9">
+                <Plus className="w-4 h-4 mr-1" /> เพิ่มรายการ
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto px-8">
+              <div className="overflow-x-auto px-6">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-gray-400 font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
-                      <th className="py-4 text-left">รายการ</th>
-                      <th className="py-4 text-right w-24">จำนวน</th>
-                      <th className="py-4 text-right w-32">ราคา/หน่วย</th>
-                      <th className="py-4 text-right w-32">รวม</th>
+                    <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
+                      <th className="py-4 text-left">รายละเอียดสินค้า</th>
+                      <th className="py-4 text-center w-24">จำนวน</th>
+                      <th className="py-4 text-right w-28">ราคา/หน่วย</th>
+                      <th className="py-4 text-right w-28">รวม</th>
                       <th className="py-4 w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="py-5 pr-4">
+                      <tr key={item.id} className="group">
+                        <td className="py-4 pr-4">
                           <Input 
                             value={item.name} 
                             onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                            placeholder="ระบุชื่อสินค้า..."
                             className="h-10 border-none bg-gray-50 rounded-xl font-bold" 
                           />
                         </td>
-                        <td className="py-5 px-2">
+                        <td className="py-4 px-1">
                           <Input 
                             type="number" 
                             value={item.quantity} 
                             onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                            className="h-10 border-none bg-gray-50 rounded-xl text-right font-black" 
+                            className="h-10 border-none bg-gray-50 rounded-xl text-center font-bold" 
                           />
                         </td>
-                        <td className="py-5 px-2">
+                        <td className="py-4 px-1">
                           <Input 
                             type="number" 
                             value={item.unit_price} 
                             onChange={(e) => updateItem(item.id, 'unit_price', e.target.value)}
-                            className="h-10 border-none bg-gray-50 rounded-xl text-right font-black" 
+                            className="h-10 border-none bg-gray-50 rounded-xl text-right font-bold" 
                           />
                         </td>
-                        <td className="py-5 px-4 text-right font-black text-gray-900 leading-10">
-                          {item.total_price.toLocaleString()}.00
+                        <td className="py-4 pl-4 text-right font-black text-gray-900 leading-10">
+                          {item.total_price?.toLocaleString()}
                         </td>
-                        <td className="py-5 pl-2 text-right">
-                          <Button variant="ghost" size="icon" className="h-9 w-9 text-red-200 hover:text-red-500 rounded-full transition-colors">
+                        <td className="py-4 pl-2 text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => removeItem(item.id)} 
+                            className="h-8 w-8 text-red-200 hover:text-red-500 rounded-full"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </td>
@@ -344,24 +406,24 @@ export default function PREdit() {
                   </tbody>
                 </table>
               </div>
-              <div className="p-8 bg-gray-50 flex justify-end">
+              <div className="p-6 bg-gray-50 flex justify-end">
                 <div className="text-right">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ยอดเงินแก้ไขล่าสุด</p>
-                  <p className="text-4xl font-black text-blue-600 tracking-tighter">฿{totalAmount.toLocaleString()}.00</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ยอดรวมทั้งหมด</p>
+                  <p className="text-4xl font-black text-blue-600 tracking-tighter">฿{totalAmount.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
+        {/* Right Column */}
         <div className="space-y-6">
           {/* Budget Status */}
           {budgetInfo && budgetInfo.budget > 0 && (
             <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-              <CardHeader className="py-5 px-6 bg-gray-50">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-blue-600" />
-                  งบประมาณโครงการ
+              <CardHeader className="bg-white pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-bold">
+                  <DollarSign className="w-5 h-5 text-blue-600" /> งบประมาณโครงการ
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
@@ -374,7 +436,7 @@ export default function PREdit() {
                     <p className="text-xs text-gray-400">งบทั้งหมด: {budgetInfo.budget.toLocaleString()} THB</p>
                   </div>
                 </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
                       budgetInfo.percentage >= 90 ? 'bg-red-500' : 
@@ -387,12 +449,74 @@ export default function PREdit() {
             </Card>
           )}
 
+          {/* Vendor Card */}
+          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="bg-white pb-2">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                <User className="w-5 h-5 text-blue-600" /> ข้อมูลผู้ขาย
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขาย *</Label>
+                <Select 
+                  onValueChange={(value) => {
+                    if (!vendorIds.includes(value)) {
+                      setVendorIds([...vendorIds, value]);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
+                    <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendors.filter(v => !vendorIds.includes(v.id)).map(v => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {vendorIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedVendors.map(vendor => (
+                      <span 
+                        key={vendor.id} 
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                      >
+                        {vendor.name}
+                        <button 
+                          type="button"
+                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
+                          className="hover:text-blue-900 ml-1"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedVendors.length > 0 && (
+                <div className="space-y-3">
+                  {selectedVendors.map(vendor => (
+                    <div key={vendor.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
+                      <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{vendor.name}</p>
+                      <p className="font-bold text-blue-900">{vendor.contact_person}</p>
+                      <p className="text-sm text-blue-700">{vendor.email}</p>
+                      <p className="text-sm text-blue-700">{vendor.phone}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Existing Attachments */}
           <Card className="border-none shadow-sm rounded-2xl">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-600" />
-                เอกสารแนบเดิม
+                <FileText className="w-4 h-4 text-gray-600" /> เอกสารแนบเดิม
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -431,84 +555,12 @@ export default function PREdit() {
             </CardContent>
           </Card>
 
-          {/* Vendor Card */}
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <CardHeader className="bg-white pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-bold">
-                <User className="w-5 h-5 text-blue-600" /> ข้อมูลผู้ขาย
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขาย *</Label>
-                <Select 
-                  onValueChange={(value) => {
-                    if (!vendorIds.includes(value)) {
-                      setVendorIds([...vendorIds, value]);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
-                    <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.filter(v => !vendorIds.includes(v.id)).map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {/* Selected vendors tags */}
-                {vendorIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedVendors.map(vendor => (
-                      <span 
-                        key={vendor.id} 
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                      >
-                        {vendor.name}
-                        <button 
-                          type="button"
-                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
-                          className="hover:text-blue-900 ml-1"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {selectedVendors.length > 0 && (
-                <div className="space-y-3">
-                  {selectedVendors.map(vendor => (
-                    <div key={vendor.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
-                      <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{vendor.name}</p>
-                      <p className="font-bold text-blue-900">{vendor.contact_person}</p>
-                      <p className="text-sm text-blue-700">{vendor.email}</p>
-                      <p className="text-sm text-blue-700">{vendor.phone}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* New Attachments Upload */}
           <Card className="border-none shadow-sm rounded-2xl">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-bold">เอกสารอ้างอิงใหม่</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                multiple
-                accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
-                className="hidden"
-              />
               <div 
                 className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 cursor-pointer transition-colors group"
                 onClick={triggerFileInput}
@@ -545,17 +597,33 @@ export default function PREdit() {
           {/* Edit History */}
           {editHistory.length > 0 && (
             <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-              <CardHeader className="py-5 px-6 bg-blue-50/80">
+              <CardHeader className="py-5 px-6 bg-blue-50/80 flex flex-row items-center justify-between">
                 <CardTitle className="text-base font-bold flex items-center gap-2 text-blue-600">
-                  <History className="w-4 h-4" />
-                  ประวัติการแก้ไข
+                  <History className="w-4 h-4" /> ประวัติการแก้ไข
+                  <span className="bg-blue-400 text-white px-2 py-0.5 rounded-full text-[10px]">
+                    {editHistory.length}
+                  </span>
                 </CardTitle>
+                {editHistory.length > 3 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setHistoryExpanded(!historyExpanded)}
+                    className="text-blue-400 hover:text-blue-600 hover:bg-blue-100"
+                  >
+                    {historyExpanded ? (
+                      <><ChevronUp className="w-4 h-4 mr-1" /> ย่อ</>
+                    ) : (
+                      <><ChevronDown className="w-4 h-4 mr-1" /> ขยาย</>
+                    )}
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="p-6 space-y-4 bg-blue-50/30">
-                {editHistory.map((history, index) => (
+                {(historyExpanded ? editHistory : editHistory.slice(-3)).map((history, index) => (
                   <div key={index} className="flex items-start gap-3 text-sm p-3 bg-white rounded-xl border border-blue-100">
                     <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
-                      index === 0 ? 'bg-green-500' : 'bg-blue-500'
+                      index === editHistory.length - 1 ? 'bg-green-500' : 'bg-blue-500'
                     }`} />
                     <div className="flex-1">
                       <p className="font-bold text-gray-900">{history.action}</p>
@@ -577,19 +645,7 @@ export default function PREdit() {
             </Card>
           )}
 
-          <div className="flex flex-col gap-3">
-            <Button 
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
-              onClick={handleUpdate}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-              ส่งกลับเพื่อขออนุมัติใหม่
-            </Button>
-            <Button variant="outline" className="w-full h-12 rounded-2xl border-gray-200 text-gray-500 font-bold" onClick={() => navigate(-1)}>
-              ยกเลิก
-            </Button>
-          </div>
+          {/* Action Buttons removed - moved to header */}
         </div>
       </div>
     </div>

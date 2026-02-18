@@ -35,9 +35,13 @@ interface LineItem {
   id: string;
   name: string;
   unit: string;
-  quantity: number;
+  quantity: number;        // จำนวนเดิม (initial)
+  remaining: number;       // จำนวนคงเหลือ
   unit_price: number;
   total_price: number;
+  isExisting?: boolean;
+  existingId?: string;
+  addedQuantity?: number;
 }
 
 interface Attachment {
@@ -84,8 +88,69 @@ export default function PRProject() {
   }, []);
 
   const addItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: '', unit: '', quantity: 1, unit_price: 0, total_price: 0 }]);
+    setItems([...items, { id: Date.now().toString(), name: '', unit: '', quantity: 1, remaining: 0, unit_price: 0, total_price: 0 }]);
   };
+
+  // Load existing project items when project changes
+  useEffect(() => {
+    async function loadProjectItems() {
+      if (!projectId) {
+        setItems([{ id: Date.now().toString(), name: '', unit: '', quantity: 1, remaining: 0, unit_price: 0, total_price: 0 }]);
+        return;
+      }
+      try {
+        const projectItems = await pb.collection('project_items').getFullList({
+          filter: `project = "${projectId}"`,
+          sort: 'name'
+        });
+
+        // Get approved PR Subs to calculate remaining
+        const prSubsApproved = await pb.collection('purchase_requests').getFullList({
+          filter: `project = "${projectId}" && type = "sub" && status = "approved"`
+        }).catch(() => []);
+
+        // Calculate withdrawn quantities
+        const withdrawnMap: Record<string, number> = {};
+        for (const prSub of prSubsApproved) {
+          const prItems = await pb.collection('pr_items').getFullList({
+            filter: `pr = "${prSub.id}"`
+          });
+          for (const item of prItems) {
+            if (item.project_item) {
+              withdrawnMap[item.project_item] = (withdrawnMap[item.project_item] || 0) + (item.quantity || 0);
+            }
+          }
+        }
+
+        if (projectItems.length > 0) {
+          setItems(projectItems.map((item: any) => {
+            const initialQty = item.initial_quantity || item.quantity || 0;
+            const withdrawn = withdrawnMap[item.id] || 0;
+            const remaining = Math.max(0, initialQty - withdrawn);
+            
+            return {
+              id: item.id,
+              existingId: item.id,
+              name: item.name,
+              unit: item.unit || '',
+              quantity: initialQty, // จำนวนเดิม
+              remaining: remaining, // จำนวนคงเหลือ
+              unit_price: item.unit_price || 0,
+              total_price: 0,
+              isExisting: true,
+              addedQuantity: 0
+            };
+          }));
+        } else {
+          setItems([{ id: Date.now().toString(), name: '', unit: '', quantity: 1, remaining: 0, unit_price: 0, total_price: 0 }]);
+        }
+      } catch (err) {
+        console.error('Load project items failed:', err);
+        setItems([{ id: Date.now().toString(), name: '', unit: '', quantity: 1, remaining: 0, unit_price: 0, total_price: 0 }]);
+      }
+    }
+    loadProjectItems();
+  }, [projectId]);
 
   const removeItem = (id: string) => {
     if (items.length > 1) setItems(items.filter(item => item.id !== id));
@@ -97,6 +162,12 @@ export default function PRProject() {
         const updated = { ...item, [field]: value };
         if (field === 'quantity' || field === 'unit_price') {
           updated.total_price = Number(updated.quantity) * Number(updated.unit_price);
+        }
+        // ถ้าเพิ่มจำนวน (addedQuantity) ให้คำนวณ total ใหม่
+        if (field === 'addedQuantity') {
+          const baseQty = item.isExisting ? (item.quantity || 0) : 0;
+          const addedQty = Number(value) || 0;
+          updated.total_price = (baseQty + addedQty) * Number(updated.unit_price || 0);
         }
         return updated;
       }
@@ -138,7 +209,59 @@ export default function PRProject() {
     }
   };
 
-  const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
+  // Save items to project_items as master data
+  const saveItemsToProject = async (projId: string, prItems: any[]) => {
+    if (!projId || prItems.length === 0) return;
+
+    try {
+      for (const item of prItems) {
+        if (!item.name?.trim()) continue;
+
+        if (item.isExisting && item.existingId) {
+          // อัปเดตของเดิม - บวกจำนวนเพิ่ม
+          const addedQty = Number(item.addedQuantity) || 0;
+          if (addedQty > 0) {
+            const existingItem = await pb.collection('project_items').getOne(item.existingId);
+            const currentQty = existingItem.quantity || 0;
+            const currentInitial = existingItem.initial_quantity || currentQty;
+            const newQty = currentQty + addedQty;
+            const newInitial = currentInitial + addedQty;
+            
+            await pb.collection('project_items').update(item.existingId, {
+              quantity: newQty,
+              initial_quantity: newInitial,
+              unit_price: item.unit_price || existingItem.unit_price,
+              total_price: newQty * (item.unit_price || existingItem.unit_price)
+            });
+          }
+        } else {
+          // สร้างใหม่
+          await pb.collection('project_items').create({
+            project: projId,
+            name: item.name,
+            unit: item.unit || '',
+            quantity: item.quantity || 1,
+            initial_quantity: item.quantity || 1,
+            unit_price: item.unit_price || 0,
+            total_price: (item.quantity || 1) * (item.unit_price || 0)
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving items to project:', error);
+    }
+  };
+
+  const totalAmount = items.reduce((sum, item) => {
+    if (item.isExisting) {
+      // ของเดิม: คิดเฉพาะจำนวนที่เพิ่มใหม่
+      const addedQty = Number(item.addedQuantity) || 0;
+      return sum + (addedQty * Number(item.unit_price || 0));
+    } else {
+      // ของใหม่: คิดจำนวนทั้งหมด
+      return sum + (Number(item.quantity || 0) * Number(item.unit_price || 0));
+    }
+  }, 0);
 
   const handleSubmit = async (status: string) => {
     if (!projectId || vendorIds.length === 0) {
@@ -175,11 +298,34 @@ export default function PRProject() {
         // requester field will be empty, can be updated later
       }
 
-      const prItems = items.map(({ name, unit, quantity, unit_price, total_price }) => ({
-        name, unit, quantity, unit_price, total_price
-      }));
+      const prItems = items.map((item) => {
+        if (item.isExisting) {
+          // ของเดิม: ส่งจำนวนที่เพิ่มใหม่
+          const addedQty = Number(item.addedQuantity) || 0;
+          return {
+            name: item.name,
+            unit: item.unit,
+            quantity: addedQty, // จำนวนที่เพิ่ม
+            unit_price: item.unit_price,
+            total_price: addedQty * (item.unit_price || 0),
+            existingId: item.existingId
+          };
+        } else {
+          // ของใหม่: ส่งตามปกติ
+          return {
+            name: item.name,
+            unit: item.unit,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price
+          };
+        }
+      }).filter(item => item.quantity > 0 && item.name?.trim()); // กรองเฉพาะที่มีจำนวน > 0 และมีชื่อ
 
       const pr = await prService.create(prData, prItems);
+      
+      // Save items to project_items for future use
+      await saveItemsToProject(projectId, items);
       
       // Upload attachments if any
       if (attachments.length > 0) {
@@ -259,14 +405,6 @@ export default function PRProject() {
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-semibold">สถานที่ส่งของ</Label>
-                <div className="relative">
-                  <Textarea value={location} onChange={(e) => setLocation(e.target.value)} rows={3} className="rounded-xl bg-gray-50 border-none pl-10" />
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -286,23 +424,58 @@ export default function PRProject() {
                   <thead>
                     <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
                       <th className="py-4 text-left">รายละเอียดสินค้า</th>
-                      <th className="py-4 text-center w-20">จำนวน</th>
-                      <th className="py-4 text-right w-28">ราคาต่อหน่วย</th>
-                      <th className="py-4 text-right w-28">รวมเงิน</th>
+                      <th className="py-4 text-center w-24">คงเหลือ</th>
+                      <th className="py-4 text-center w-24 text-green-600">เพิ่ม</th>
+                      <th className="py-4 text-right w-28">ราคา/หน่วย</th>
+                      <th className="py-4 text-right w-28">รวม</th>
                       <th className="py-4 w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {items.map((item) => (
-                      <tr key={item.id} className="group">
+                      <tr key={item.id} className={`group ${item.isExisting ? 'bg-blue-50/30' : ''}`}>
                         <td className="py-4 pr-4">
-                          <Input value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} placeholder="ระบุชื่อสินค้า..." className="h-10 border-none bg-gray-50 rounded-xl" />
+                          {item.isExisting ? (
+                            <div>
+                              <p className="font-bold text-gray-900">{item.name}</p>
+                              <p className="text-xs text-blue-500">อุปกรณ์เดิมในโครงการ</p>
+                            </div>
+                          ) : (
+                            <Input value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} placeholder="ระบุชื่อสินค้าใหม่..." className="h-10 border-none bg-gray-50 rounded-xl" />
+                          )}
+                        </td>
+                        <td className="py-4 px-1 text-center">
+                          {item.isExisting ? (
+                            <p className="font-bold text-gray-600">{item.remaining}</p>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
                         </td>
                         <td className="py-4 px-1">
-                          <Input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)} className="h-10 border-none bg-gray-50 rounded-xl text-center font-bold" />
+                          {item.isExisting ? (
+                            <Input 
+                              type="number" 
+                              value={item.addedQuantity || ''} 
+                              onChange={(e) => updateItem(item.id, 'addedQuantity', e.target.value)} 
+                              placeholder="0"
+                              className="h-10 border-none bg-green-50 rounded-xl text-center font-bold text-green-700" 
+                            />
+                          ) : (
+                            <Input 
+                              type="number" 
+                              value={item.quantity} 
+                              onChange={(e) => updateItem(item.id, 'quantity', e.target.value)} 
+                              className="h-10 border-none bg-gray-50 rounded-xl text-center font-bold" 
+                            />
+                          )}
                         </td>
                         <td className="py-4 px-1">
-                          <Input type="number" value={item.unit_price} onChange={(e) => updateItem(item.id, 'unit_price', e.target.value)} className="h-10 border-none bg-gray-50 rounded-xl text-right font-bold" />
+                          <Input 
+                            type="number" 
+                            value={item.unit_price} 
+                            onChange={(e) => updateItem(item.id, 'unit_price', e.target.value)} 
+                            className="h-10 border-none bg-gray-50 rounded-xl text-right font-bold" 
+                          />
                         </td>
                         <td className="py-4 pl-4 text-right font-black text-gray-900 leading-10">
                           {item.total_price.toLocaleString()}

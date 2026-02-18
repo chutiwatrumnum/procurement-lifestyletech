@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Select,
   SelectContent,
@@ -23,7 +22,8 @@ import {
   Send,
   Loader2,
   Paperclip,
-  X
+  X,
+  Package
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { prService, projectService, vendorService } from '@/services/api';
@@ -36,8 +36,11 @@ interface LineItem {
   name: string;
   unit: string;
   quantity: number;
-  unit_price: number;
+  unit_price: number;        // ราคาซื้อจริง (แก้ไขได้)
+  reference_price: number;   // ราคาอ้างอิงจาก project_items
   total_price: number;
+  project_item_id?: string;
+  max_quantity?: number; // จำนวนสูงสุดที่เบิกได้
 }
 
 interface Attachment {
@@ -91,35 +94,72 @@ export default function PRSubcontractor() {
         return;
       }
       try {
-        // Try to get project items from project_materials or project_items collection
+        // Get project items
         const projectItems = await pb.collection('project_items').getFullList({
           filter: `project = "${projectId}"`,
           sort: 'name'
         }).catch(() => []);
         
+        // Get approved PR Subs to calculate remaining quantity
+        const prSubsApproved = await pb.collection('purchase_requests').getFullList({
+          filter: `project = "${projectId}" && type = "sub" && status = "approved"`
+        }).catch(() => []);
+
+        // Calculate withdrawn quantities
+        const withdrawnMap: Record<string, number> = {};
+        for (const prSub of prSubsApproved) {
+          const prItems = await pb.collection('pr_items').getFullList({
+            filter: `pr = "${prSub.id}"`
+          });
+          for (const item of prItems) {
+            if (item.project_item) {
+              withdrawnMap[item.project_item] = (withdrawnMap[item.project_item] || 0) + (item.quantity || 0);
+            }
+          }
+        }
+        
         if (projectItems.length > 0) {
-          setItems(projectItems.map((item: any) => ({
-            id: item.id || Date.now().toString() + Math.random(),
-            name: item.name || '',
-            unit: item.unit || 'งาน',
-            quantity: item.quantity || 1,
-            unit_price: item.unit_price || 0,
-            total_price: (item.quantity || 1) * (item.unit_price || 0)
-          })));
+          // Filter only items with remaining quantity > 0
+          const availableItems = projectItems
+            .map((item: any) => {
+              const initialQty = item.initial_quantity || item.quantity || 0;
+              const withdrawn = withdrawnMap[item.id] || 0;
+              const remaining = Math.max(0, initialQty - withdrawn);
+              
+              return {
+                id: item.id || Date.now().toString() + Math.random(),
+                project_item_id: item.id,
+                name: item.name || '',
+                unit: item.unit || 'งาน',
+                quantity: remaining, // ใช้จำนวนคงเหลือแทน
+                reference_price: item.unit_price || 0,
+                unit_price: item.unit_price || 0,
+                total_price: remaining * (item.unit_price || 0),
+                max_quantity: remaining // เก็บจำนวนสูงสุดไว้ตรวจสอบ
+              };
+            })
+            .filter((item: any) => item.quantity > 0); // กรองเฉพาะที่มีคงเหลือ
+
+          if (availableItems.length > 0) {
+            setItems(availableItems);
+          } else {
+            // ไม่มีอุปกรณ์คงเหลือ - set เป็น array ว่างเพื่อแสดง empty state
+            setItems([]);
+          }
         } else {
-          // Default empty item
-          setItems([{ id: Date.now().toString(), name: '', unit: 'งาน', quantity: 1, unit_price: 0, total_price: 0 }]);
+          // ไม่มี project_items เลย
+          setItems([]);
         }
       } catch (err) {
         console.error('Load project items failed:', err);
-        setItems([{ id: Date.now().toString(), name: '', unit: 'งาน', quantity: 1, unit_price: 0, total_price: 0 }]);
+        setItems([]);
       }
     }
     loadProjectItems();
   }, [projectId]);
 
   const addItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: '', unit: 'งาน', quantity: 1, unit_price: 0, total_price: 0 }]);
+    setItems([...items, { id: Date.now().toString(), name: '', unit: 'งาน', quantity: 1, unit_price: 0, reference_price: 0, total_price: 0, max_quantity: undefined }]);
   };
 
   const removeItem = (id: string) => {
@@ -129,6 +169,19 @@ export default function PRSubcontractor() {
   const updateItem = (id: string, field: keyof LineItem, value: any) => {
     setItems(items.map(item => {
       if (item.id === id) {
+        // ตรวจสอบไม่ให้ติดลบ
+        if (field === 'quantity') {
+          const numValue = Math.max(0, Number(value)); // ขั้นต่ำ 0
+          
+          // ตรวจสอบจำนวนสูงสุด
+          if (item.max_quantity !== undefined && numValue > item.max_quantity) {
+            toast.warning(`จำนวนสูงสุดที่เบิกได้คือ ${item.max_quantity} ${item.unit}`);
+            value = item.max_quantity;
+          } else {
+            value = numValue;
+          }
+        }
+        
         const updated = { ...item, [field]: value };
         if (field === 'quantity' || field === 'unit_price') {
           updated.total_price = Number(updated.quantity) * Number(updated.unit_price);
@@ -173,11 +226,25 @@ export default function PRSubcontractor() {
     }
   };
 
-  const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
+  const totalAmount = items
+    .filter(item => item.quantity > 0 && item.name?.trim())
+    .reduce((sum, item) => sum + item.total_price, 0);
 
   const handleSubmit = async (status: string) => {
     if (!projectId || vendorIds.length === 0) {
       toast.error('กรุณาเลือกโครงการและผู้รับเหมา');
+      return;
+    }
+
+    // ตรวจสอบว่ามีรายการอุปกรณ์ที่สามารถเบิกได้หรือไม่
+    const validItems = items.filter(item => 
+      item.name?.trim() && 
+      item.quantity > 0 && 
+      item.unit_price >= 0
+    );
+    
+    if (validItems.length === 0) {
+      toast.error('ไม่มีรายการอุปกรณ์ที่สามารถเบิกได้ (stock หมด หรือไม่มีรายการ)');
       return;
     }
 
@@ -207,8 +274,9 @@ export default function PRSubcontractor() {
         console.log('User not found in users collection, skipping requester field');
       }
 
-      const prItems = items.map(({ name, unit, quantity, unit_price, total_price }) => ({
-        name, unit, quantity, unit_price, total_price
+      const prItems = validItems.map(({ name, unit, quantity, unit_price, total_price, project_item_id }) => ({
+        name, unit, quantity, unit_price, total_price,
+        project_item: project_item_id
       }));
 
       const pr = await prService.create(prData, prItems);
@@ -220,7 +288,7 @@ export default function PRSubcontractor() {
 
       toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : 'ส่งใบขอซื้อย่อยเรียบร้อยแล้ว');
       
-      // Navigate to PO approval after submit
+      // Navigate to PO approval page after submit
       if (status === 'pending') {
         navigate('/purchase-orders/approval');
       } else {
@@ -260,10 +328,10 @@ export default function PRSubcontractor() {
           <p className="text-sm text-gray-500 mt-1">สำหรับการจ้างเหมาช่วง งานระบบ และงานบริการเฉพาะทาง</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB] font-bold" onClick={() => handleSubmit('draft')} disabled={isSubmitting}>
+          <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB] font-bold" onClick={() => handleSubmit('draft')} disabled={isSubmitting || items.length === 0}>
             <Save className="w-4 h-4 mr-2" /> บันทึกร่าง
           </Button>
-          <Button className="bg-[#8B5CF6] hover:bg-[#7C3AED] rounded-xl px-8 font-bold shadow-lg shadow-purple-500/20" onClick={() => handleSubmit('pending')} disabled={isSubmitting}>
+          <Button className="bg-[#8B5CF6] hover:bg-[#7C3AED] rounded-xl px-8 font-bold shadow-lg shadow-purple-500/20" onClick={() => handleSubmit('pending')} disabled={isSubmitting || items.length === 0}>
             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
             ส่งขออนุมัติงานย่อย
           </Button>
@@ -299,14 +367,6 @@ export default function PRSubcontractor() {
                   <p className="text-gray-700">{selectedProject.location}</p>
                 </div>
               )}
-
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-semibold">สถานที่ส่งของ/ปฏิบัติงาน</Label>
-                <div className="relative">
-                  <Textarea value={location} onChange={(e) => setLocation(e.target.value)} rows={3} className="rounded-xl bg-gray-50 border-none pl-10" placeholder="ระบุสถานที่ดำเนินงาน..." />
-                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                </div>
-              </div>
             </CardContent>
           </Card>
 
@@ -316,18 +376,34 @@ export default function PRSubcontractor() {
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <FileText className="w-5 h-5 text-purple-600" /> รายละเอียดงานจ้างเหมา
               </CardTitle>
-              <Button variant="ghost" onClick={addItem} className="text-purple-600 font-bold hover:bg-purple-50 h-9">
-                <Plus className="w-4 h-4 mr-1" /> เพิ่มรายการจ้าง
-              </Button>
+              {/* ไม่มีปุ่มเพิ่มรายการ - ใช้รายการจาก project_items เท่านั้น */}
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto px-6">
-                <table className="w-full text-sm">
+              {items.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="p-4 bg-orange-50 rounded-full w-fit mx-auto mb-4">
+                    <Package className="w-8 h-8 text-orange-400" />
+                  </div>
+                  <p className="text-lg font-bold text-gray-700 mb-2">ไม่มีอุปกรณ์คงเหลือในโครงการ</p>
+                  <p className="text-sm text-gray-500 mb-6">กรุณาสร้าง PR Project ใหม่เพื่อเพิ่มอุปกรณ์เข้าโครงการ</p>
+                  <Button 
+                    onClick={() => navigate('/purchase-requests/new/project')}
+                    className="bg-purple-600 hover:bg-purple-700 rounded-xl"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    สร้าง PR Project ใหม่
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto px-6">
+                    <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
                       <th className="py-4 text-left">รายละเอียดงาน / บริการ</th>
                       <th className="py-4 text-right w-20">จำนวน</th>
-                      <th className="py-4 text-right w-32">ราคาเหมา/หน่วย</th>
+                      <th className="py-4 text-right w-28 text-blue-400">ราคาอ้างอิง</th>
+                      <th className="py-4 text-right w-32">ราคาซื้อจริง</th>
                       <th className="py-4 text-right w-28">รวมเงิน</th>
                       <th className="py-4 w-10"></th>
                     </tr>
@@ -336,10 +412,17 @@ export default function PRSubcontractor() {
                     {items.map((item) => (
                       <tr key={item.id} className="group">
                         <td className="py-4 pr-4">
-                          <Input value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} placeholder="เช่น งานติดตั้งท่อประปา ชั้น 2..." className="h-10 border-none bg-gray-50 rounded-xl" />
+                          <Input 
+                            value={item.name} 
+                            disabled 
+                            className="h-10 border-none bg-gray-100 rounded-xl text-gray-700 cursor-not-allowed" 
+                          />
                         </td>
                         <td className="py-4 px-1">
                           <Input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)} className="h-10 border-none bg-gray-50 rounded-xl text-right font-bold" />
+                        </td>
+                        <td className="py-4 px-1 text-right">
+                          <p className="text-sm text-gray-400">{item.reference_price > 0 ? item.reference_price.toLocaleString() : '-'}</p>
                         </td>
                         <td className="py-4 px-1">
                           <Input type="number" value={item.unit_price} onChange={(e) => updateItem(item.id, 'unit_price', e.target.value)} className="h-10 border-none bg-gray-50 rounded-xl text-right font-bold" />
@@ -363,9 +446,11 @@ export default function PRSubcontractor() {
                   <p className="text-4xl font-black text-purple-600 tracking-tighter">฿{totalAmount.toLocaleString()}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
 
         {/* Right Column */}
         <div className="space-y-6">

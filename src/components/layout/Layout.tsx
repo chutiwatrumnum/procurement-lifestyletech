@@ -31,6 +31,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Package,
 } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 
@@ -49,7 +50,7 @@ const allNavItems: NavItem[] = [
     title: 'จัดการโครงการ',
     href: '/projects',
     icon: Building2,
-    roles: ['superadmin', 'head_of_dept', 'manager'],
+    roles: ['superadmin', 'head_of_dept', 'manager', 'employee'],
   },
   {
     title: 'รายการใบขอซื้อ',
@@ -72,13 +73,13 @@ const allNavItems: NavItem[] = [
     icon: FileText,
   },
   {
-    title: 'อนุมัติใบขอซื้อ',
+    title: 'อนุมัติใบขอซื้อโครงการ',
     href: '/purchase-requests/approval',
     icon: Check,
     roles: ['superadmin', 'head_of_dept', 'manager'],
   },
   {
-    title: 'อนุมัติใบสั่งซื้อ',
+    title: 'อนุมัติใบขอซื้อย่อย',
     href: '/purchase-orders/approval',
     icon: ClipboardCheck,
     roles: ['superadmin', 'head_of_dept', 'manager'],

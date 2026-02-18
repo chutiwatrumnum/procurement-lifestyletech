@@ -8,36 +8,71 @@ import {
   Plus, 
   Building2,
   MapPin,
-  MoreVertical,
   Edit,
   Trash2,
   Loader2,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  Package,
+  Eye,
+  X
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { projectService } from '@/services/api';
+import { toast } from 'sonner';
+import pb from '@/lib/pocketbase';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function ProjectList() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; projectId: string | null; projectName: string }>({ 
+    open: false, 
+    projectId: null,
+    projectName: ''
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    async function loadProjects() {
-      try {
-        const data = await projectService.getAll();
-        setProjects(data);
-      } catch (err: any) {
-        console.error('Fetch projects failed:', err);
-        setError(err.message || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้');
-      } finally {
-        setLoading(false);
-      }
-    }
     loadProjects();
   }, []);
+
+  async function loadProjects() {
+    try {
+      const data = await projectService.getAll();
+      setProjects(data);
+    } catch (err: any) {
+      console.error('Fetch projects failed:', err);
+      setError(err.message || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteDialog.projectId) return;
+    setIsDeleting(true);
+    try {
+      await pb.collection('projects').delete(deleteDialog.projectId);
+      setProjects(projects.filter(p => p.id !== deleteDialog.projectId));
+      toast.success('ลบโครงการเรียบร้อยแล้ว');
+    } catch (err: any) {
+      toast.error('ลบไม่สำเร็จ: ' + (err.message || 'ไม่สามารถลบโครงการได้'));
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialog({ open: false, projectId: null, projectName: '' });
+    }
+  };
 
   const filteredProjects = projects.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,11 +88,18 @@ export default function ProjectList() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">จัดการโครงการ (Projects)</h1>
           <p className="text-gray-500 text-sm mt-1">บริหารจัดการโครงการก่อสร้างและงบประมาณทั้งหมด</p>
         </div>
-        <Link to="/projects/new">
-          <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl font-bold px-6">
-            <Plus className="w-4 h-4 mr-2" /> เพิ่มโครงการใหม่
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/projects/stock">
+            <Button variant="outline" className="rounded-xl font-bold px-4">
+              <Package className="w-4 h-4 mr-2" /> ดูสต็อกทั้งหมด
+            </Button>
+          </Link>
+          <Link to="/projects/new">
+            <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl font-bold px-6">
+              <Plus className="w-4 h-4 mr-2" /> เพิ่มโครงการใหม่
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -90,7 +132,11 @@ export default function ProjectList() {
           </div>
         ) : (
           filteredProjects.map((project) => (
-            <Card key={project.id} className="border-none shadow-sm rounded-2xl hover:shadow-md transition-all group overflow-hidden bg-white">
+            <Card 
+              key={project.id} 
+              className="border-none shadow-sm rounded-2xl hover:shadow-md transition-all group overflow-hidden bg-white cursor-pointer"
+              onClick={() => navigate(`/projects/${project.id}`)}
+            >
               <CardHeader className="pb-4 border-b border-gray-50">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
@@ -102,7 +148,6 @@ export default function ProjectList() {
                       <p className="text-xs font-bold text-blue-500 mt-1 uppercase tracking-widest">#{project.code}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="rounded-full"><MoreVertical className="w-4 h-4 text-[#9CA3AF]" /></Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 pt-5">
@@ -116,11 +161,44 @@ export default function ProjectList() {
                     <span className="truncate text-gray-500 font-medium">{project.location || 'สำนักงานใหญ่'}</span>
                   </div>
                 </div>
+                
                 <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
                   <Badge className="rounded-full px-3 py-1 bg-green-50 text-green-700 font-bold border-none">Active</Badge>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-colors"><Edit className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></Button>
+                    <Link to={`/projects/stock?project=${project.id}`} onClick={(e) => e.stopPropagation()}>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-9 w-9 rounded-xl hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                        title="ดูสต็อก"
+                      >
+                        <Package className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/projects/edit/${project.id}`);
+                      }}
+                      title="แก้ไข"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-9 w-9 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteDialog({ open: true, projectId: project.id, projectName: project.name });
+                      }}
+                      title="ลบ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -128,6 +206,51 @@ export default function ProjectList() {
           ))
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}>
+        <DialogContent className="sm:max-w-md rounded-2xl border-0 shadow-2xl">
+          <DialogHeader className="space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center bg-red-100">
+              <AlertTriangle className="h-8 w-8 text-red-600" />
+            </div>
+            <DialogTitle className="text-center text-xl font-bold text-gray-900">
+              ยืนยันการลบโครงการ
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-500">
+              คุณแน่ใจหรือไม่ที่จะลบโครงการนี้? การลบจะไม่สามารถกู้คืนได้
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 px-5 bg-gray-50 rounded-xl space-y-2 my-4">
+            <p className="font-bold text-gray-900 text-lg">{deleteDialog.projectName}</p>
+          </div>
+
+          <DialogFooter className="gap-3 sm:gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialog({ open: false, projectId: null, projectName: '' })}
+              className="flex-1 rounded-xl h-12 font-bold border-gray-200 hover:bg-gray-50"
+              disabled={isDeleting}
+            >
+              <X className="w-4 h-4 mr-2" /> ยกเลิก
+            </Button>
+            <Button 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="flex-1 rounded-xl h-12 font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20"
+            >
+              {isDeleting ? (
+                <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" /> ยืนยันการลบ
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
