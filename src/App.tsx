@@ -11,6 +11,9 @@ import Login from '@/pages/Login';
 // Projects
 import ProjectList from '@/pages/Project/ProjectList';
 import ProjectNew from '@/pages/Project/ProjectNew';
+import ProjectDetail from '@/pages/Project/ProjectDetail';
+import ProjectEdit from '@/pages/Project/ProjectEdit';
+import ProjectStock from '@/pages/Project/ProjectStock';
 
 // Purchase Request
 import PRProject from '@/pages/PurchaseRequest/PRProject';
@@ -18,10 +21,12 @@ import PRSubcontractor from '@/pages/PurchaseRequest/PRSubcontractor';
 import PROther from '@/pages/PurchaseRequest/PROther';
 import PRApproval from '@/pages/PurchaseRequest/PRApproval';
 import PREdit from '@/pages/PurchaseRequest/PREdit';
+import PRDetail from '@/pages/PurchaseRequest/PRDetail';
 
 // Vendor
 import VendorListNew from '@/pages/Vendor/VendorListNew';
 import VendorNew from '@/pages/Vendor/VendorNew';
+import VendorEdit from '@/pages/Vendor/VendorEdit';
 
 // Purchase Order
 import POCreate from '@/pages/PurchaseOrder/POCreate';
@@ -60,11 +65,19 @@ function AppRoutes() {
       {/* Projects */}
       <Route path="/projects" element={<ProtectedRoute><ProjectList /></ProtectedRoute>} />
       <Route path="/projects/new" element={<ProtectedRoute><ProjectNew /></ProtectedRoute>} />
+      <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
+      <Route path="/projects/edit/:id" element={<ProtectedRoute><ProjectEdit /></ProtectedRoute>} />
+      <Route path="/projects/stock" element={<ProtectedRoute><ProjectStock /></ProtectedRoute>} />
 
       {/* Purchase Requests */}
       <Route path="/purchase-requests" element={<ProtectedRoute><PurchaseRequestList /></ProtectedRoute>} />
+      <Route path="/purchase-requests/project" element={<ProtectedRoute><PurchaseRequestList type="project" /></ProtectedRoute>} />
+      <Route path="/purchase-requests/sub" element={<ProtectedRoute><PurchaseRequestList type="sub" /></ProtectedRoute>} />
+      <Route path="/purchase-requests/:id" element={<ProtectedRoute><PRDetail /></ProtectedRoute>} />
       <Route path="/purchase-requests/new/project" element={<ProtectedRoute><PRProject /></ProtectedRoute>} />
+      <Route path="/purchase-requests/edit/project/:id" element={<ProtectedRoute><PRProject /></ProtectedRoute>} />
       <Route path="/purchase-requests/new/sub" element={<ProtectedRoute><PRSubcontractor /></ProtectedRoute>} />
+      <Route path="/purchase-requests/edit/sub/:id" element={<ProtectedRoute><PRSubcontractor /></ProtectedRoute>} />
       <Route path="/purchase-requests/new/other" element={<ProtectedRoute><PROther /></ProtectedRoute>} />
       <Route path="/purchase-requests/approval" element={<ProtectedRoute><PRApproval /></ProtectedRoute>} />
       <Route path="/purchase-requests/edit/:id" element={<ProtectedRoute><PREdit /></ProtectedRoute>} />
@@ -81,6 +94,7 @@ function AppRoutes() {
       {/* Vendors */}
       <Route path="/vendors" element={<ProtectedRoute><VendorListNew /></ProtectedRoute>} />
       <Route path="/vendors/new" element={<ProtectedRoute><VendorNew /></ProtectedRoute>} />
+      <Route path="/vendors/edit/:id" element={<ProtectedRoute><VendorEdit /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

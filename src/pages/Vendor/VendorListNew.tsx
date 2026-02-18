@@ -20,10 +20,12 @@ import {
   ShoppingCart,
   Loader2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { vendorService } from '@/services/api';
+import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -66,6 +68,21 @@ export default function VendorListNew() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, filter]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบผู้ขายรายนี้?')) return;
+    
+    try {
+      await vendorService.delete(id);
+      toast.success('ลบผู้ขายเรียบร้อยแล้ว');
+      // Reload vendors
+      const data = await vendorService.getAll();
+      setVendors(data);
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('ไม่สามารถลบผู้ขายได้');
+    }
+  };
 
   if (loading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังดึงข้อมูลผู้ขายจากระบบ...</div>;
 
@@ -181,14 +198,6 @@ export default function VendorListNew() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-9 w-9 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-all"
-                            title="สร้าง PO"
-                          >
-                            <ShoppingCart className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
                             className="h-9 w-9 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
                             title="ดูข้อมูล"
                           >
@@ -199,8 +208,20 @@ export default function VendorListNew() {
                             size="icon" 
                             className="h-9 w-9 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-all"
                             title="แก้ไข"
+                            asChild
                           >
-                            <Edit className="w-4 h-4" />
+                            <Link to={`/vendors/edit/${vendor.id}`}>
+                              <Edit className="w-4 h-4" />
+                            </Link>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all"
+                            title="ลบ"
+                            onClick={() => handleDelete(vendor.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>

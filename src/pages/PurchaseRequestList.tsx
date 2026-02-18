@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,41 +33,76 @@ import {
   Loader2
 } from 'lucide-react';
 import { prService } from '@/services/api';
+import { toast } from 'sonner';
 
-export default function PurchaseRequestList() {
+interface PurchaseRequestListProps {
+  type?: 'project' | 'sub' | 'other';
+}
+
+export default function PurchaseRequestList({ type }: PurchaseRequestListProps = {}) {
   const [prs, setPrs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // กำหนด active tab จาก URL หรือ prop
+  const activeTab = type || 'all';
+
+  async function loadPRs() {
+    try {
+      const data = await prService.getAll();
+      setPrs(data.map(pr => ({
+        id: pr.id,
+        pr_number: pr.pr_number,
+        project: pr.expand?.project?.name || 'รายการทั่วไป',
+        type: (pr.type || 'N/A').toUpperCase(),
+        rawType: pr.type, // เก็บ type ดิบไว้สำหรับ redirect
+        rawStatus: pr.status, // เก็บ status ดิบไว้สำหรับ redirect
+        requester: pr.requester_name || pr.expand?.requester?.name || 'N/A',
+        date: new Date(pr.created).toLocaleDateString('th-TH'),
+        amount: pr.total_amount || 0,
+        status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
+        color: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
+      })));
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setPrs([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadPRs() {
-      try {
-        const data = await prService.getAll();
-        setPrs(data.map(pr => ({
-          id: pr.id,
-          pr_number: pr.pr_number,
-          project: pr.expand?.project?.name || 'รายการทั่วไป',
-          type: (pr.type || 'N/A').toUpperCase(),
-          requester: pr.expand?.requester?.name || 'N/A',
-          date: new Date(pr.created).toLocaleDateString('th-TH'),
-          amount: pr.total_amount || 0,
-          status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
-          color: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
-        })));
-      } catch (err) {
-        console.error('Fetch error:', err);
-        setPrs([]);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadPRs();
   }, []);
 
-  const filteredPRs = prs.filter(pr => 
-    pr.pr_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pr.project.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // ฟังก์ชันลบ PR
+  const handleDelete = async (id: string) => {
+    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบคำขอจัดซื้อนี้?')) return;
+    
+    try {
+      await prService.delete(id);
+      toast.success('ลบคำขอจัดซื้อเรียบร้อยแล้ว');
+      loadPRs(); // โหลดข้อมูลใหม่
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('ไม่สามารถลบคำขอจัดซื้อได้');
+    }
+  };
+
+  const filteredPRs = prs.filter(pr => {
+    // กรองตาม search term
+    const matchesSearch = pr.pr_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pr.project.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // กรองตาม type (tab)
+    const matchesType = activeTab === 'all' || 
+      (activeTab === 'project' && pr.type === 'PROJECT') ||
+      (activeTab === 'sub' && pr.type === 'SUB');
+    
+    return matchesSearch && matchesType;
+  });
 
   if (loading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังดึงข้อมูล...</div>;
 
@@ -107,6 +142,40 @@ export default function PurchaseRequestList() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
+
+      {/* Tabs for filtering by type */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => navigate('/purchase-requests')}
+          className={`px-6 py-3 font-bold text-sm transition-all ${
+            activeTab === 'all'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          ทั้งหมด
+        </button>
+        <button
+          onClick={() => navigate('/purchase-requests/project')}
+          className={`px-6 py-3 font-bold text-sm transition-all ${
+            activeTab === 'project'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          โครงการ (Project)
+        </button>
+        <button
+          onClick={() => navigate('/purchase-requests/sub')}
+          className={`px-6 py-3 font-bold text-sm transition-all ${
+            activeTab === 'sub'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          งานย่อย (Sub)
+        </button>
       </div>
 
       <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
@@ -173,10 +242,34 @@ export default function PurchaseRequestList() {
                               <Link to={`/purchase-requests/${pr.id}`}><Eye className="mr-3 h-4 w-4 text-blue-500" /> <span className="font-bold text-gray-700">ดูรายละเอียด</span></Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild className="rounded-xl p-3 cursor-pointer mt-1">
-                              <Link to={`/purchase-requests/edit/${pr.id}`}><Edit className="mr-3 h-4 w-4 text-orange-500" /> <span className="font-bold text-gray-700">แก้ไขข้อมูล</span></Link>
+                              {pr.rawStatus === 'draft' && pr.rawType === 'project' ? (
+                                // ถ้าเป็น draft project ให้ไปหน้า PRProject (ที่รองรับ edit mode)
+                                <Link to={`/purchase-requests/edit/project/${pr.id}`}>
+                                  <Edit className="mr-3 h-4 w-4 text-orange-500" /> 
+                                  <span className="font-bold text-gray-700">แก้ไขข้อมูล</span>
+                                </Link>
+                              ) : pr.rawStatus === 'draft' && pr.rawType === 'sub' ? (
+                                // ถ้าเป็น draft sub
+                                <Link to={`/purchase-requests/edit/sub/${pr.id}`}>
+                                  <Edit className="mr-3 h-4 w-4 text-orange-500" /> 
+                                  <span className="font-bold text-gray-700">แก้ไขข้อมูล</span>
+                                </Link>
+                              ) : (
+                                // ถ้าไม่ใช่ draft ใช้หน้าแก้ไขทั่วไป
+                                <Link to={`/purchase-requests/edit/${pr.id}`}>
+                                  <Edit className="mr-3 h-4 w-4 text-orange-500" /> 
+                                  <span className="font-bold text-gray-700">แก้ไขข้อมูล</span>
+                                </Link>
+                              )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="my-2 bg-gray-50" />
-                            <DropdownMenuItem className="rounded-xl p-3 cursor-pointer text-red-600 hover:bg-red-50"><Trash2 className="mr-3 h-4 w-4" /> <span className="font-bold">ลบคำขอจัดซื้อ</span></DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="rounded-xl p-3 cursor-pointer text-red-600 hover:bg-red-50"
+                              onClick={() => handleDelete(pr.id)}
+                            >
+                              <Trash2 className="mr-3 h-4 w-4" /> 
+                              <span className="font-bold">ลบคำขอจัดซื้อ</span>
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

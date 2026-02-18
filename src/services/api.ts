@@ -22,6 +22,12 @@ export const vendorService = {
   },
   async create(data: any) {
     return await pb.collection('vendors').create(data);
+  },
+  async update(id: string, data: any) {
+    return await pb.collection('vendors').update(id, data);
+  },
+  async delete(id: string) {
+    return await pb.collection('vendors').delete(id);
   }
 };
 
@@ -311,6 +317,21 @@ export const prService = {
   },
   async delete(id: string) {
     return await pb.collection('purchase_requests').delete(id);
+  },
+  async update(id: string, data: any) {
+    return await pb.collection('purchase_requests').update(id, data);
+  },
+  async deleteItems(prId: string) {
+    // ลบ pr_items ทั้งหมดที่เกี่ยวข้องกับ PR นี้
+    const items = await pb.collection('pr_items').getFullList({
+      filter: `pr = "${prId}"`
+    });
+    for (const item of items) {
+      await pb.collection('pr_items').delete(item.id);
+    }
+  },
+  async createItem(data: any) {
+    return await pb.collection('pr_items').create(data);
   }
 };
 
