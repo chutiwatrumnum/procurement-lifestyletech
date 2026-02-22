@@ -238,9 +238,12 @@ export default function PREdit() {
       
       await prService.updateStatus(id!, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);
       toast.success('อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
+      // Refresh badge counts
+      window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
       navigate('/purchase-requests');
-    } catch (err) {
-      toast.error('อัปเดตไม่สำเร็จ');
+    } catch (err: any) {
+      console.error('Update error:', err);
+      toast.error('อัปเดตไม่สำเร็จ: ' + (err?.message || err?.data?.message || 'Unknown error'));
     } finally {
       setIsSubmitting(false);
     }

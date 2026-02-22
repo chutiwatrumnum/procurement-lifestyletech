@@ -32,9 +32,9 @@ export default function BudgetReport() {
           prService.getAll()
         ]);
 
-        const enrichedProjects = projList.map((p: any) => {
-          const prsForProject = prList.filter((pr: any) => pr.project === p.id);
-          const used = prsForProject.reduce((sum: number, pr: any) => sum + (pr.total_amount || 0), 0);
+        const enrichedProjects = projList.map(p => {
+          const prsForProject = prList.filter(pr => pr.project === p.id);
+          const used = prsForProject.reduce((sum, pr) => sum + pr.total_amount, 0);
           const percentage = p.budget > 0 ? Math.min(100, Math.round((used / p.budget) * 100)) : 0;
           
           return {

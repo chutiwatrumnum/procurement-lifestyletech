@@ -41,7 +41,6 @@ interface NavItem {
   icon: React.ElementType;
   badge?: number;
   roles?: UserRole[];
-  children?: { title: string; href: string }[];
 }
 
 const allNavItems: NavItem[] = [
@@ -107,100 +106,83 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-export default function Layout({ children }: LayoutProps) {
-  const { user, logout, hasRole } = useAuth();
+// Separate NavLink component to receive badge as prop
+function NavLink({ 
+  item, 
+  isActive, 
+  collapsed, 
+  onClick,
+  badge 
+}: { 
+  item: NavItem; 
+  isActive: boolean; 
+  collapsed: boolean;
+  onClick?: () => void;
+  badge: number;
+}) {
+  const Icon = item.icon;
+  
+  return (
+    <Link
+      to={item.href}
+      className={cn(
+        'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 relative',
+        collapsed && 'justify-center px-2',
+        isActive
+          ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20'
+          : 'text-[#9CA3AF] hover:text-white hover:bg-white/5'
+      )}
+      onClick={onClick}
+      title={collapsed ? item.title : undefined}
+    >
+      <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-white' : 'text-[#6B7280]')} />
+      {!collapsed && <span className="flex-1">{item.title}</span>}
+      {!collapsed && badge > 0 && (
+        <span className={cn(
+          "flex h-5 min-w-[20px] px-1 items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0",
+          isActive ? "bg-white text-[#2563EB]" : "bg-red-500 text-white"
+        )}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+      {collapsed && badge > 0 && (
+        <span className={cn(
+          "absolute -top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold",
+          isActive ? "bg-white text-[#2563EB]" : "bg-red-500 text-white"
+        )}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+// Sidebar component
+function Sidebar({ 
+  mobile = false, 
+  collapsed = false, 
+  onClose,
+  navItems,
+  pendingPRProject,
+  pendingPRSub,
+  user,
+  onLogout,
+  onToggleCollapse,
+  isSidebarCollapsed
+}: { 
+  mobile?: boolean; 
+  collapsed?: boolean; 
+  onClose?: () => void;
+  navItems: NavItem[];
+  pendingPRProject: number;
+  pendingPRSub: number;
+  user: any;
+  onLogout: () => void;
+  onToggleCollapse: () => void;
+  isSidebarCollapsed: boolean;
+}) {
   const location = useLocation();
-  const navigate = useNavigate();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [pendingCounts, setPendingCounts] = useState({ pr_pending: 0, po_pending: 0 });
-
-  // Filter nav items based on user role
-  const navItems = allNavItems.filter(item => {
-    if (!item.roles) return true; // No role restriction
-    if (!user) return false;
-    return item.roles.includes(user.role);
-  });
-
-  // Fetch pending counts
-  useEffect(() => {
-    async function fetchPendingCounts() {
-      try {
-        const prResult = await pb.collection('purchase_requests').getList(1, 1, {
-          filter: 'status = "pending"',
-        });
-        const poResult = await pb.collection('purchase_orders').getList(1, 1, {
-          filter: 'status = "pending_vendor"',
-        });
-        setPendingCounts({
-          pr_pending: prResult.totalItems,
-          po_pending: poResult.totalItems,
-        });
-      } catch (err) {
-        console.error('Failed to fetch pending counts:', err);
-      }
-    }
-    
-    fetchPendingCounts();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchPendingCounts, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const NavLink = ({ item, mobile = false, collapsed = false }: { item: NavItem; mobile?: boolean; collapsed?: boolean }) => {
-    const isActive = location.pathname === item.href;
-    const Icon = item.icon;
-    
-    // Get badge count for approval pages
-    let badge = 0;
-    if (item.href === '/purchase-requests/approval') {
-      badge = pendingCounts.pr_pending;
-    } else if (item.href === '/purchase-orders/approval') {
-      badge = pendingCounts.po_pending;
-    } else {
-      badge = item.badge || 0;
-    }
-
-    return (
-      <Link
-        to={item.href}
-        className={cn(
-          'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
-          collapsed && 'justify-center px-2',
-          isActive
-            ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20'
-            : 'text-[#9CA3AF] hover:text-white hover:bg-white/5'
-        )}
-        onClick={() => mobile && setIsMobileMenuOpen(false)}
-        title={collapsed ? item.title : undefined}
-      >
-        <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-white' : 'text-[#6B7280]')} />
-        {!collapsed && <span className="flex-1">{item.title}</span>}
-        {!collapsed && badge > 0 && (
-          <span className={cn(
-            "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0",
-            isActive ? "bg-white text-[#2563EB]" : "bg-blue-600 text-white"
-          )}>
-            {badge > 99 ? '99+' : badge}
-          </span>
-        )}
-        {collapsed && badge > 0 && (
-          <span className={cn(
-            "absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold",
-            isActive ? "bg-white text-[#2563EB]" : "bg-blue-600 text-white"
-          )}>
-            {badge > 99 ? '99+' : badge}
-          </span>
-        )}
-      </Link>
-    );
-  };
-
+  
   const roleLabels: Record<UserRole, string> = {
     superadmin: 'ผู้ดูแลระบบ',
     head_of_dept: 'หัวหน้าแผนก',
@@ -208,7 +190,18 @@ export default function Layout({ children }: LayoutProps) {
     employee: 'พนักงาน',
   };
 
-  const Sidebar = ({ mobile = false, collapsed = false }: { mobile?: boolean; collapsed?: boolean }) => (
+  // Calculate badge for each item
+  const getBadgeCount = (item: NavItem): number => {
+    if (item.href === '/purchase-requests/approval') {
+      return pendingPRProject;
+    }
+    if (item.href === '/purchase-orders/approval') {
+      return pendingPRSub;
+    }
+    return item.badge || 0;
+  };
+
+  return (
     <div className="flex h-full flex-col gap-2 bg-[#1F2937] text-white relative">
       <div className={cn("flex items-center mb-4", collapsed ? "h-16 px-4 justify-center" : "h-20 px-6")}>
         <Link to="/" className="flex items-center gap-3">
@@ -227,7 +220,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Toggle Button */}
       {!mobile && (
         <button
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onClick={onToggleCollapse}
           className="absolute -right-3 top-24 bg-[#2563EB] text-white rounded-full p-1.5 shadow-lg hover:bg-[#1D4ED8] transition-colors z-50"
           title={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
         >
@@ -237,11 +230,22 @@ export default function Layout({ children }: LayoutProps) {
 
       <div className={cn("flex-1 space-y-1", collapsed ? "px-2" : "px-4")}>
         <ScrollArea className={cn(collapsed ? "h-[calc(100vh-180px)]" : "h-[calc(100vh-220px)]")}>
-          {navItems.map((item) => (
-            <div key={item.title} className={cn("relative", collapsed && "mb-1")}>
-              <NavLink item={item} mobile={mobile} collapsed={collapsed} />
-            </div>
-          ))}
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.href;
+            const badgeCount = getBadgeCount(item);
+            
+            return (
+              <div key={item.title} className={cn("relative mb-1", collapsed && "mb-1")}>
+                <NavLink 
+                  item={item} 
+                  isActive={isActive}
+                  collapsed={collapsed}
+                  onClick={onClose}
+                  badge={badgeCount}
+                />
+              </div>
+            );
+          })}
           
           {!collapsed && (
             <div className="pt-6 pb-2 px-4">
@@ -277,7 +281,7 @@ export default function Layout({ children }: LayoutProps) {
                 <p className="text-sm font-semibold truncate text-white">{user?.name || 'พนักงานใหม่'}</p>
                 <p className="text-[10px] text-[#6B7280] truncate font-bold uppercase tracking-wider">{user?.role ? roleLabels[user.role as UserRole] : 'ผู้ใช้'}</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={handleLogout} className="text-[#9CA3AF] hover:text-red-400 transition-colors flex-shrink-0">
+              <Button variant="ghost" size="icon" onClick={onLogout} className="text-[#9CA3AF] hover:text-red-400 transition-colors flex-shrink-0">
                 <LogOut className="h-4 w-4" />
               </Button>
             </>
@@ -286,6 +290,63 @@ export default function Layout({ children }: LayoutProps) {
       </div>
     </div>
   );
+}
+
+export default function Layout({ children }: LayoutProps) {
+  const { user, logout, hasRole } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [pendingPRProject, setPendingPRProject] = useState(0);
+  const [pendingPRSub, setPendingPRSub] = useState(0);
+
+  // Filter nav items based on user role
+  const navItems = allNavItems.filter(item => {
+    if (!item.roles) return true;
+    if (!user) return false;
+    return item.roles.includes(user.role);
+  });
+
+  // Fetch pending counts
+  const fetchPendingCounts = async () => {
+    try {
+      // นับ PR Project ที่รออนุมัติ
+      const prProjectResult = await pb.collection('purchase_requests').getList(1, 1, {
+        filter: 'status = "pending" && type = "project"',
+      });
+      setPendingPRProject(prProjectResult.totalItems);
+      
+      // นับ PR Sub ที่รออนุมัติ
+      const prSubResult = await pb.collection('purchase_requests').getList(1, 1, {
+        filter: 'status = "pending" && type = "sub"',
+      });
+      setPendingPRSub(prSubResult.totalItems);
+    } catch (err) {
+      console.error('Failed to fetch pending counts:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingCounts();
+    const interval = setInterval(fetchPendingCounts, 30000);
+    
+    // Listen for refresh event from other components
+    const handleRefresh = () => {
+      fetchPendingCounts();
+    };
+    window.addEventListener('refresh-badge-counts', handleRefresh);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('refresh-badge-counts', handleRefresh);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className={cn(
@@ -294,12 +355,25 @@ export default function Layout({ children }: LayoutProps) {
         ? "md:grid-cols-[70px_1fr]" 
         : "md:grid-cols-[240px_1fr] lg:grid-cols-[280px_1fr]"
     )}>
+      {/* Desktop Sidebar */}
       <div className="hidden md:block sticky top-0 h-screen overflow-y-auto shadow-xl">
-        <Sidebar collapsed={isSidebarCollapsed} />
+        <Sidebar 
+          collapsed={isSidebarCollapsed}
+          navItems={navItems}
+          pendingPRProject={pendingPRProject}
+          pendingPRSub={pendingPRSub}
+          user={user}
+          onLogout={handleLogout}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          isSidebarCollapsed={isSidebarCollapsed}
+        />
       </div>
 
+      {/* Main Content */}
       <div className="flex flex-col min-h-screen">
+        {/* Header */}
         <header className="flex h-16 items-center gap-4 bg-white/80 backdrop-blur-md px-6 sticky top-0 z-30 border-b border-[#F3F4F6]">
+          {/* Mobile Menu */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
@@ -307,10 +381,21 @@ export default function Layout({ children }: LayoutProps) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-[280px] border-none">
-              <Sidebar mobile={true} collapsed={false} />
+              <Sidebar 
+                mobile={true}
+                navItems={navItems}
+                pendingPRProject={pendingPRProject}
+                pendingPRSub={pendingPRSub}
+                user={user}
+                onLogout={handleLogout}
+                onClose={() => setIsMobileMenuOpen(false)}
+                onToggleCollapse={() => {}}
+                isSidebarCollapsed={false}
+              />
             </SheetContent>
           </Sheet>
 
+          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-xs font-medium text-[#6B7280]">
             <span>การจัดซื้อ</span>
             <span className="text-[#E5E7EB]">/</span>
@@ -319,6 +404,7 @@ export default function Layout({ children }: LayoutProps) {
             </span>
           </div>
 
+          {/* Right Side Actions */}
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden sm:flex relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
@@ -335,6 +421,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
+        {/* Page Content */}
         <main className="flex-1 p-6 lg:p-8">
           <div className="max-w-[1400px] mx-auto">
             {children}

@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Select,
   SelectContent,
@@ -84,7 +83,6 @@ export default function PRProject() {
   // Form state
   const [projectId, setProjectId] = useState('');
   const [vendorIds, setVendorIds] = useState<string[]>([]);
-  const [location, setLocation] = useState('');
   const [items, setItems] = useState<LineItem[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [editHistory, setEditHistory] = useState<EditHistory[]>([]);
@@ -139,7 +137,6 @@ export default function PRProject() {
       
       setPrData(pr);
       setProjectId(pr.project || '');
-      setLocation(pr.delivery_location || '');
       
       if (pr.vendor) {
         const vendorArray = Array.isArray(pr.vendor) ? pr.vendor : [pr.vendor];
@@ -190,9 +187,9 @@ export default function PRProject() {
     }
   }
 
-  // Load project items when project changes (only in create mode or if no items yet)
+  // Load project items when project changes (create mode only)
   useEffect(() => {
-    if (isEditMode || !projectId || items.some(i => i.name && !i.isExisting)) return;
+    if (isEditMode || !projectId) return;
     
     async function loadProjectItems() {
       try {
@@ -214,6 +211,9 @@ export default function PRProject() {
             isExisting: true,
             addedQuantity: 0
           })));
+        } else {
+          // ถ้าไม่มี items ในโครงการ ให้เพิ่ม row ว่างเปล่า
+          setItems([{ id: Date.now().toString(), name: '', unit: '', quantity: 1, remaining: 0, unit_price: 0, total_price: 0 }]);
         }
       } catch (err) {
         console.error('Load project items failed:', err);
@@ -333,7 +333,6 @@ export default function PRProject() {
         await prService.update(id, {
           project: projectId,
           vendor: vendorIds[0] || '',
-          delivery_location: location,
           status: status,
           total_amount: totalAmount,
           requester_name: user?.name || user?.email || 'Unknown'
@@ -355,7 +354,6 @@ export default function PRProject() {
           type: 'project',
           project: projectId,
           vendor: vendorIds[0] || '',
-          delivery_location: location,
           status: status,
           total_amount: totalAmount,
         };
@@ -379,6 +377,8 @@ export default function PRProject() {
       }
       
       if (status === 'pending') {
+        // Refresh badge counts before navigating
+        window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
         navigate('/purchase-requests/approval');
       } else {
         navigate('/purchase-requests');
@@ -488,16 +488,6 @@ export default function PRProject() {
                   </SelectContent>
                 </Select>
                 {isEditMode && <p className="text-xs text-gray-400">* ไม่สามารถเปลี่ยนโครงการได้</p>}
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-semibold">สถานที่จัดส่ง</Label>
-                <Textarea 
-                  value={location} 
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="ระบุสถานที่จัดส่ง..."
-                  className="rounded-xl bg-gray-50 border-none"
-                />
               </div>
             </CardContent>
           </Card>

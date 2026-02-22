@@ -104,6 +104,12 @@ export default function PROther() {
 
       await prService.create(prData, prItems);
       toast.success('บันทึกใบขอซื้อเรียบร้อยแล้ว');
+      
+      // Refresh badge counts if submitting for approval
+      if (status === 'pending') {
+        window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
+      }
+      
       navigate('/purchase-requests');
     } catch (error) {
       console.error(error);

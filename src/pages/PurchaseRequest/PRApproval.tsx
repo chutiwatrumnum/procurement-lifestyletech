@@ -177,6 +177,8 @@ export default function PRApproval() {
       setComment('');
       setConfirmDialog({ open: false, action: null });
       await loadPRs();
+      // Refresh badge counts in sidebar
+      window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
     } catch (err) {
       toast.error('ดำเนินการไม่สำเร็จ');
     } finally {

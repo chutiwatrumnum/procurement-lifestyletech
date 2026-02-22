@@ -35,6 +35,7 @@ interface ProjectItem {
   name: string;
   unit: string;
   quantity: number;
+  initial_quantity?: number;
   unit_price: number;
   total_price: number;
   withdrawn: number;
@@ -157,7 +158,7 @@ export default function ProjectDetail() {
       const totalPlanned = itemsWithWithdrawn.reduce((sum, item) => sum + (item.total_price || 0), 0);
       const totalWithdrawn = itemsWithWithdrawn.reduce((sum, item) => {
         // คำนวณจากรายละเอียดการเบิกจริง (ใช้ราคาจาก PR Sub)
-        const withdrawnTotal = item.withdrawnDetails?.reduce((detailSum, detail) => detailSum + detail.total, 0) || 0;
+        const withdrawnTotal = item.withdrawnDetails?.reduce((detailSum: number, detail: WithdrawDetail) => detailSum + detail.total, 0) || 0;
         return sum + withdrawnTotal;
       }, 0);
 

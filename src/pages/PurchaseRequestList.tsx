@@ -20,6 +20,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Plus,
   Search,
   MoreHorizontal,
@@ -30,7 +38,8 @@ import {
   Building2,
   Filter,
   ChevronDown,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { prService } from '@/services/api';
 import { toast } from 'sonner';
@@ -43,6 +52,9 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
   const [prs, setPrs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; pr: any | null }>({ open: false, pr: null });
+  const [isDeleting, setIsDeleting] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -77,17 +89,26 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
     loadPRs();
   }, []);
 
-  // ฟังก์ชันลบ PR
-  const handleDelete = async (id: string) => {
-    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบคำขอจัดซื้อนี้?')) return;
+  // ฟังก์ชันเปิด dialog ยืนยันการลบ
+  const handleDelete = (pr: any) => {
+    setDeleteDialog({ open: true, pr });
+  };
+
+  // ฟังก์ชันลบ PR จริง
+  const confirmDelete = async () => {
+    if (!deleteDialog.pr) return;
     
+    setIsDeleting(true);
     try {
-      await prService.delete(id);
+      await prService.delete(deleteDialog.pr.id);
       toast.success('ลบคำขอจัดซื้อเรียบร้อยแล้ว');
       loadPRs(); // โหลดข้อมูลใหม่
+      setDeleteDialog({ open: false, pr: null });
     } catch (err) {
       console.error('Delete error:', err);
       toast.error('ไม่สามารถลบคำขอจัดซื้อได้');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -101,7 +122,10 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
       (activeTab === 'project' && pr.type === 'PROJECT') ||
       (activeTab === 'sub' && pr.type === 'SUB');
     
-    return matchesSearch && matchesType;
+    // กรองตาม status
+    const matchesStatus = statusFilter === 'all' || pr.rawStatus === statusFilter;
+    
+    return matchesSearch && matchesType && matchesStatus;
   });
 
   if (loading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังดึงข้อมูล...</div>;
@@ -190,9 +214,55 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                 className="pl-12 h-12 bg-[#F9FAFB] border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
-            <Button variant="outline" className="h-12 rounded-2xl border-[#E5E7EB] px-8 font-bold text-gray-600">
-              <Filter className="mr-2 h-4 w-4" /> กรองข้อมูล
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className={`h-12 rounded-2xl border-[#E5E7EB] px-8 font-bold ${statusFilter !== 'all' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'text-gray-600'}`}>
+                  <Filter className="mr-2 h-4 w-4" /> 
+                  {statusFilter === 'all' ? 'กรองข้อมูล' : 
+                   statusFilter === 'pending' ? 'กรอง: รออนุมัติ' :
+                   statusFilter === 'approved' ? 'กรอง: อนุมัติแล้ว' :
+                   statusFilter === 'rejected' ? 'กรอง: ปฏิเสธ' :
+                   statusFilter === 'draft' ? 'กรอง: ฉบับร่าง' : 'กรองข้อมูล'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-none shadow-xl bg-white">
+                <DropdownMenuItem 
+                  onClick={() => setStatusFilter('all')}
+                  className={`rounded-xl p-3 cursor-pointer ${statusFilter === 'all' ? 'bg-blue-50 text-blue-600' : ''}`}
+                >
+                  <span className="font-bold">ทั้งหมด</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-2 bg-gray-50" />
+                <DropdownMenuItem 
+                  onClick={() => setStatusFilter('draft')}
+                  className={`rounded-xl p-3 cursor-pointer ${statusFilter === 'draft' ? 'bg-blue-50 text-blue-600' : ''}`}
+                >
+                  <div className="w-3 h-3 rounded-full bg-gray-400 mr-3"></div>
+                  <span className="font-bold text-gray-700">ฉบับร่าง (Draft)</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setStatusFilter('pending')}
+                  className={`rounded-xl p-3 cursor-pointer mt-1 ${statusFilter === 'pending' ? 'bg-blue-50 text-blue-600' : ''}`}
+                >
+                  <div className="w-3 h-3 rounded-full bg-yellow-500 mr-3"></div>
+                  <span className="font-bold text-gray-700">รออนุมัติ (Pending)</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setStatusFilter('approved')}
+                  className={`rounded-xl p-3 cursor-pointer mt-1 ${statusFilter === 'approved' ? 'bg-blue-50 text-blue-600' : ''}`}
+                >
+                  <div className="w-3 h-3 rounded-full bg-green-500 mr-3"></div>
+                  <span className="font-bold text-gray-700">อนุมัติแล้ว (Approved)</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setStatusFilter('rejected')}
+                  className={`rounded-xl p-3 cursor-pointer mt-1 ${statusFilter === 'rejected' ? 'bg-blue-50 text-blue-600' : ''}`}
+                >
+                  <div className="w-3 h-3 rounded-full bg-red-500 mr-3"></div>
+                  <span className="font-bold text-gray-700">ปฏิเสธ (Rejected)</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="rounded-2xl border border-gray-50 overflow-hidden">
@@ -265,7 +335,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                             <DropdownMenuSeparator className="my-2 bg-gray-50" />
                             <DropdownMenuItem 
                               className="rounded-xl p-3 cursor-pointer text-red-600 hover:bg-red-50"
-                              onClick={() => handleDelete(pr.id)}
+                              onClick={() => handleDelete(pr)}
                             >
                               <Trash2 className="mr-3 h-4 w-4" /> 
                               <span className="font-bold">ลบคำขอจัดซื้อ</span>
@@ -281,6 +351,53 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog ยืนยันการลบ */}
+      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader className="text-center">
+            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100">
+              <AlertTriangle className="h-8 w-8 text-red-600" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-center">
+              ยืนยันการลบคำขอจัดซื้อ
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              คุณต้องการลบคำขอจัดซื้อนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteDialog.pr && (
+            <div className="py-4 text-center border-t border-b border-gray-100 my-4">
+              <p className="text-xl font-black text-gray-900">{deleteDialog.pr.pr_number}</p>
+              <p className="text-sm text-gray-600 mt-1">โครงการ: {deleteDialog.pr.project}</p>
+              <p className="text-lg font-bold text-blue-600 mt-2">จำนวนเงิน: ฿{deleteDialog.pr.amount?.toLocaleString() || 0}</p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialog({ open: false, pr: null })}
+              className="flex-1 rounded-xl h-12 font-bold"
+            >
+              ยกเลิก
+            </Button>
+            <Button 
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="flex-1 rounded-xl h-12 font-bold bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              {isDeleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
