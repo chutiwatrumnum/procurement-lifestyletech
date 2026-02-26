@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { 
-  Check, 
-  X, 
-  FileText, 
+import {
+  Check,
+  X,
+  FileText,
   ChevronRight,
   Printer,
   Loader2,
@@ -22,7 +22,12 @@ import {
   ChevronUp,
   Download,
   Paperclip,
-  MapPin
+  MapPin,
+  Signature,
+  Lock,
+  Unlock,
+  UserCheck,
+  Users
 } from 'lucide-react';
 import { prService } from '@/services/api';
 import { toast } from 'sonner';
@@ -50,16 +55,104 @@ export default function POApproval() {
   const [budgetInfo, setBudgetInfo] = useState<{ budget: number; spent: number; percentage: number } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; action: 'approved' | 'rejected' | null }>({ open: false, action: null });
 
+  // เก็บข้อมูลลายเซ็นของผู้อนุมัติ
+  const [approverSignatures, setApproverSignatures] = useState<{
+    headOfDept: string | null;
+    manager: string | null;
+  }>({ headOfDept: null, manager: null });
+
+  // ตรวจสอบสิทธิ์การอนุมัติ
+  const isHeadOfDept = () => user?.role === 'head_of_dept';
+  const isManager = () => user?.role === 'manager';
+  const isSuperAdmin = () => user?.role === 'superadmin';
+
+  // ตรวจสอบว่า user สามารถอนุมัติ PR นี้ได้ไหม
+  const canApprove = (pr: any) => {
+    if (!pr) return false;
+
+    const level = pr.approval_level || 0;
+
+    // Level 0: รอหัวหน้าแผนกอนุมัติ
+    if (level === 0) {
+      return isHeadOfDept() || isSuperAdmin();
+    }
+
+    // Level 1: รอผู้จัดการอนุมัติ
+    if (level === 1) {
+      return isManager() || isSuperAdmin();
+    }
+
+    return false;
+  };
+
+  // ดึงข้อความสถานะการอนุมัติ
+  const getApprovalStatusText = (pr: any) => {
+    const level = pr?.approval_level || 0;
+
+    if (level === 0) {
+      return { text: 'รอหัวหน้าแผนกอนุมัติ', color: 'bg-yellow-100 text-yellow-700', icon: UserCheck };
+    }
+    if (level === 1) {
+      return { text: 'รอผู้จัดการอนุมัติ', color: 'bg-blue-100 text-blue-700', icon: Users };
+    }
+    return { text: 'อนุมัติครบถ้วน', color: 'bg-green-100 text-green-700', icon: Check };
+  };
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Fetch ลายเซ็นของผู้อนุมัติเมื่อ selectedItem เปลี่ยน
+  useEffect(() => {
+    if (selectedItem) {
+      fetchApproverSignatures();
+    }
+  }, [selectedItem]);
+
+  async function fetchApproverSignatures() {
+    setApproverSignatures({ headOfDept: null, manager: null });
+    
+    try {
+      // Fetch ลายเซ็นหัวหน้าแผนก
+      if (selectedItem.head_of_dept_approved_by) {
+        try {
+          const headOfDeptUser = await pb.collection('users').getOne(selectedItem.head_of_dept_approved_by);
+          if (headOfDeptUser.signature) {
+            setApproverSignatures(prev => ({
+              ...prev,
+              headOfDept: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${headOfDeptUser.id}/${headOfDeptUser.signature}`
+            }));
+          }
+        } catch (err) {
+          console.log('Failed to fetch head_of_dept signature');
+        }
+      }
+      
+      // Fetch ลายเซ็นผู้จัดการ
+      if (selectedItem.manager_approved_by) {
+        try {
+          const managerUser = await pb.collection('users').getOne(selectedItem.manager_approved_by);
+          if (managerUser.signature) {
+            setApproverSignatures(prev => ({
+              ...prev,
+              manager: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${managerUser.id}/${managerUser.signature}`
+            }));
+          }
+        } catch (err) {
+          console.log('Failed to fetch manager signature');
+        }
+      }
+    } catch (err) {
+      console.error('Fetch signatures error:', err);
+    }
+  }
 
   async function loadData() {
     try {
       // โหลดเฉพาะ PR Sub ที่รออนุมัติ
       const prData = await prService.getAll('type = "sub" && status = "pending"');
       setSubPRs(prData);
-      
+
       if (prData.length > 0) {
         handleSelectItem(prData[0]);
       }
@@ -75,7 +168,7 @@ export default function POApproval() {
     try {
       const prItems = await prService.getItems(item.id);
       setItems(prItems);
-      
+
       // Load budget info if project exists
       if (item.expand?.project?.id) {
         const projectBudget = item.expand.project.budget || 0;
@@ -89,24 +182,24 @@ export default function POApproval() {
       } else {
         setBudgetInfo(null);
       }
-      
+
       // Load edit history from pr_history collection
       try {
         const history = await prService.getHistory(item.id);
-        
+
         if (history.length === 0) {
           const createdDate = item.created;
           const requesterName = item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
           setEditHistory([
-            { 
-              date: createdDate || new Date().toISOString(), 
-              action: 'สร้าง PR Sub ครั้งแรก', 
-              by: requesterName 
+            {
+              date: createdDate || new Date().toISOString(),
+              action: 'สร้าง PR Sub ครั้งแรก',
+              by: requesterName
             },
-            { 
-              date: item.updated || new Date().toISOString(), 
-              action: 'ส่งอนุมัติ (รอการอนุมัติ)', 
-              by: requesterName 
+            {
+              date: item.updated || new Date().toISOString(),
+              action: 'ส่งอนุมัติ (รอการอนุมัติ)',
+              by: requesterName
             }
           ]);
         } else {
@@ -116,7 +209,7 @@ export default function POApproval() {
             by: h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
             oldAttachments: h.old_attachments || []
           }));
-          
+
           const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR Sub');
           if (!hasCreateAction) {
             const createdDate = item.created;
@@ -128,7 +221,7 @@ export default function POApproval() {
               oldAttachments: []
             });
           }
-          
+
           historyData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
           setEditHistory(historyData);
         }
@@ -136,15 +229,15 @@ export default function POApproval() {
         const createdDate = item.created;
         const requesterName = item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
         setEditHistory([
-          { 
-            date: createdDate || new Date().toISOString(), 
-            action: 'สร้าง PR Sub ครั้งแรก', 
+          {
+            date: createdDate || new Date().toISOString(),
+            action: 'สร้าง PR Sub ครั้งแรก',
             by: requesterName,
             oldAttachments: []
           },
-          { 
-            date: item.updated || new Date().toISOString(), 
-            action: 'ส่งอนุมัติ (รอการอนุมัติ)', 
+          {
+            date: item.updated || new Date().toISOString(),
+            action: 'ส่งอนุมัติ (รอการอนุมัติ)',
             by: requesterName,
             oldAttachments: []
           }
@@ -165,20 +258,131 @@ export default function POApproval() {
 
   const handleConfirmAction = async () => {
     if (!selectedItem || !confirmDialog.action) return;
-    setSubmitting(true);
-    
-    try {
-      const oldAttachments = confirmDialog.action === 'rejected' ? selectedItem.attachments : undefined;
-      
-      if (confirmDialog.action === 'approved') {
-        // อนุมัติ PR Sub พร้อมตัด stock
-        await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
-        toast.success('อนุมัติใบขอซื้อย่อยเรียบร้อยแล้ว (ตัด stock จากโครงการแล้ว)');
-      } else {
-        await prService.updateStatus(selectedItem.id, 'rejected', comment, user?.id, oldAttachments);
-        toast.success('ตีกลับใบขอซื้อย่อยเรียบร้อยแล้ว');
+
+    // เช็คลายเซ็นก่อนอนุมัติ
+    if (confirmDialog.action === 'approved') {
+      try {
+        const currentUserData = await pb.collection('users').getOne(user?.id || '');
+        if (!currentUserData.signature) {
+          toast.error('กรุณาอัปโหลดลายเซ็นก่อนอนุมัติ ไปที่ ตั้งค่า > ลายเซ็นดิจิทัล');
+          setConfirmDialog({ open: false, action: null });
+          return;
+        }
+      } catch (err: any) {
+        console.error('Check signature error:', err);
+        if (err.status === 404) {
+          toast.error('ไม่พบข้อมูลผู้ใช้ หรือไม่มีสิทธิ์เข้าถึง');
+        } else {
+          toast.error('ไม่สามารถตรวจสอบลายเซ็นได้');
+        }
+        return;
       }
-      
+    }
+
+    setSubmitting(true);
+
+    try {
+      const currentLevel = selectedItem.approval_level || 0;
+
+      if (confirmDialog.action === 'rejected') {
+        // ตีกลับ - ยกเลิกการอนุมัติทั้งหมด
+        await prService.updateStatus(selectedItem.id, 'rejected', comment, user?.id, selectedItem.attachments);
+        toast.success('ตีกลับเรียบร้อยแล้ว');
+      } else {
+        // อนุมัติ - Copy ลายเซ็นไฟล์ไปเก็บใน PR (วิธีที่ 1: Duplicate File)
+        const currentUserData = await pb.collection('users').getOne(user?.id || '');
+        
+        if (currentLevel === 0 && (isHeadOfDept() || isSuperAdmin())) {
+          // หัวหน้าแผนกอนุมัติ → เปลี่ยนเป็น level 1
+          const updateData: any = {
+            approval_level: 1,
+            head_of_dept_approved_by: user?.id,
+            head_of_dept_approved_at: new Date().toISOString(),
+            head_of_dept_approved_by_name: user?.name || user?.email,
+            head_of_dept_comment: comment || undefined
+          };
+          
+          // ถ้ามีลายเซ็น ให้ copy ไปเก็บใน PR
+          if (currentUserData.signature) {
+            try {
+              // ดึงไฟล์ลายเซ็นมาเป็น blob
+              const signatureUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+              const response = await fetch(signatureUrl);
+              const blob = await response.blob();
+              
+              // สร้าง File ใหม่
+              const signatureFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+              
+              // สร้าง FormData และอัพเดต
+              const formData = new FormData();
+              Object.keys(updateData).forEach(key => {
+                formData.append(key, updateData[key]);
+              });
+              formData.append('head_of_dept_signature', signatureFile);
+              
+              await pb.collection('purchase_requests').update(selectedItem.id, formData);
+            } catch (err) {
+              console.error('Failed to copy signature:', err);
+              // ถ้า copy ไม่ได้ ให้อัพเดตแบบไม่มีลายเซ็น
+              await pb.collection('purchase_requests').update(selectedItem.id, updateData);
+            }
+          } else {
+            await pb.collection('purchase_requests').update(selectedItem.id, updateData);
+          }
+          
+          toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้จัดการอนุมัติต่อ)');
+          
+        } else if (currentLevel === 1 && (isManager() || isSuperAdmin())) {
+          // ผู้จัดการอนุมัติ → อนุมัติสมบูรณ์ + ตัด stock
+          const oldAttachments = selectedItem.attachments;
+          
+          const updateData: any = {
+            manager_approved_by: user?.id,
+            manager_approved_at: new Date().toISOString(),
+            manager_approved_by_name: user?.name || user?.email,
+            manager_comment: comment || undefined
+          };
+          
+          // ถ้ามีลายเซ็น ให้ copy ไปเก็บใน PR
+          if (currentUserData.signature) {
+            try {
+              // ดึงไฟล์ลายเซ็นมาเป็น blob
+              const signatureUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+              const response = await fetch(signatureUrl);
+              const blob = await response.blob();
+              
+              // สร้าง File ใหม่
+              const signatureFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+              
+              // สร้าง FormData และอัพเดต
+              const formData = new FormData();
+              Object.keys(updateData).forEach(key => {
+                formData.append(key, updateData[key]);
+              });
+              formData.append('manager_signature', signatureFile);
+              
+              // อัพเดต PR ก่อน (รวมลายเซ็น)
+              await pb.collection('purchase_requests').update(selectedItem.id, formData);
+              
+              // แล้วค่อยอนุมัติ + ตัด stock
+              await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
+            } catch (err) {
+              console.error('Failed to copy signature:', err);
+              // ถ้า copy ไม่ได้ ให้อัพเดตแบบไม่มีลายเซ็น แล้วค่อยอนุมัติ
+              await pb.collection('purchase_requests').update(selectedItem.id, updateData);
+              await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
+            }
+          } else {
+            await pb.collection('purchase_requests').update(selectedItem.id, updateData);
+            await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
+          }
+          
+          toast.success('อนุมัติสมบูรณ์แล้ว (ตัด stock จากโครงการแล้ว)');
+        } else {
+          toast.error('คุณไม่มีสิทธิ์อนุมัติในระดับนี้');
+        }
+      }
+
       setComment('');
       setConfirmDialog({ open: false, action: null });
       await loadData();
@@ -235,10 +439,10 @@ export default function POApproval() {
                     <div>
                       <p className="font-bold text-purple-600">{pr.pr_number}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                        {pr.created ? new Date(pr.created).toLocaleDateString('th-TH', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric' 
+                        {pr.created ? new Date(pr.created).toLocaleDateString('th-TH', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
                         }) : 'ไม่ระบุวันที่'}
                       </p>
                     </div>
@@ -252,12 +456,24 @@ export default function POApproval() {
                     </div>
                     <p className="font-bold text-gray-900">฿{pr.total_amount?.toLocaleString() || 0}</p>
                   </div>
-                  {pr.attachments && pr.attachments.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-purple-600">
-                      <Paperclip className="w-3 h-3" />
-                      <span>{pr.attachments.length} ไฟล์แนบ</span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between mt-2">
+                    {(() => {
+                      const status = getApprovalStatusText(pr);
+                      const StatusIcon = status.icon;
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${status.color}`}>
+                          <StatusIcon className="w-3 h-3" />
+                          {status.text}
+                        </span>
+                      );
+                    })()}
+                    {pr.attachments && pr.attachments.length > 0 && (
+                      <div className="flex items-center gap-1 text-xs text-purple-600">
+                        <Paperclip className="w-3 h-3" />
+                        <span>{pr.attachments.length} ไฟล์แนบ</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -273,9 +489,15 @@ export default function POApproval() {
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">รายละเอียดใบขอซื้อย่อย</p>
                   <CardTitle className="text-2xl font-bold text-[#1F2937]">{selectedItem.pr_number}</CardTitle>
                 </div>
-                <Badge className="bg-yellow-50 text-yellow-700 font-bold border-none px-4 py-1.5 rounded-lg">
-                  <Clock className="w-3.5 h-3.5 mr-2" /> Waiting Approval
-                </Badge>
+                {(() => {
+                  const status = getApprovalStatusText(selectedItem);
+                  const StatusIcon = status.icon;
+                  return (
+                    <Badge className={`${status.color} font-bold border-none px-4 py-1.5 rounded-lg`}>
+                      <StatusIcon className="w-3.5 h-3.5 mr-2" /> {status.text}
+                    </Badge>
+                  );
+                })()}
               </CardHeader>
               <CardContent className="p-8">
                 <div className="grid grid-cols-2 gap-8 mb-10">
@@ -321,9 +543,9 @@ export default function POApproval() {
                       </div>
                     </div>
                     <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          budgetInfo.percentage >= 90 ? 'bg-red-500' : 
+                          budgetInfo.percentage >= 90 ? 'bg-red-500' :
                           budgetInfo.percentage >= 70 ? 'bg-orange-500' : 'bg-green-500'
                         }`}
                         style={{ width: `${budgetInfo.percentage}%` }}
@@ -337,8 +559,8 @@ export default function POApproval() {
                   <div className="mb-10 p-6 bg-purple-50/50 rounded-2xl border border-purple-100">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                        <History className="w-3 h-3" /> 
-                        ประวัติการดำเนินการ 
+                        <History className="w-3 h-3" />
+                        ประวัติการดำเนินการ
                         <span className="bg-purple-400 text-white px-2 py-0.5 rounded-full text-[10px]">
                           {editHistory.length} รายการ
                         </span>
@@ -369,9 +591,9 @@ export default function POApproval() {
                               <p className="font-medium text-gray-900">{history.action}</p>
                               <p className="text-xs text-gray-500">
                                 {history.date && !isNaN(new Date(history.date).getTime())
-                                  ? new Date(history.date).toLocaleString('th-TH', { 
-                                      year: 'numeric', 
-                                      month: 'short', 
+                                  ? new Date(history.date).toLocaleString('th-TH', {
+                                      year: 'numeric',
+                                      month: 'short',
                                       day: 'numeric',
                                       hour: '2-digit',
                                       minute: '2-digit'
@@ -451,9 +673,9 @@ export default function POApproval() {
                       allOldAttachments.push(...h.oldAttachments);
                     }
                   });
-                  
+
                   if (allOldAttachments.length === 0) return null;
-                  
+
                   return (
                     <div className="mb-10">
                       <div className="flex items-center gap-2 mb-4 bg-orange-50 p-4 rounded-xl border border-orange-200">
@@ -522,6 +744,156 @@ export default function POApproval() {
                   </div>
                 </div>
 
+                {/* Approval Status */}
+                {selectedItem && (
+                  <div className="mb-6">
+                    {(() => {
+                      const status = getApprovalStatusText(selectedItem);
+                      const StatusIcon = status.icon;
+                      const canUserApprove = canApprove(selectedItem);
+
+                      return (
+                        <div className={`relative overflow-hidden rounded-2xl border-2 p-5 ${
+                          canUserApprove
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                            : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
+                        }`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-xl shadow-sm ${status.color}`}>
+                              <StatusIcon className="w-6 h-6" />
+                            </div>
+
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-900 text-lg">{status.text}</p>
+                              {selectedItem.approval_level === 0 && selectedItem.head_of_dept_approved_by && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                  อนุมัติโดย: <span className="font-medium text-gray-700">{selectedItem.head_of_dept_approved_by_name || 'ไม่ระบุ'}</span> | {
+                                    new Date(selectedItem.head_of_dept_approved_at).toLocaleDateString('th-TH', {
+                                      year: 'numeric', month: 'short', day: 'numeric'
+                                    })
+                                  }
+                                </p>
+                              )}
+                            </div>
+
+                            {!canUserApprove && (
+                              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-xl border border-amber-200">
+                                <Lock className="w-4 h-4 text-amber-600" />
+                                <span className="text-amber-700 text-sm font-medium">รอการอนุมัติ</span>
+                              </div>
+                            )}
+
+                            {canUserApprove && (
+                              <div className="flex items-center gap-2 px-4 py-2 bg-green-100 rounded-xl border border-green-200">
+                                <Unlock className="w-4 h-4 text-green-600" />
+                                <span className="text-green-700 text-sm font-medium">พร้อมอนุมัติ</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Approvers Display */}
+                {(selectedItem.head_of_dept_approved_by || selectedItem.manager_approved_by) && (
+                  <div className="mb-10">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Signature className="w-3 h-3" /> ผู้อนุมัติ
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Head of Dept Card */}
+                      {selectedItem.head_of_dept_approved_by && (
+                        <div className="relative bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                          
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                              {(selectedItem.head_of_dept_approved_by_name || 'ห')[0]}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-blue-600 font-medium">หัวหน้าแผนก</p>
+                              <p className="text-sm font-bold text-gray-900">{selectedItem.head_of_dept_approved_by_name || 'ไม่ระบุชื่อ'}</p>
+                            </div>
+                          </div>
+                          
+                          {/* วันที่ */}
+                          <p className="text-xs text-gray-400 mb-3">
+                            {selectedItem.head_of_dept_approved_at && new Date(selectedItem.head_of_dept_approved_at).toLocaleDateString('th-TH', {
+                              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                          
+                          {/* ลายเซ็น - อยู่ใต้วันที่ */}
+                          <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-center min-h-[100px] border border-gray-100">
+                            {selectedItem.head_of_dept_signature ? (
+                              <img
+                                src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/purchase_requests/${selectedItem.id}/${selectedItem.head_of_dept_signature}`}
+                                alt="ลายเซ็นหัวหน้าแผนก"
+                                className="max-h-20 object-contain"
+                                onError={(e) => {
+                                  console.error('Failed to load head_of_dept signature');
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-gray-400 text-xs">ไม่สามารถโหลดลายเซ็น</span>';
+                                }}
+                              />
+                            ) : (
+                              <span className="text-gray-400 text-xs">ไม่มีลายเซ็น</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Manager Card */}
+                      {selectedItem.manager_approved_by && (
+                        <div className="relative bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                          
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold">
+                              {(selectedItem.manager_approved_by_name || 'ผ')[0]}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-purple-600 font-medium">ผู้จัดการ</p>
+                              <p className="text-sm font-bold text-gray-900">{selectedItem.manager_approved_by_name || 'ไม่ระบุชื่อ'}</p>
+                            </div>
+                          </div>
+                          
+                          {/* วันที่ */}
+                          <p className="text-xs text-gray-400 mb-3">
+                            {selectedItem.manager_approved_at && new Date(selectedItem.manager_approved_at).toLocaleDateString('th-TH', {
+                              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                          
+                          {/* ลายเซ็น - อยู่ใต้วันที่ */}
+                          <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-center min-h-[100px] border border-gray-100">
+                            {selectedItem.manager_signature ? (
+                              <img
+                                src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/purchase_requests/${selectedItem.id}/${selectedItem.manager_signature}`}
+                                alt="ลายเซ็นผู้จัดการ"
+                                className="max-h-20 object-contain"
+                                onError={(e) => {
+                                  console.error('Failed to load manager signature');
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-gray-400 text-xs">ไม่สามารถโหลดลายเซ็น</span>';
+                                }}
+                              />
+                            ) : (
+                              <span className="text-gray-400 text-xs">ไม่มีลายเซ็น</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>                  
+                  </div>
+                )}
+
                 {/* Comment */}
                 <div className="mb-10">
                   <Label className="text-sm font-bold text-gray-700 mb-3 block">
@@ -532,6 +904,7 @@ export default function POApproval() {
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="ระบุเหตุผลในการอนุมัติหรือตีกลับ..."
                     className="rounded-xl bg-gray-50 border-none min-h-[100px]"
+                    disabled={!canApprove(selectedItem)}
                   />
                 </div>
 
@@ -539,7 +912,7 @@ export default function POApproval() {
                 <div className="flex gap-4">
                   <Button
                     onClick={() => handleActionClick('rejected')}
-                    disabled={submitting}
+                    disabled={submitting || !canApprove(selectedItem)}
                     className="flex-1 h-14 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg"
                   >
                     <X className="w-5 h-5 mr-2" />
@@ -547,11 +920,11 @@ export default function POApproval() {
                   </Button>
                   <Button
                     onClick={() => handleActionClick('approved')}
-                    disabled={submitting}
+                    disabled={submitting || !canApprove(selectedItem)}
                     className="flex-1 h-14 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-lg shadow-lg shadow-green-500/25"
                   >
                     <Check className="w-5 h-5 mr-2" />
-                    {submitting ? 'กำลังดำเนินการ...' : 'อนุมัติใบขอซื้อ (Approve)'}
+                    {selectedItem?.approval_level === 0 ? 'อนุมัติ (หัวหน้าแผนก)' : 'อนุมัติ (ผู้จัดการ)'}
                   </Button>
                 </div>
               </CardContent>
@@ -575,12 +948,12 @@ export default function POApproval() {
               {confirmDialog.action === 'approved' ? 'ยืนยันการอนุมัติ' : 'ยืนยันการตีกลับ'}
             </DialogTitle>
             <DialogDescription className="text-center">
-              {confirmDialog.action === 'approved' 
+              {confirmDialog.action === 'approved'
                 ? 'คุณต้องการอนุมัติใบขอซื้อนี้ใช่หรือไม่?'
                 : 'คุณต้องการตีกลับใบขอซื้อนี้ใช่หรือไม่?'}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedItem && (
             <div className="py-4 text-center border-t border-b border-gray-100 my-4">
               <p className="text-xl font-black text-gray-900">{selectedItem.pr_number}</p>
@@ -591,21 +964,21 @@ export default function POApproval() {
               )}
             </div>
           )}
-          
+
           <DialogFooter className="gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setConfirmDialog({ open: false, action: null })}
               className="flex-1 h-12 rounded-xl"
             >
               ยกเลิก
             </Button>
-            <Button 
+            <Button
               onClick={handleConfirmAction}
               disabled={submitting}
               className={`flex-1 h-12 rounded-xl font-bold ${
-                confirmDialog.action === 'approved' 
-                  ? 'bg-green-600 hover:bg-green-700' 
+                confirmDialog.action === 'approved'
+                  ? 'bg-green-600 hover:bg-green-700'
                   : 'bg-orange-500 hover:bg-orange-600'
               }`}
             >

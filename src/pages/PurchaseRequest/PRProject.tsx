@@ -29,7 +29,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { prService, projectService, vendorService } from '@/services/api';
+import { prService, projectService } from '@/services/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import pb from '@/lib/pocketbase';
@@ -78,11 +78,9 @@ export default function PRProject() {
   
   // Data lists
   const [projects, setProjects] = useState<any[]>([]);
-  const [vendors, setVendors] = useState<any[]>([]);
   
   // Form state
   const [projectId, setProjectId] = useState('');
-  const [vendorIds, setVendorIds] = useState<string[]>([]);
   const [items, setItems] = useState<LineItem[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [editHistory, setEditHistory] = useState<EditHistory[]>([]);
@@ -91,12 +89,8 @@ export default function PRProject() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [projList, vendList] = await Promise.all([
-          projectService.getAll(),
-          vendorService.getAll()
-        ]);
+        const projList = await projectService.getAll();
         setProjects(projList);
-        setVendors(vendList);
         
         // ถ้าเป็น edit mode โหลดข้อมูล PR เดิม
         if (isEditMode && id) {
@@ -137,11 +131,6 @@ export default function PRProject() {
       
       setPrData(pr);
       setProjectId(pr.project || '');
-      
-      if (pr.vendor) {
-        const vendorArray = Array.isArray(pr.vendor) ? pr.vendor : [pr.vendor];
-        setVendorIds(vendorArray.filter(Boolean));
-      }
       
       // โหลดเอกสารแนบเดิม
       if (pr.attachments && pr.attachments.length > 0) {
@@ -294,8 +283,8 @@ export default function PRProject() {
   }, 0);
 
   const handleSubmit = async (status: string) => {
-    if (!projectId || vendorIds.length === 0) {
-      toast.error('กรุณาเลือกโครงการและผู้ขาย');
+    if (!projectId) {
+      toast.error('กรุณาเลือกโครงการ');
       return;
     }
 
@@ -332,7 +321,6 @@ export default function PRProject() {
         // Update existing PR
         await prService.update(id, {
           project: projectId,
-          vendor: vendorIds[0] || '',
           status: status,
           total_amount: totalAmount,
           requester_name: user?.name || user?.email || 'Unknown'
@@ -353,7 +341,6 @@ export default function PRProject() {
         const prData: any = {
           type: 'project',
           project: projectId,
-          vendor: vendorIds[0] || '',
           status: status,
           total_amount: totalAmount,
         };
@@ -368,6 +355,38 @@ export default function PRProject() {
         }
 
         const pr = await prService.create(prData, prItems);
+        
+        // เพิ่ม/อัพเดตอุปกรณ์ในโครงการ (project_items)
+        if (status === 'pending') {
+          for (const item of prItems) {
+            if (item.existingId) {
+              // อัพเดตจำนวนอุปกรณ์เดิม - เพิ่มเข้าไปทั้ง initial และ current
+              const existingItem = await pb.collection('project_items').getOne(item.existingId);
+              const addedQty = item.quantity || 0;
+              const currentQty = existingItem.quantity || 0;
+              const currentInitial = existingItem.initial_quantity || currentQty;
+              const newQuantity = currentQty + addedQty;
+              const newInitial = currentInitial + addedQty;
+              
+              await pb.collection('project_items').update(item.existingId, {
+                initial_quantity: newInitial,
+                quantity: newQuantity,
+                total_price: newQuantity * item.unit_price
+              });
+            } else {
+              // เพิ่มอุปกรณ์ใหม่เข้าโครงการ - ใส่ทั้ง initial_quantity และ quantity
+              await pb.collection('project_items').create({
+                project: projectId,
+                name: item.name,
+                unit: item.unit,
+                initial_quantity: item.quantity,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                total_price: item.total_price
+              });
+            }
+          }
+        }
         
         if (attachments.length > 0) {
           await uploadAttachments(pr.id);
@@ -390,8 +409,6 @@ export default function PRProject() {
       setIsSubmitting(false);
     }
   };
-
-  const selectedVendors = vendors.filter(v => vendorIds.includes(v.id));
 
   if (loading) {
     return (
@@ -606,68 +623,6 @@ export default function PRProject() {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Vendor Card */}
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <CardHeader className="bg-white pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-bold">
-                <User className="w-5 h-5 text-blue-600" /> ข้อมูลผู้ขาย
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขายหลัก *</Label>
-                <Select 
-                  onValueChange={(value) => {
-                    if (!vendorIds.includes(value)) {
-                      setVendorIds([...vendorIds, value]);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
-                    <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.filter(v => !vendorIds.includes(v.id)).map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {vendorIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedVendors.map(vendor => (
-                      <span 
-                        key={vendor.id} 
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                      >
-                        {vendor.name}
-                        <button 
-                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
-                          className="hover:text-blue-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {selectedVendors.length > 0 && (
-                <div className="space-y-3">
-                  {selectedVendors.map(vendor => (
-                    <div key={vendor.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
-                      <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{vendor.name}</p>
-                      <p className="font-bold text-blue-900">{vendor.contact_person}</p>
-                      <p className="text-sm text-blue-700">{vendor.email}</p>
-                      <p className="text-sm text-blue-700">{vendor.phone}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Attachments Card */}
           <Card className="border-none shadow-sm rounded-2xl">
             <CardHeader className="pb-2">

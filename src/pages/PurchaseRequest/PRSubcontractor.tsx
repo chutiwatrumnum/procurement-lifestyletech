@@ -47,6 +47,7 @@ interface LineItem {
   project_item_id?: string;
   max_quantity?: number;
   isExisting?: boolean;
+  item_type?: 'regular' | 'reserve';
 }
 
 interface Attachment {
@@ -194,10 +195,14 @@ export default function PRSubcontractor() {
     
     async function loadProjectItems() {
       try {
+        console.log('Loading project items for project:', projectId);
+        
         const projectItems = await pb.collection('project_items').getFullList({
           filter: `project = "${projectId}"`,
           sort: 'name'
-        }).catch(() => []);
+        });
+        
+        console.log('Project items found:', projectItems.length, projectItems);
         
         const prSubsApproved = await pb.collection('purchase_requests').getFullList({
           filter: `project = "${projectId}" && type = "sub" && status = "approved"`
@@ -206,7 +211,7 @@ export default function PRSubcontractor() {
         const withdrawnMap: Record<string, number> = {};
         for (const prSub of prSubsApproved) {
           const prItems = await pb.collection('pr_items').getFullList({
-            filter: `pr = "${prSub.id}"`
+            filter: `pr = "${prSub.id}" && item_type != "reserve"`
           });
           for (const item of prItems) {
             if (item.project_item) {
@@ -215,12 +220,19 @@ export default function PRSubcontractor() {
           }
         }
         
+        console.log('Withdrawn map:', withdrawnMap);
+        
         if (projectItems.length > 0) {
           const availableItems = projectItems
             .map((item: any) => {
+              // ใช้ initial_quantity เป็นค่าเริ่มต้น ถ้าไม่มีใช้ quantity แทน
               const initialQty = item.initial_quantity || item.quantity || 0;
+              const currentQty = item.quantity || 0;
               const withdrawn = withdrawnMap[item.id] || 0;
+              // คงเหลือ = ค่าเริ่มต้น - เบิกไปแล้ว
               const remaining = Math.max(0, initialQty - withdrawn);
+              
+              console.log(`Item ${item.name}: initial=${initialQty}, current=${currentQty}, withdrawn=${withdrawn}, remaining=${remaining}`);
               
               return {
                 id: item.id || Date.now().toString() + Math.random(),
@@ -232,13 +244,16 @@ export default function PRSubcontractor() {
                 unit_price: item.unit_price || 0,
                 total_price: remaining * (item.unit_price || 0),
                 max_quantity: remaining,
-                isExisting: true
+                isExisting: true,
+                item_type: 'regular'
               };
             })
             .filter((item: any) => item.quantity > 0);
 
+          console.log('Available items after filter:', availableItems);
           setItems(availableItems.length > 0 ? availableItems : []);
         } else {
+          console.log('No project items found');
           setItems([]);
         }
       } catch (err) {
@@ -258,7 +273,8 @@ export default function PRSubcontractor() {
       unit_price: 0, 
       reference_price: 0, 
       total_price: 0,
-      isExisting: false 
+      isExisting: false,
+      item_type: 'regular'
     }]);
   };
 
@@ -353,9 +369,10 @@ export default function PRSubcontractor() {
 
     setIsSubmitting(true);
     try {
-      const prItems = validItems.map(({ name, unit, quantity, unit_price, total_price, project_item_id }) => ({
+      const prItems = validItems.map(({ name, unit, quantity, unit_price, total_price, project_item_id, item_type }) => ({
         name, unit, quantity, unit_price, total_price,
-        project_item: project_item_id
+        project_item: project_item_id,
+        item_type: item_type || 'regular'
       }));
 
       if (isEditMode && id) {
@@ -568,6 +585,7 @@ export default function PRSubcontractor() {
                       <thead>
                         <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
                           <th className="py-4 text-left">รายละเอียด</th>
+                          <th className="py-4 text-center w-24">ประเภท</th>
                           <th className="py-4 text-right w-20">จำนวน</th>
                           {!isEditMode && <th className="py-4 text-right w-28 text-blue-400">ราคาอ้างอิง</th>}
                           <th className="py-4 text-right w-32">ราคาซื้อจริง</th>
@@ -592,6 +610,16 @@ export default function PRSubcontractor() {
                                   className="h-10 border-none bg-gray-50 rounded-xl" 
                                 />
                               )}
+                            </td>
+                            <td className="py-4 px-2">
+                              <select
+                                value={item.item_type || 'regular'}
+                                onChange={(e) => updateItem(item.id, 'item_type', e.target.value)}
+                                className="w-full h-10 px-2 border-none bg-gray-50 rounded-xl text-xs font-bold text-center"
+                              >
+                                <option value="regular">ปกติ</option>
+                                <option value="reserve">สำรอง</option>
+                              </select>
                             </td>
                             <td className="py-4 px-1">
                               <Input 

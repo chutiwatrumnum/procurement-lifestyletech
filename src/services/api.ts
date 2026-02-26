@@ -32,11 +32,16 @@ export const vendorService = {
 };
 
 export const prService = {
-  async getAll(filter = '') {
-    // ดึง PRs โดยไม่ expand requester (เพราะ API Rules จำกัด)
+  async getAll(filter = '', options: { expand?: string } = {}) {
+    // รวม expand ที่ส่งมากับ default
+    const defaultExpand = ['project', 'vendor'];
+    const customExpand = options.expand ? options.expand.split(',') : [];
+    const allExpand = [...new Set([...defaultExpand, ...customExpand])].join(',');
+    
+    // ดึง PRs
     const prs = await pb.collection('purchase_requests').getFullList({
       filter,
-      expand: 'project,vendor',
+      expand: allExpand,
       sort: '-created'
     });
 
@@ -55,9 +60,8 @@ export const prService = {
         }
 
         // วิธีที่ 2: ดึงข้อมูล users ทั้งหมดที่อนุญาตให้ list ได้
-        // ใช้ filter id รวมกันแทนการดึงทีละคน
         const idsFilter = requesterIds
-          .filter(id => !userMap[id]) // กรองที่ยังไม่มีข้อมูล
+          .filter(id => !userMap[id])
           .map(id => `id = "${id}"`)
           .join(' || ');
         
@@ -74,7 +78,6 @@ export const prService = {
           } catch (listErr) {
             console.log('List users not allowed, trying individual fetch...');
             
-            // Fallback: ดึงทีละคน (สำหรับกรณีที่ list ไม่ได้แต่ getOne ได้)
             for (const userId of requesterIds.filter(id => !userMap[id])) {
               try {
                 const user = await pb.collection('users').getOne(userId);
@@ -227,11 +230,19 @@ export const prService = {
       
       console.log('PR Items found:', prItems.length);
       
-      // 4. ตัด stock จาก project_items โดยใช้ ID
+      // 4. ตัด stock จาก project_items โดยใช้ ID (เฉพาะ item_type = 'regular')
       let updatedCount = 0;
       let notFoundItems: string[] = [];
+      let reserveItems: string[] = [];
       
       for (const item of prItems) {
+        // ข้ามรายการสำรอง (reserve) ไม่ต้องตัด stock
+        if (item.item_type === 'reserve') {
+          reserveItems.push(item.name || 'ไม่มีชื่อ');
+          console.log(`Skipping reserve item: ${item.name}`);
+          continue;
+        }
+        
         // ใช้ project_item ID จาก relation
         const projectItemId = item.project_item || (item.expand?.project_item?.id);
         
@@ -290,6 +301,9 @@ export const prService = {
       let details = `อนุมัติใบขอซื้อย่อย ${pr.pr_number}`;
       if (updatedCount > 0) {
         details += ` (อัปเดต ${updatedCount} รายการ)`;
+      }
+      if (reserveItems.length > 0) {
+        details += ` [สำรอง: ${reserveItems.length} รายการ]`;
       }
       if (notFoundItems.length > 0) {
         details += ` [ไม่พบ: ${notFoundItems.join(', ')}]`;

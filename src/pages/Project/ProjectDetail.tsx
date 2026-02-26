@@ -30,6 +30,17 @@ interface WithdrawDetail {
   date: string;
 }
 
+interface ReserveItem {
+  id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  pr_number: string;
+  created: string;
+}
+
 interface ProjectItem {
   id: string;
   name: string;
@@ -65,13 +76,16 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<any>(null);
   const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
+  const [reserveItems, setReserveItems] = useState<ReserveItem[]>([]);
+  const [reserveTotal, setReserveTotal] = useState(0);
   const [prProjects, setPrProjects] = useState<PRProject[]>([]);
   const [prSubs, setPrSubs] = useState<PRSub[]>([]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [stats, setStats] = useState({
     totalPlanned: 0,
     totalWithdrawn: 0,
-    remaining: 0
+    remaining: 0,
+    totalReserve: 0
   });
 
   useEffect(() => {
@@ -120,14 +134,14 @@ export default function ProjectDetail() {
       
       for (const prSub of prSubsApproved) {
         const prItems = await pb.collection('pr_items').getFullList({
-          filter: `pr = "${prSub.id}"`,
+          filter: `pr = "${prSub.id}" && (item_type = "regular" || item_type = "")`,
           expand: 'project_item'
         });
         
         for (const item of prItems) {
           const projectItemId = item.project_item;
           if (projectItemId) {
-            // สะสมจำนวนรวม
+            // สะสมจำนวนรวม (เฉพาะ regular)
             withdrawnMap[projectItemId] = (withdrawnMap[projectItemId] || 0) + (item.quantity || 0);
             
             // เก็บรายละเอียดแต่ละครั้ง
@@ -165,8 +179,42 @@ export default function ProjectDetail() {
       setStats({
         totalPlanned,
         totalWithdrawn,
-        remaining: totalPlanned - totalWithdrawn
+        remaining: totalPlanned - totalWithdrawn,
+        totalReserve: 0
       });
+
+      // 9. โหลดรายการสำรอง (reserve items) จาก PR Sub ที่อนุมัติแล้ว
+      const reserveItemsList: ReserveItem[] = [];
+      let reserveTotalAmount = 0;
+      
+      for (const prSub of prSubsApproved) {
+        const prItems = await pb.collection('pr_items').getFullList({
+          filter: `pr = "${prSub.id}" && item_type = "reserve"`
+        });
+        
+        for (const item of prItems) {
+          reserveItemsList.push({
+            id: item.id,
+            name: item.name,
+            unit: item.unit || 'งาน',
+            quantity: item.quantity || 0,
+            unit_price: item.unit_price || 0,
+            total_price: item.total_price || 0,
+            pr_number: prSub.pr_number,
+            created: prSub.created
+          });
+          reserveTotalAmount += item.total_price || 0;
+        }
+      }
+      
+      setReserveItems(reserveItemsList);
+      setReserveTotal(reserveTotalAmount);
+      
+      // Update stats with reserve total
+      setStats(prev => ({
+        ...prev,
+        totalReserve: reserveTotalAmount
+      }));
 
     } catch (err) {
       console.error('Error loading project:', err);
@@ -291,6 +339,10 @@ export default function ProjectDetail() {
           <TabsTrigger value="prsub" className="rounded-lg">
             <FileText className="w-4 h-4 mr-2" />
             เอกสาร PR Sub ({prSubs.length})
+          </TabsTrigger>
+          <TabsTrigger value="reserve" className="rounded-lg">
+            <Package className="w-4 h-4 mr-2" />
+            สำรอง ({reserveItems.length})
           </TabsTrigger>
         </TabsList>
 
@@ -511,6 +563,73 @@ export default function ProjectDetail() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reserve" className="mt-6">
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Package className="w-5 h-5 text-purple-600" />
+                รายการสำรอง (ไม่หักจาก Stock)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {reserveItems.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>ยังไม่มีรายการสำรอง</p>
+                  <p className="text-sm text-gray-400">สร้าง PR Sub และเลือกประเภท "สำรอง" เพื่อเพิ่มรายการ</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-600">
+                        <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รายการ</th>
+                        <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider">จำนวน</th>
+                        <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider">หน่วย</th>
+                        <th className="py-4 px-6 text-right font-bold uppercase text-[10px] tracking-wider">ราคาต่อหน่วย</th>
+                        <th className="py-4 px-6 text-right font-bold uppercase text-[10px] tracking-wider">รวม</th>
+                        <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">เลข PR</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {reserveItems.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50">
+                          <td className="py-4 px-6">
+                            <p className="font-bold text-gray-900">{item.name}</p>
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            <p className="font-bold text-purple-600">{item.quantity}</p>
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            <p className="text-gray-600">{item.unit}</p>
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <p className="font-medium text-gray-600">฿{item.unit_price.toLocaleString()}</p>
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <p className="font-black text-purple-600">฿{item.total_price.toLocaleString()}</p>
+                          </td>
+                          <td className="py-4 px-6">
+                            <p className="text-xs text-gray-500">{item.pr_number}</p>
+                            <p className="text-xs text-gray-400">{new Date(item.created).toLocaleDateString('th-TH')}</p>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="p-6 bg-purple-50 flex justify-end">
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">รวมมูลค่าสำรอง</p>
+                      <p className="text-4xl font-black text-purple-600 tracking-tighter">฿{reserveTotal.toLocaleString()}</p>
+                      <p className="text-xs text-gray-400 mt-2">*ไม่รวมในงบประมาณโครงการ</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>

@@ -254,7 +254,7 @@ function Sidebar({
           )}
           
           <Link
-            to="/settings"
+            to="/settings/profile"
             className={cn(
               'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[#9CA3AF] hover:text-white hover:bg-white/5 transition-all',
               collapsed && 'justify-center px-2'

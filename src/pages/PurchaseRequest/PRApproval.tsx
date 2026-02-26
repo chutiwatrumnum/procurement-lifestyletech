@@ -19,7 +19,12 @@ import {
   AlertTriangle,
   History,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Lock,
+  Unlock,
+  UserCheck,
+  Users,
+  Signature
 } from 'lucide-react';
 import { prService } from '@/services/api';
 import { toast } from 'sonner';
@@ -46,16 +51,107 @@ export default function PRApproval() {
   const [editHistory, setEditHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; action: 'approved' | 'rejected' | null }>({ open: false, action: null });
+  
+  // เก็บข้อมูลลายเซ็นของผู้อนุมัติ
+  const [approverSignatures, setApproverSignatures] = useState<{
+    headOfDept: string | null;
+    manager: string | null;
+  }>({ headOfDept: null, manager: null });
+
+  // ตรวจสอบสิทธิ์การอนุมัติ
+  const isHeadOfDept = () => user?.role === 'head_of_dept';
+  const isManager = () => user?.role === 'manager';
+  const isSuperAdmin = () => user?.role === 'superadmin';
+
+  // ตรวจสอบว่า user สามารถอนุมัติ PR นี้ได้ไหม
+  const canApprove = (pr: any) => {
+    if (!pr) return false;
+    
+    const level = pr.approval_level || 0;
+    
+    // Level 0: รอหัวหน้าแผนกอนุมัติ
+    if (level === 0) {
+      return isHeadOfDept() || isSuperAdmin();
+    }
+    
+    // Level 1: รอผู้จัดการอนุมัติ
+    if (level === 1) {
+      return isManager() || isSuperAdmin();
+    }
+    
+    return false;
+  };
+
+  // ดึงข้อความสถานะการอนุมัติ
+  const getApprovalStatusText = (pr: any) => {
+    const level = pr?.approval_level || 0;
+    
+    if (level === 0) {
+      return { text: 'รอหัวหน้าแผนกอนุมัติ', color: 'bg-yellow-100 text-yellow-700', icon: UserCheck };
+    }
+    if (level === 1) {
+      return { text: 'รอผู้จัดการอนุมัติ', color: 'bg-blue-100 text-blue-700', icon: Users };
+    }
+    return { text: 'อนุมัติครบถ้วน', color: 'bg-green-100 text-green-700', icon: Check };
+  };
 
   useEffect(() => {
     loadPRs();
   }, []);
 
+  // Fetch ลายเซ็นของผู้อนุมัติเมื่อ selectedPR เปลี่ยน
+  useEffect(() => {
+    if (selectedPR) {
+      fetchApproverSignatures();
+    }
+  }, [selectedPR]);
+
+  async function fetchApproverSignatures() {
+    setApproverSignatures({ headOfDept: null, manager: null });
+    
+    try {
+      // Fetch ลายเซ็นหัวหน้าแผนก
+      if (selectedPR.head_of_dept_approved_by) {
+        try {
+          const headOfDeptUser = await pb.collection('users').getOne(selectedPR.head_of_dept_approved_by);
+          if (headOfDeptUser.signature) {
+            setApproverSignatures(prev => ({
+              ...prev,
+              headOfDept: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${headOfDeptUser.id}/${headOfDeptUser.signature}`
+            }));
+          }
+        } catch (err) {
+          console.log('Failed to fetch head_of_dept signature');
+        }
+      }
+      
+      // Fetch ลายเซ็นผู้จัดการ
+      if (selectedPR.manager_approved_by) {
+        try {
+          const managerUser = await pb.collection('users').getOne(selectedPR.manager_approved_by);
+          if (managerUser.signature) {
+            setApproverSignatures(prev => ({
+              ...prev,
+              manager: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${managerUser.id}/${managerUser.signature}`
+            }));
+          }
+        } catch (err) {
+          console.log('Failed to fetch manager signature');
+        }
+      }
+    } catch (err) {
+      console.error('Fetch signatures error:', err);
+    }
+  }
+
   async function loadPRs() {
     setLoading(true);
     try {
       // ดึงเฉพาะ PR Project (type = 'project' หรือไม่มี type) ที่ status = 'pending'
-      const data = await prService.getAll('status = "pending"');
+      // และขยาย expand สำหรับ head_of_dept_approved_by
+      const data = await prService.getAll('status = "pending"', { 
+        expand: 'requester,project'
+      });
       // กรองเอาเฉพาะ PR Project (type = 'project' หรือ type เป็น null/undefined)
       const projectPRs = data.filter(pr => pr.type === 'project' || !pr.type);
       setPendingPRs(projectPRs);
@@ -168,18 +264,132 @@ export default function PRApproval() {
 
   const handleConfirmAction = async () => {
     if (!selectedPR || !confirmDialog.action) return;
+    
+    // เช็คลายเซ็นก่อนอนุมัติ
+    if (confirmDialog.action === 'approved') {
+      try {
+        const currentUserData = await pb.collection('users').getOne(user?.id || '');
+        if (!currentUserData.signature) {
+          toast.error('กรุณาอัปโหลดลายเซ็นก่อนอนุมัติ ไปที่ ตั้งค่า > ลายเซ็นดิจิทัล');
+          setConfirmDialog({ open: false, action: null });
+          return;
+        }
+      } catch (err: any) {
+        console.error('Check signature error:', err);
+        if (err.status === 404) {
+          toast.error('ไม่พบข้อมูลผู้ใช้ หรือไม่มีสิทธิ์เข้าถึง');
+        } else {
+          toast.error('ไม่สามารถตรวจสอบลายเซ็นได้');
+        }
+        return;
+      }
+    }
+    
     setSubmitting(true);
     try {
-      // If rejecting, save current attachments to history
-      const oldAttachments = confirmDialog.action === 'rejected' ? selectedPR.attachments : undefined;
-      await prService.updateStatus(selectedPR.id, confirmDialog.action, comment, user?.id, oldAttachments);
-      toast.success(confirmDialog.action === 'approved' ? 'อนุมัติเรียบร้อยแล้ว' : 'ตีกลับเรียบร้อยแล้ว');
+      const currentLevel = selectedPR.approval_level || 0;
+      
+      if (confirmDialog.action === 'rejected') {
+        // ตีกลับ - ยกเลิกการอนุมัติทั้งหมด
+        await prService.updateStatus(selectedPR.id, 'rejected', comment, user?.id, selectedPR.attachments);
+        toast.success('ตีกลับเรียบร้อยแล้ว');
+      } else {
+        // อนุมัติ - Copy ลายเซ็นไฟล์ไปเก็บใน PR (วิธีที่ 1: Duplicate File)
+        const currentUserData = await pb.collection('users').getOne(user?.id || '');
+        
+        if (currentLevel === 0 && (isHeadOfDept() || isSuperAdmin())) {
+          // หัวหน้าแผนกอนุมัติ → เปลี่ยนเป็น level 1
+          const updateData: any = {
+            approval_level: 1,
+            head_of_dept_approved_by: user?.id,
+            head_of_dept_approved_at: new Date().toISOString(),
+            head_of_dept_approved_by_name: user?.name || user?.email,
+            head_of_dept_comment: comment || undefined
+          };
+          
+          // ถ้ามีลายเซ็น ให้ copy ไปเก็บใน PR
+          if (currentUserData.signature) {
+            try {
+              // ดึงไฟล์ลายเซ็นมาเป็น blob
+              const signatureUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+              const response = await fetch(signatureUrl);
+              const blob = await response.blob();
+              
+              // สร้าง File ใหม่
+              const signatureFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+              
+              // สร้าง FormData และอัพเดต
+              const formData = new FormData();
+              Object.keys(updateData).forEach(key => {
+                formData.append(key, updateData[key]);
+              });
+              formData.append('head_of_dept_signature', signatureFile);
+              
+              await pb.collection('purchase_requests').update(selectedPR.id, formData);
+            } catch (err) {
+              console.error('Failed to copy signature:', err);
+              // ถ้า copy ไม่ได้ ให้อัพเดตแบบไม่มีลายเซ็น
+              await pb.collection('purchase_requests').update(selectedPR.id, updateData);
+            }
+          } else {
+            await pb.collection('purchase_requests').update(selectedPR.id, updateData);
+          }
+          
+          toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้จัดการอนุมัติต่อ)');
+          
+        } else if (currentLevel === 1 && (isManager() || isSuperAdmin())) {
+          // ผู้จัดการอนุมัติ → อนุมัติสมบูรณ์
+          const updateData: any = {
+            status: 'approved',
+            approved_by: user?.id,
+            approved_at: new Date().toISOString(),
+            manager_approved_by: user?.id,
+            manager_approved_at: new Date().toISOString(),
+            manager_approved_by_name: user?.name || user?.email,
+            manager_comment: comment || undefined
+          };
+          
+          // ถ้ามีลายเซ็น ให้ copy ไปเก็บใน PR
+          if (currentUserData.signature) {
+            try {
+              // ดึงไฟล์ลายเซ็นมาเป็น blob
+              const signatureUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+              const response = await fetch(signatureUrl);
+              const blob = await response.blob();
+              
+              // สร้าง File ใหม่
+              const signatureFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+              
+              // สร้าง FormData และอัพเดต
+              const formData = new FormData();
+              Object.keys(updateData).forEach(key => {
+                formData.append(key, updateData[key]);
+              });
+              formData.append('manager_signature', signatureFile);
+              
+              await pb.collection('purchase_requests').update(selectedPR.id, formData);
+            } catch (err) {
+              console.error('Failed to copy signature:', err);
+              // ถ้า copy ไม่ได้ ให้อัพเดตแบบไม่มีลายเซ็น
+              await pb.collection('purchase_requests').update(selectedPR.id, updateData);
+            }
+          } else {
+            await pb.collection('purchase_requests').update(selectedPR.id, updateData);
+          }
+          
+          toast.success('อนุมัติสมบูรณ์แล้ว');
+        } else {
+          toast.error('คุณไม่มีสิทธิ์อนุมัติในระดับนี้');
+        }
+      }
+      
       setComment('');
       setConfirmDialog({ open: false, action: null });
       await loadPRs();
       // Refresh badge counts in sidebar
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
     } catch (err) {
+      console.error('Approval failed:', err);
       toast.error('ดำเนินการไม่สำเร็จ');
     } finally {
       setSubmitting(false);
@@ -260,12 +470,24 @@ export default function PRApproval() {
                     </div>
                     <p className="font-bold text-gray-900">฿{pr.total_amount?.toLocaleString() || 0}</p>
                   </div>
-                  {pr.attachments && pr.attachments.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-blue-600">
-                      <Paperclip className="w-3 h-3" />
-                      <span>{pr.attachments.length} ไฟล์แนบ</span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between mt-2">
+                    {(() => {
+                      const status = getApprovalStatusText(pr);
+                      const StatusIcon = status.icon;
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${status.color}`}>
+                          <StatusIcon className="w-3 h-3" />
+                          {status.text}
+                        </span>
+                      );
+                    })()}
+                    {pr.attachments && pr.attachments.length > 0 && (
+                      <div className="flex items-center gap-1 text-xs text-blue-600">
+                        <Paperclip className="w-3 h-3" />
+                        <span>{pr.attachments.length} ไฟล์แนบ</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -281,9 +503,15 @@ export default function PRApproval() {
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">รายละเอียดใบขอซื้อ</p>
                   <CardTitle className="text-2xl font-bold text-[#1F2937]">{selectedPR.pr_number}</CardTitle>
                 </div>
-                <Badge className="bg-yellow-50 text-yellow-700 font-bold border-none px-4 py-1.5 rounded-lg">
-                  <Clock className="w-3.5 h-3.5 mr-2" /> Waiting Approval
-                </Badge>
+                {(() => {
+                  const status = getApprovalStatusText(selectedPR);
+                  const StatusIcon = status.icon;
+                  return (
+                    <Badge className={`${status.color} font-bold border-none px-4 py-1.5 rounded-lg`}>
+                      <StatusIcon className="w-3.5 h-3.5 mr-2" /> {status.text}
+                    </Badge>
+                  );
+                })()}
               </CardHeader>
               <CardContent className="p-8">
                 <div className="grid grid-cols-2 gap-8 mb-10">
@@ -532,6 +760,155 @@ export default function PRApproval() {
                   </div>
                 </div>
 
+                {/* Signatures Display */}
+                {(selectedPR.head_of_dept_approved_by || selectedPR.manager_approved_by) && (
+                  <div className="mb-10">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Signature className="w-3 h-3" /> ผู้อนุมัติ
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Head of Dept Card */}
+                      {selectedPR.head_of_dept_approved_by && (
+                        <div className="relative bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                          
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                              {(selectedPR.head_of_dept_approved_by_name || 'ห')[0]}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-blue-600 font-medium">หัวหน้าแผนก</p>
+                              <p className="text-sm font-bold text-gray-900">{selectedPR.head_of_dept_approved_by_name || 'ไม่ระบุชื่อ'}</p>
+                            </div>
+                          </div>
+                          
+                          {/* วันที่ */}
+                          <p className="text-xs text-gray-400 mb-3">
+                            {selectedPR.head_of_dept_approved_at && new Date(selectedPR.head_of_dept_approved_at).toLocaleDateString('th-TH', {
+                              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                          
+                          {/* ลายเซ็น - อยู่ใต้วันที่ */}
+                          <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-center min-h-[100px] border border-gray-100">
+                            {selectedPR.head_of_dept_signature ? (
+                              <img
+                                src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/purchase_requests/${selectedPR.id}/${selectedPR.head_of_dept_signature}`}
+                                alt="ลายเซ็นหัวหน้าแผนก"
+                                className="max-h-20 object-contain"
+                                onError={(e) => {
+                                  console.error('Failed to load head_of_dept signature');
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-gray-400 text-xs">ไม่สามารถโหลดลายเซ็น</span>';
+                                }}
+                              />
+                            ) : (
+                              <span className="text-gray-400 text-xs">ไม่มีลายเซ็น</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Manager Card */}
+                      {selectedPR.manager_approved_by && (
+                        <div className="relative bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                          
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold">
+                              {(selectedPR.manager_approved_by_name || 'ผ')[0]}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-purple-600 font-medium">ผู้จัดการ</p>
+                              <p className="text-sm font-bold text-gray-900">{selectedPR.manager_approved_by_name || 'ไม่ระบุชื่อ'}</p>
+                            </div>
+                          </div>
+                          
+                          {/* วันที่ */}
+                          <p className="text-xs text-gray-400 mb-3">
+                            {selectedPR.manager_approved_at && new Date(selectedPR.manager_approved_at).toLocaleDateString('th-TH', {
+                              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                          
+                          {/* ลายเซ็น - อยู่ใต้วันที่ */}
+                          <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-center min-h-[100px] border border-gray-100">
+                            {selectedPR.manager_signature ? (
+                              <img
+                                src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/purchase_requests/${selectedPR.id}/${selectedPR.manager_signature}`}
+                                alt="ลายเซ็นผู้จัดการ"
+                                className="max-h-20 object-contain"
+                                onError={(e) => {
+                                  console.error('Failed to load manager signature');
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-gray-400 text-xs">ไม่สามารถโหลดลายเซ็น</span>';
+                                }}
+                              />
+                            ) : (
+                              <span className="text-gray-400 text-xs">ไม่มีลายเซ็น</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>                  
+                  </div>
+                )}
+
+                {/* Approval Status */}
+                {selectedPR && (
+                  <div className="mb-6">
+                    {(() => {
+                      const status = getApprovalStatusText(selectedPR);
+                      const StatusIcon = status.icon;
+                      const canUserApprove = canApprove(selectedPR);
+                      
+                      return (
+                        <div className={`relative overflow-hidden rounded-2xl border-2 p-5 ${
+                          canUserApprove 
+                            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+                            : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
+                        }`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-xl shadow-sm ${status.color}`}>
+                              <StatusIcon className="w-6 h-6" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-900 text-lg">{status.text}</p>
+                              {selectedPR.approval_level === 0 && selectedPR.head_of_dept_approved_by && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                  อนุมัติโดย: <span className="font-medium text-gray-700">{selectedPR.head_of_dept_approved_by_name || 'ไม่ระบุ'}</span> | {
+                                    new Date(selectedPR.head_of_dept_approved_at).toLocaleDateString('th-TH', {
+                                      year: 'numeric', month: 'short', day: 'numeric'
+                                    })
+                                  }
+                                </p>
+                              )}
+                            </div>
+                            
+                            {!canUserApprove && (
+                              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-xl border border-amber-200">
+                                <Lock className="w-4 h-4 text-amber-600" />
+                                <span className="text-amber-700 text-sm font-medium">รอการอนุมัติ</span>
+                              </div>
+                            )}
+                            
+                            {canUserApprove && (
+                              <div className="flex items-center gap-2 px-4 py-2 bg-green-100 rounded-xl border border-green-200">
+                                <Unlock className="w-4 h-4 text-green-600" />
+                                <span className="text-green-700 text-sm font-medium">พร้อมอนุมัติ</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 <div className="space-y-4 mb-8">
                   <Label className="text-[#1F2937] font-bold">ความเห็น/เหตุผลประกอบการตัดสินใจ</Label>
                   <Textarea 
@@ -540,6 +917,7 @@ export default function PRApproval() {
                     className="rounded-xl border-gray-100 bg-gray-50 focus:bg-white transition-colors"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
+                    disabled={!canApprove(selectedPR)}
                   />
                 </div>
 
@@ -547,16 +925,17 @@ export default function PRApproval() {
                   <Button 
                     className="flex-1 h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl"
                     onClick={() => handleActionClick('rejected')}
-                    disabled={submitting}
+                    disabled={submitting || !canApprove(selectedPR)}
                   >
                     <X className="w-5 h-5 mr-2" /> ตีกลับไปแก้ไข (Reject)
                   </Button>
                   <Button 
                     className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-500/20"
                     onClick={() => handleActionClick('approved')}
-                    disabled={submitting}
+                    disabled={submitting || !canApprove(selectedPR)}
                   >
-                    <Check className="w-5 h-5 mr-2" /> อนุมัติใบขอซื้อ (Approve)
+                    <Check className="w-5 h-5 mr-2" /> 
+                    {selectedPR?.approval_level === 0 ? 'อนุมัติ (หัวหน้าแผนก)' : 'อนุมัติ (ผู้จัดการ)'}
                   </Button>
                 </div>
               </CardContent>

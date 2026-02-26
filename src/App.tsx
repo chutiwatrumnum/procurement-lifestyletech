@@ -36,6 +36,12 @@ import POEdit from '@/pages/PurchaseOrder/POEdit';
 // Reports
 import BudgetReport from '@/pages/Reports/BudgetReport';
 
+// Admin
+import UserManagement from '@/pages/Admin/Users';
+
+// Settings
+import ProfileSettings from '@/pages/Settings/Profile';
+
 // Shared
 import PurchaseRequestList from '@/pages/PurchaseRequestList';
 import PurchaseOrderList from '@/pages/PurchaseOrderList';
@@ -90,6 +96,12 @@ function AppRoutes() {
 
       {/* Reports */}
       <Route path="/reports" element={<ProtectedRoute><BudgetReport /></ProtectedRoute>} />
+      
+      {/* Admin */}
+      <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+      
+      {/* Settings */}
+      <Route path="/settings/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
       
       {/* Vendors */}
       <Route path="/vendors" element={<ProtectedRoute><VendorListNew /></ProtectedRoute>} />
