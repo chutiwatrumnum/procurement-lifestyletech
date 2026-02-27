@@ -25,7 +25,8 @@ import {
   Unlock,
   UserCheck,
   Users,
-  Signature
+  Signature,
+  ChevronLeft
 } from 'lucide-react';
 import { prService } from '@/services/api';
 import { notificationService } from '@/services/notification';
@@ -48,6 +49,11 @@ export default function PRApproval() {
   const [selectedPR, setSelectedPR] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Pagination State
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  
   const [submitting, setSubmitting] = useState(false);
   const [comment, setComment] = useState('');
   const [budgetInfo, setBudgetInfo] = useState<{ budget: number; spent: number; percentage: number } | null>(null);
@@ -481,6 +487,10 @@ export default function PRApproval() {
     );
   }
 
+  // Pagination Logic
+  const totalPages = Math.ceil(pendingPRs.length / ITEMS_PER_PAGE);
+  const paginatedPRs = pendingPRs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -493,9 +503,9 @@ export default function PRApproval() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left - PR List */}
         <div className="lg:col-span-1">
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <div className="divide-y divide-gray-50">
-              {pendingPRs.map((pr) => (
+          <Card className="border-none shadow-sm rounded-2xl overflow-hidden flex flex-col h-[calc(100vh-12rem)]">
+            <div className="divide-y divide-gray-50 flex-1 overflow-y-auto min-h-0">
+              {paginatedPRs.map((pr) => (
                 <div
                   key={pr.id}
                   onClick={() => handleSelectPR(pr)}
@@ -548,6 +558,63 @@ export default function PRApproval() {
                 </div>
               ))}
             </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex-none items-center justify-between px-4 py-3 border-t border-gray-100 bg-white">
+                <div className="flex items-center justify-between w-full">
+                  <p className="text-xs text-gray-500">
+                    {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, pendingPRs.length)} จาก {pendingPRs.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="h-7 w-7 p-0 rounded-md"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </Button>
+                    <div className="flex gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                        .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                          if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push('...');
+                          acc.push(page);
+                          return acc;
+                        }, [])
+                        .map((page, idx) => (
+                          typeof page === 'string' ? (
+                            <span key={`ellipsis-${idx}`} className="px-1 py-1 text-gray-400 text-xs">...</span>
+                          ) : (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              className={`h-7 w-7 p-0 rounded-md text-xs font-medium ${
+                                currentPage === page ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'text-gray-600'
+                              }`}
+                            >
+                              {page}
+                            </Button>
+                          )
+                        ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="h-7 w-7 p-0 rounded-md"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
 
