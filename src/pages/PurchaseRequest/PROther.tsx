@@ -23,6 +23,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ProductSearchInput from '@/components/ProductSearchInput';
 import { prService, vendorService } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
@@ -71,7 +72,7 @@ export default function PROther() {
   };
 
   const updateItem = (id: string, field: keyof LineItem, value: any) => {
-    setItems(items.map(item => {
+    setItems(prev => prev.map(item => {
       if (item.id === id) {
         const updated = { ...item, [field]: value };
         if (field === 'quantity' || field === 'unit_price') {
@@ -204,7 +205,16 @@ export default function PROther() {
                     {items.map((item) => (
                       <tr key={item.id}>
                         <td className="py-4 pr-4">
-                          <Input value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} placeholder="ระบุชื่อสินค้า..." className="h-10 border-none bg-gray-50 rounded-lg" />
+                          <ProductSearchInput
+                            value={item.name}
+                            onChange={(val) => updateItem(item.id, 'name', val)}
+                            onSelectProduct={(product) => {
+                              updateItem(item.id, 'name', product.name);
+                              updateItem(item.id, 'unit', product.unit);
+                              updateItem(item.id, 'unit_price', product.unit_price);
+                            }}
+                            placeholder="ค้นหาหรือระบุชื่อสินค้า..."
+                          />
                         </td>
                         <td className="py-4 px-2">
                           <Input value={item.unit} onChange={(e) => updateItem(item.id, 'unit', e.target.value)} className="h-10 border-none bg-gray-50 rounded-lg text-center" />
