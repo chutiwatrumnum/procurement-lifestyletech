@@ -32,6 +32,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ProductSearchInput from '@/components/ProductSearchInput';
 import { prService, projectService, vendorService } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
@@ -286,7 +287,7 @@ export default function PRSubcontractor() {
   };
 
   const updateItem = (id: string, field: keyof LineItem, value: any) => {
-    setItems(items.map(item => {
+    setItems(prev => prev.map(item => {
       if (item.id === id) {
         if (field === 'quantity') {
           const numValue = Math.max(0, Number(value));
@@ -643,11 +644,15 @@ export default function PRSubcontractor() {
                                   <p className="text-xs text-purple-500">อุปกรณ์เดิมในโครงการ</p>
                                 </div>
                               ) : (
-                                <Input 
-                                  value={item.name} 
-                                  onChange={(e) => updateItem(item.id, 'name', e.target.value)} 
-                                  placeholder="ระบุชื่องาน..."
-                                  className="h-10 border-none bg-gray-50 rounded-xl" 
+                                <ProductSearchInput
+                                  value={item.name}
+                                  onChange={(val) => updateItem(item.id, 'name', val)}
+                                  onSelectProduct={(product) => {
+                                    updateItem(item.id, 'name', product.name);
+                                    updateItem(item.id, 'unit', product.unit || 'งาน');
+                                    updateItem(item.id, 'unit_price', product.unit_price);
+                                  }}
+                                  placeholder="ค้นหาหรือระบุชื่องาน..."
                                 />
                               )}
                             </td>

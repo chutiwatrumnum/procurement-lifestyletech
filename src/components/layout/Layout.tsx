@@ -33,6 +33,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Package,
 } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 
@@ -88,6 +89,11 @@ const allNavItems: NavItem[] = [
     title: 'รายชื่อผู้ขาย',
     href: '/vendors',
     icon: Users,
+  },
+  {
+    title: 'รายการสินค้า',
+    href: '/products',
+    icon: Package,
   },
   {
     title: 'รายงาน',

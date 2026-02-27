@@ -45,6 +45,7 @@ import ProfileSettings from '@/pages/Settings/Profile';
 // Shared
 import PurchaseRequestList from '@/pages/PurchaseRequestList';
 import PurchaseOrderList from '@/pages/PurchaseOrderList';
+import ProductCatalog from '@/pages/ProductCatalog';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,6 +116,9 @@ function AppRoutes() {
       <Route path="/vendors" element={<ProtectedRoute><VendorListNew /></ProtectedRoute>} />
       <Route path="/vendors/new" element={<ProtectedRoute><VendorNew /></ProtectedRoute>} />
       <Route path="/vendors/edit/:id" element={<ProtectedRoute><VendorEdit /></ProtectedRoute>} />
+
+      {/* Product Catalog */}
+      <Route path="/products" element={<ProtectedRoute><ProductCatalog /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
