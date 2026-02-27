@@ -11,13 +11,21 @@ import {
   ShoppingCart,
   FileText,
   Building2,
-  Loader2
+  Loader2,
+  ArrowRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { prService, projectService } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [pendingCounts, setPendingCounts] = useState({
+    projectPR: 0,
+    subPR: 0,
+    otherPR: 0
+  });
   const [stats, setStats] = useState([
     { title: 'รายการรออนุมัติทั้งหมด', value: '0', subtitle: 'ข้อมูลจากฐานข้อมูลจริง', icon: Calendar, trend: 'Live', trendUp: true },
     { title: 'โครงการที่กำลังดำเนินการ', value: '0', subtitle: 'โครงการที่รันอยู่ในระบบ', icon: Wrench, badge: 'Real' },
@@ -26,28 +34,63 @@ export default function Dashboard() {
 
   const [recentPRs, setRecentPRs] = useState<any[]>([]);
 
+  // ตรวจสอบ role
+  const isHeadOfDept = user?.role === 'head_of_dept';
+  const isManager = user?.role === 'manager';
+  const isSuperAdmin = user?.role === 'superadmin';
+  const canApprovePR = isHeadOfDept || isManager || isSuperAdmin;
+
   useEffect(() => {
     async function loadData() {
       try {
-        const [prs, projects] = await Promise.all([
-          prService.getAll(),
+        // ดึง PR ทั้งหมด
+        const allPRs = await prService.getAll();
+        const [projects] = await Promise.all([
           projectService.getAll()
         ]);
         
-        if (prs.length > 0) {
-          setRecentPRs(prs.slice(0, 5).map(pr => ({
+        // นับจำนวนรออนุมัติตามประเภท
+        const pendingProject = allPRs.filter(p => p.status === 'pending' && (p.type === 'project' || !p.type));
+        const pendingSub = allPRs.filter(p => p.status === 'pending' && p.type === 'sub');
+        const pendingOther = allPRs.filter(p => p.status === 'pending' && p.type === 'other');
+        
+        // กรองตามระดับที่ user อนุมัติได้
+        let projectPRsToShow = pendingProject;
+        let subPRsToShow = pendingSub;
+        let otherPRsToShow = pendingOther;
+        
+        if (isHeadOfDept || isSuperAdmin) {
+          // หัวหน้าแผนก: เห็น level 0 ที่รออนุมัติ
+          projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 0);
+          subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 0);
+          otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 0);
+        } else if (isManager) {
+          // ผู้จัดการ: เห็น level 1 ที่รออนุมัติ
+          projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 1);
+          subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 1);
+          otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 1);
+        }
+        
+        setPendingCounts({
+          projectPR: projectPRsToShow.length,
+          subPR: subPRsToShow.length,
+          otherPR: otherPRsToShow.length
+        });
+        
+        if (allPRs.length > 0) {
+          setRecentPRs(allPRs.slice(0, 5).map(pr => ({
             id: pr.pr_number,
             project: pr.expand?.project?.name || 'รายการทั่วไป',
             projectType: (pr.type || '').toUpperCase(),
-            type: pr.expand?.requester?.name || 'N/A',
+            type: pr.requester_name || pr.expand?.requester?.name || 'N/A',
             date: new Date(pr.created).toLocaleDateString('th-TH'),
             status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
             statusColor: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
           })));
         }
         
-        const pendingPrs = prs.filter(p => p.status === 'pending');
-        const totalAmount = prs.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
+        const pendingPrs = allPRs.filter(p => p.status === 'pending');
+        const totalAmount = allPRs.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
         
         setStats([
           { title: 'รายการรออนุมัติทั้งหมด', value: pendingPrs.length.toString(), subtitle: 'ใบขอซื้อที่ค้างอนุมัติ', icon: Calendar, trend: 'Live', trendUp: true },
@@ -61,7 +104,7 @@ export default function Dashboard() {
       }
     }
     loadData();
-  }, []);
+  }, [user, isHeadOfDept, isManager, isSuperAdmin]);
 
   if (loading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังโหลดข้อมูล...</div>;
 
@@ -101,6 +144,56 @@ export default function Dashboard() {
           );
         })}
       </div>
+
+      {/* รายการรออนุมัติตามประเภท */}
+      {canApprovePR && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-black text-gray-900 uppercase tracking-wide">รายการรออนุมัติ</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* PR Project */}
+            <Link to="/purchase-requests/approval">
+              <Card className={`border-none shadow-sm rounded-2xl overflow-hidden transition-all hover:shadow-md ${pendingCounts.projectPR > 0 ? 'bg-red-50 border-2 border-red-200' : 'bg-gray-50'}`}>
+                <CardContent className="p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">PR โครงการ</p>
+                    <p className={`text-3xl font-black ${pendingCounts.projectPR > 0 ? 'text-red-600' : 'text-gray-400'}`}>{pendingCounts.projectPR}</p>
+                    <p className="text-[10px] text-gray-400 uppercase">รออนุมัติ</p>
+                  </div>
+                  <ArrowRight className={`w-6 h-6 ${pendingCounts.projectPR > 0 ? 'text-red-400' : 'text-gray-300'}`} />
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* PR Sub */}
+            <Link to="/purchase-orders/approval">
+              <Card className={`border-none shadow-sm rounded-2xl overflow-hidden transition-all hover:shadow-md ${pendingCounts.subPR > 0 ? 'bg-red-50 border-2 border-red-200' : 'bg-gray-50'}`}>
+                <CardContent className="p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">PR ย่อย (SUP)</p>
+                    <p className={`text-3xl font-black ${pendingCounts.subPR > 0 ? 'text-red-600' : 'text-gray-400'}`}>{pendingCounts.subPR}</p>
+                    <p className="text-[10px] text-gray-400 uppercase">รออนุมัติ</p>
+                  </div>
+                  <ArrowRight className={`w-6 h-6 ${pendingCounts.subPR > 0 ? 'text-red-400' : 'text-gray-300'}`} />
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* PR Other */}
+            <Link to="/purchase-requests/approval?type=other">
+              <Card className={`border-none shadow-sm rounded-2xl overflow-hidden transition-all hover:shadow-md ${pendingCounts.otherPR > 0 ? 'bg-red-50 border-2 border-red-200' : 'bg-gray-50'}`}>
+                <CardContent className="p-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">PR อื่นๆ</p>
+                    <p className={`text-3xl font-black ${pendingCounts.otherPR > 0 ? 'text-red-600' : 'text-gray-400'}`}>{pendingCounts.otherPR}</p>
+                    <p className="text-[10px] text-gray-400 uppercase">รออนุมัติ</p>
+                  </div>
+                  <ArrowRight className={`w-6 h-6 ${pendingCounts.otherPR > 0 ? 'text-red-400' : 'text-gray-300'}`} />
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

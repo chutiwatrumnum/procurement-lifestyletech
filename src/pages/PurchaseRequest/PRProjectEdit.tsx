@@ -13,11 +13,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  Building2, 
   Upload, 
   Plus, 
   Trash2,
-  FileText,
   Save,
   Send,
   Loader2,

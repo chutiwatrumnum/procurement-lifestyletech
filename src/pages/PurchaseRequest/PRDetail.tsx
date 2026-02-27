@@ -8,8 +8,7 @@ import {
   Building2, 
   User,
   FileText,
-  Download,
-  DollarSign
+  Download
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { prService } from '@/services/api';
@@ -193,7 +192,7 @@ export default function PRDetail() {
               <CardTitle className="text-base font-bold">ผู้ขอซื้อ</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-bold">{pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ'}</p>
+              <p className="font-bold">{pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ'}</p>
               <p className="text-xs text-gray-400 mt-1">{new Date(pr.created).toLocaleDateString('th-TH')}</p>
             </CardContent>
           </Card>

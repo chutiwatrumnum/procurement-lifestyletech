@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  FileText, 
   Upload, 
   Plus, 
   Trash2,

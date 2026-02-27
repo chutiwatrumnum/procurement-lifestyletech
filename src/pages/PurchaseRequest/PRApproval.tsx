@@ -27,6 +27,7 @@ import {
   Signature
 } from 'lucide-react';
 import { prService } from '@/services/api';
+import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -188,11 +189,34 @@ export default function PRApproval() {
       // Load edit history from pr_history collection
       try {
         const history = await prService.getHistory(pr.id);
+        console.log('History records:', history);
+        
+        // Collect all user IDs from history to fetch names
+        const userIds = [...new Set(history.map((h: any) => h.by).filter(Boolean))];
+        console.log('User IDs from history:', userIds);
+        const userMap: Record<string, string> = {};
+        
+        // Fetch user names
+        if (userIds.length > 0) {
+          try {
+            const users = await pb.collection('users').getFullList({
+              filter: userIds.map((id: string) => `id = "${id}"`).join(' || '),
+              fields: 'id,name,email'
+            });
+            console.log('Fetched users:', users);
+            users.forEach((u: any) => {
+              userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
+            });
+          } catch (e) {
+            console.log('Could not fetch users:', e);
+          }
+        }
+        console.log('User map:', userMap);
         
         // If no history records, create from PR data
         if (history.length === 0) {
           const createdDate = pr.created;
-          const requesterName = pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+          const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
           setEditHistory([
             { 
               date: createdDate || new Date().toISOString(), 
@@ -209,7 +233,7 @@ export default function PRApproval() {
           const historyData = history.map((h: any) => ({
             date: h.created,
             action: h.action,
-            by: h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
+            by: userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
             oldAttachments: h.old_attachments || []
           }));
           
@@ -217,7 +241,7 @@ export default function PRApproval() {
           const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR');
           if (!hasCreateAction) {
             const createdDate = pr.created;
-            const requesterName = pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+            const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
             historyData.push({
               date: createdDate || new Date().toISOString(),
               action: 'สร้าง PR',
@@ -234,7 +258,7 @@ export default function PRApproval() {
       } catch (err) {
         // Fallback to mock data if history not available
         const createdDate = pr.created;
-        const requesterName = pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+        const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
         setEditHistory([
           { 
             date: createdDate || new Date().toISOString(), 
@@ -292,6 +316,14 @@ export default function PRApproval() {
       if (confirmDialog.action === 'rejected') {
         // ตีกลับ - ยกเลิกการอนุมัติทั้งหมด
         await prService.updateStatus(selectedPR.id, 'rejected', comment, user?.id, selectedPR.attachments);
+        
+        // ส่ง notification ตาม role
+        if (user?.role === 'head_of_dept') {
+          await notificationService.notifyByHeadOfDept(selectedPR, user?.name || 'หัวหน้า', false, selectedPR.requester);
+        } else if (user?.role === 'manager' || user?.role === 'superadmin') {
+          await notificationService.notifyByManager(selectedPR, user?.name || 'ผู้จัดการ', false, selectedPR.requester);
+        }
+        
         toast.success('ตีกลับเรียบร้อยแล้ว');
       } else {
         // อนุมัติ - Copy ลายเซ็นไฟล์ไปเก็บใน PR (วิธีที่ 1: Duplicate File)
@@ -335,6 +367,9 @@ export default function PRApproval() {
             await pb.collection('purchase_requests').update(selectedPR.id, updateData);
           }
           
+          // ส่ง notification ตาม role (หัวหน้าแผนกอนุมัติ)
+          await notificationService.notifyByHeadOfDept(selectedPR, user?.name || 'หัวหน้าแผนก', true, selectedPR.requester);
+          
           toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้จัดการอนุมัติต่อ)');
           
         } else if (currentLevel === 1 && (isManager() || isSuperAdmin())) {
@@ -376,6 +411,9 @@ export default function PRApproval() {
           } else {
             await pb.collection('purchase_requests').update(selectedPR.id, updateData);
           }
+          
+          // ส่ง notification ตาม role (ผู้จัดการอนุมัติ)
+          await notificationService.notifyByManager(selectedPR, user?.name || 'ผู้จัดการ', true, selectedPR.requester);
           
           toast.success('อนุมัติสมบูรณ์แล้ว');
         } else {
@@ -466,7 +504,7 @@ export default function PRApproval() {
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <User className="w-3.5 h-3.5" />
-                      <span>{pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ'}</span>
+                      <span>{pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ'}</span>
                     </div>
                     <p className="font-bold text-gray-900">฿{pr.total_amount?.toLocaleString() || 0}</p>
                   </div>
@@ -536,40 +574,13 @@ export default function PRApproval() {
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">ยอดเงินรวมสุทธิ</h4>
                     <p className="text-3xl font-black text-blue-600">฿{selectedPR.total_amount?.toLocaleString() || 0}.00</p>
                     <p className="text-xs text-gray-500 mt-2">
-                      สร้างโดย: {selectedPR.expand?.requester?.name || selectedPR.expand?.requester?.email || 'ไม่ระบุ'}
+                      สร้างโดย: {selectedPR.requester_name || selectedPR.expand?.requester?.name || selectedPR.expand?.requester?.email || 'ไม่ระบุ'}
                     </p>
                     <p className="text-xs text-gray-400">
                       วันที่สร้าง: {selectedPR.created ? new Date(selectedPR.created).toLocaleDateString('th-TH') : '-'}
                     </p>
                   </div>
                 </div>
-
-                {/* Budget Status Section */}
-                {budgetInfo && budgetInfo.budget > 0 && (
-                  <div className="mb-10 p-6 bg-gray-50 rounded-2xl">
-                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <DollarSign className="w-3 h-3" /> งบประมาณโครงการ (Budget Status)
-                    </h4>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-2xl font-black text-gray-900">{budgetInfo.percentage}% Used</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">Left: {(budgetInfo.budget - budgetInfo.spent).toLocaleString()} THB</p>
-                        <p className="text-xs text-gray-400">Budget: {budgetInfo.budget.toLocaleString()} THB</p>
-                      </div>
-                    </div>
-                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          budgetInfo.percentage >= 90 ? 'bg-red-500' : 
-                          budgetInfo.percentage >= 70 ? 'bg-orange-500' : 'bg-green-500'
-                        }`}
-                        style={{ width: `${budgetInfo.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
 
                 {/* Edit History Section */}
                 {editHistory.length > 0 && (

@@ -9,10 +9,8 @@ import {
   X,
   FileText,
   ChevronRight,
-  Printer,
   Loader2,
   Clock,
-  ShoppingCart,
   AlertTriangle,
   Building2,
   User,
@@ -22,14 +20,13 @@ import {
   ChevronUp,
   Download,
   Paperclip,
-  MapPin,
-  Signature,
   Lock,
   Unlock,
   UserCheck,
   Users
 } from 'lucide-react';
 import { prService } from '@/services/api';
+import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -186,10 +183,29 @@ export default function POApproval() {
       // Load edit history from pr_history collection
       try {
         const history = await prService.getHistory(item.id);
+        
+        // Collect all user IDs from history to fetch names
+        const userIds = [...new Set(history.map((h: any) => h.by).filter(Boolean))];
+        const userMap: Record<string, string> = {};
+        
+        // Fetch user names
+        if (userIds.length > 0) {
+          try {
+            const users = await pb.collection('users').getFullList({
+              filter: userIds.map((id: string) => `id = "${id}"`).join(' || '),
+              fields: 'id,name,email'
+            });
+            users.forEach((u: any) => {
+              userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
+            });
+          } catch (e) {
+            console.log('Could not fetch users:', e);
+          }
+        }
 
         if (history.length === 0) {
           const createdDate = item.created;
-          const requesterName = item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
+          const requesterName = item.requester_name || item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
           setEditHistory([
             {
               date: createdDate || new Date().toISOString(),
@@ -206,14 +222,14 @@ export default function POApproval() {
           const historyData = history.map((h: any) => ({
             date: h.created,
             action: h.action,
-            by: h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
+            by: userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
             oldAttachments: h.old_attachments || []
           }));
 
           const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR Sub');
           if (!hasCreateAction) {
             const createdDate = item.created;
-            const requesterName = item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
+            const requesterName = item.requester_name || item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
             historyData.push({
               date: createdDate || new Date().toISOString(),
               action: 'สร้าง PR Sub',
@@ -227,7 +243,7 @@ export default function POApproval() {
         }
       } catch (err) {
         const createdDate = item.created;
-        const requesterName = item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
+        const requesterName = item.requester_name || item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
         setEditHistory([
           {
             date: createdDate || new Date().toISOString(),
@@ -287,6 +303,14 @@ export default function POApproval() {
       if (confirmDialog.action === 'rejected') {
         // ตีกลับ - ยกเลิกการอนุมัติทั้งหมด
         await prService.updateStatus(selectedItem.id, 'rejected', comment, user?.id, selectedItem.attachments);
+        
+        // ส่ง notification ตาม role
+        if (user?.role === 'head_of_dept') {
+          await notificationService.notifyByHeadOfDept(selectedItem, user?.name || 'หัวหน้า', false, selectedItem.requester);
+        } else if (user?.role === 'manager' || user?.role === 'superadmin') {
+          await notificationService.notifyByManager(selectedItem, user?.name || 'ผู้จัดการ', false, selectedItem.requester);
+        }
+        
         toast.success('ตีกลับเรียบร้อยแล้ว');
       } else {
         // อนุมัติ - Copy ลายเซ็นไฟล์ไปเก็บใน PR (วิธีที่ 1: Duplicate File)
@@ -329,6 +353,9 @@ export default function POApproval() {
           } else {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
           }
+          
+          // ส่ง notification ตาม role (หัวหน้าแผนกอนุมัติ)
+          await notificationService.notifyByHeadOfDept(selectedItem, user?.name || 'หัวหน้าแผนก', true, selectedItem.requester);
           
           toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้จัดการอนุมัติต่อ)');
           
@@ -376,6 +403,9 @@ export default function POApproval() {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
             await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
           }
+          
+          // ส่ง notification ตาม role (ผู้จัดการอนุมัติ)
+          await notificationService.notifyByManager(selectedItem, user?.name || 'ผู้จัดการ', true, selectedItem.requester);
           
           toast.success('อนุมัติสมบูรณ์แล้ว (ตัด stock จากโครงการแล้ว)');
         } else {
@@ -452,7 +482,7 @@ export default function POApproval() {
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <User className="w-3.5 h-3.5" />
-                      <span>{pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ'}</span>
+                      <span>{pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ'}</span>
                     </div>
                     <p className="font-bold text-gray-900">฿{pr.total_amount?.toLocaleString() || 0}</p>
                   </div>
@@ -519,7 +549,7 @@ export default function POApproval() {
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">ยอดเงินรวมสุทธิ</h4>
                     <p className="text-3xl font-black text-purple-600">฿{selectedItem.total_amount?.toLocaleString() || 0}.00</p>
                     <p className="text-xs text-gray-500 mt-2">
-                      สร้างโดย: {selectedItem.expand?.requester?.name || selectedItem.expand?.requester?.email || 'ไม่ระบุ'}
+                      สร้างโดย: {selectedItem.requester_name || selectedItem.expand?.requester?.name || selectedItem.expand?.requester?.email || 'ไม่ระบุ'}
                     </p>
                     <p className="text-xs text-gray-400">
                       วันที่สร้าง: {selectedItem.created ? new Date(selectedItem.created).toLocaleDateString('th-TH') : '-'}

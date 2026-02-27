@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { prService, projectService, vendorService } from '@/services/api';
+import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import pb from '@/lib/pocketbase';
@@ -351,6 +352,24 @@ export default function PRSubcontractor() {
       return;
     }
 
+    // เช็คว่ามี PR Project ที่อนุมัติแล้วหรือยัง
+    if (status === 'pending') {
+      try {
+        const approvedPRProjects = await pb.collection('purchase_requests').getList(1, 1, {
+          filter: `project = "${projectId}" && (type = "project" || type = "" || type = null) && status = "approved"`
+        });
+        
+        if (approvedPRProjects.totalItems === 0) {
+          toast.error('กรุณาสร้างและอนุมัติ PR Project ก่อนสร้าง PR Sub');
+          return;
+        }
+      } catch (err) {
+        console.error('Check approved PR error:', err);
+        toast.error('ไม่สามารถตรวจสอบได้ กรุณาลองใหม่');
+        return;
+      }
+    }
+
     const validItems = items.filter(item => 
       item.name?.trim() && 
       item.quantity > 0 && 
@@ -403,18 +422,20 @@ export default function PRSubcontractor() {
           vendor: vendorIds[0] || '',
           status: status,
           total_amount: totalAmount,
+          requester_name: user?.name || user?.email || 'ไม่ระบุ',
+          requester: user?.id || ''
         };
 
-        try {
-          if (user?.id) {
-            await pb.collection('users').getOne(user.id);
-            prData.requester = user.id;
-          }
-        } catch (e) {
-          console.log('User not found in users collection');
-        }
-
         const pr = await prService.create(prData, prItems);
+        
+        // ส่ง notification เมื่อส่ง PR ใหม่
+        if (status === 'pending') {
+          try {
+            await notificationService.notifyNewPR(pr, user?.id);
+          } catch (err) {
+            console.error('Failed to send notification:', err);
+          }
+        }
         
         if (attachments.length > 0) {
           await uploadAttachments(pr.id);
@@ -535,7 +556,21 @@ export default function PRSubcontractor() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-gray-700 font-semibold">เลือกโครงการ *</Label>
-                <Select value={projectId} onValueChange={setProjectId} disabled={isEditMode}>
+                <Select value={projectId} onValueChange={async (value) => {
+                  // เช็คว่ามี PR Project ที่อนุมัติแล้วหรือยัง
+                  try {
+                    const approvedPRProjects = await pb.collection('purchase_requests').getList(1, 1, {
+                      filter: `project = "${value}" && (type = "project" || type = "" || type = null) && status = "approved"`
+                    });
+                    
+                    if (approvedPRProjects.totalItems === 0) {
+                      toast.warning('โครงการนี้ยังไม่มี PR Project ที่อนุมัติ - กรุณาสร้างและอนุมัติ PR Project ก่อน');
+                    }
+                  } catch (err) {
+                    console.error('Check approved PR error:', err);
+                  }
+                  setProjectId(value);
+                }} disabled={isEditMode}>
                   <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
                     <SelectValue placeholder="เลือกโครงการที่ต้องการ" />
                   </SelectTrigger>

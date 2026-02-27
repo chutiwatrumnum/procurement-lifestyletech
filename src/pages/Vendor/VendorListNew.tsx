@@ -17,7 +17,6 @@ import {
   Building2,
   Eye,
   Edit,
-  ShoppingCart,
   Loader2,
   ChevronLeft,
   ChevronRight,

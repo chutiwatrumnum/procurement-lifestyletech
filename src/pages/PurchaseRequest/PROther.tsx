@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { prService, vendorService } from '@/services/api';
+import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -96,13 +97,24 @@ export default function PROther() {
         requester: user?.id,
         status: status,
         total_amount: totalAmount,
+        requester_name: user?.name || user?.email || 'ไม่ระบุ'
       };
 
       const prItems = items.map(({ name, quantity, unit_price, total_price }) => ({
         name, quantity, unit_price, total_price
       }));
 
-      await prService.create(prData, prItems);
+      const pr = await prService.create(prData, prItems);
+      
+      // ส่ง notification เมื่อส่ง PR ใหม่
+      if (status === 'pending') {
+        try {
+          await notificationService.notifyNewPR(pr, user?.id);
+        } catch (err) {
+          console.error('Failed to send notification:', err);
+        }
+      }
+      
       toast.success('บันทึกใบขอซื้อเรียบร้อยแล้ว');
       
       // Refresh badge counts if submitting for approval

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { prService } from '@/services/api';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, Loader2, Lock, Mail, User } from 'lucide-react';
-import { toast } from 'sonner';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -28,6 +29,23 @@ export default function Login() {
     try {
       await login(email, password);
       toast.success('เข้าสู่ระบบสำเร็จ');
+      
+      // เช็ครายการรออนุมัติและโดนตีกลับ
+      try {
+        const allPRs = await prService.getAll();
+        const pendingCount = allPRs.filter(p => p.status === 'pending').length;
+        const rejectedCount = allPRs.filter(p => p.status === 'rejected').length;
+        
+        if (pendingCount > 0 || rejectedCount > 0) {
+          let message = '';
+          if (pendingCount > 0) message += `📋 รออนุมัติ: ${pendingCount} รายการ`;
+          if (rejectedCount > 0) message += `\n🔴 ถูกตีกลับ: ${rejectedCount} รายการ`;
+          toast.info(message);
+        }
+      } catch (err) {
+        console.log('Could not fetch PR notifications');
+      }
+      
       navigate('/');
     } catch (err: any) {
       setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');

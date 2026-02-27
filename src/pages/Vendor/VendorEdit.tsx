@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Building2, 
   User, 
@@ -28,6 +29,8 @@ export default function VendorEdit() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [paymentTerm, setPaymentTerm] = useState('cash');
+  const [paymentTermDetail, setPaymentTermDetail] = useState('');
+  const [vendorType, setVendorType] = useState<'domestic' | 'foreign'>('domestic');
   const [vendor, setVendor] = useState<any>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
@@ -38,7 +41,9 @@ export default function VendorEdit() {
       try {
         const data = await vendorService.getById(id);
         setVendor(data);
-        setPaymentTerm(data.payment_term || 'cash');
+        setPaymentTerm(data.payment_term || '30days');
+        setPaymentTermDetail(data.payment_term_detail || '');
+        setVendorType(data.vendor_type || 'domestic');
         if (data.attachments) {
           setExistingAttachments(Array.isArray(data.attachments) ? data.attachments : [data.attachments]);
         }
@@ -101,6 +106,8 @@ export default function VendorEdit() {
       phone: formData.get('phone'),
       website: formData.get('website'),
       payment_term: paymentTerm,
+      payment_term_detail: paymentTerm === 'custom' ? paymentTermDetail : '',
+      vendor_type: vendorType,
       attachments: existingAttachments
     };
 
@@ -188,6 +195,45 @@ export default function VendorEdit() {
                   </div>
                 </div>
 
+                {/* ประเภทผู้ขาย */}
+                <div className="space-y-3">
+                  <Label className="text-gray-700 font-bold">ประเภทผู้ขาย</Label>
+                  <div className="flex gap-4">
+                    <div 
+                      className={`flex-1 p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-3 ${
+                        vendorType === 'domestic' 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setVendorType('domestic')}
+                    >
+                      <Checkbox 
+                        checked={vendorType === 'domestic'} 
+                        className="pointer-events-none"
+                      />
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-800">🇹🇭 ในประเทศ</p>
+                      </div>
+                    </div>
+                    <div 
+                      className={`flex-1 p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-3 ${
+                        vendorType === 'foreign' 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setVendorType('foreign')}
+                    >
+                      <Checkbox 
+                        checked={vendorType === 'foreign'} 
+                        className="pointer-events-none"
+                      />
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-800">🌍 ต่างประเทศ</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="address">ที่อยู่</Label>
                   <Textarea 
@@ -236,13 +282,12 @@ export default function VendorEdit() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">เบอร์โทรศัพท์ (Phone) *</Label>
+                    <Label htmlFor="phone">เบอร์โทรศัพท์ (Phone)</Label>
                     <Input 
                       name="phone" 
                       id="phone" 
                       defaultValue={vendor?.phone}
                       placeholder="02-XXX-XXXX" 
-                      required 
                       className="rounded-xl h-11 bg-gray-50 border-none" 
                     />
                   </div>
@@ -274,8 +319,8 @@ export default function VendorEdit() {
                   <Label className="text-gray-700 font-bold">เงื่อนไขการชำระเงิน (Payment Terms) *</Label>
                   <RadioGroup value={paymentTerm} onValueChange={setPaymentTerm} className="space-y-3">
                     <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border-2 border-transparent hover:border-orange-200 transition-all cursor-pointer">
-                      <RadioGroupItem value="cash" id="cash" className="text-orange-600" />
-                      <Label htmlFor="cash" className="cursor-pointer flex-1 font-medium">เงินสด 30 วัน</Label>
+                      <RadioGroupItem value="30days" id="30days" className="text-orange-600" />
+                      <Label htmlFor="30days" className="cursor-pointer flex-1 font-medium">เงินสด 30 วัน</Label>
                     </div>
                     <div className="flex items-center space-x-3 bg-white p-3 rounded-xl border-2 border-transparent hover:border-orange-200 transition-all cursor-pointer">
                       <RadioGroupItem value="45days" id="45days" className="text-orange-600" />
@@ -289,6 +334,18 @@ export default function VendorEdit() {
                       <RadioGroupItem value="custom" id="custom" className="text-orange-600" />
                       <Label htmlFor="custom" className="cursor-pointer flex-1 font-medium">อื่นๆ</Label>
                     </div>
+                    {paymentTerm === 'custom' && (
+                      <div className="mt-3 p-4 bg-white rounded-xl border-2 border-orange-200">
+                        <Label htmlFor="payment_term_detail" className="text-gray-600 font-bold mb-2 block">ระบุเงื่อนไขการชำระเงิน</Label>
+                        <Input 
+                          id="payment_term_detail"
+                          value={paymentTermDetail}
+                          onChange={(e) => setPaymentTermDetail(e.target.value)}
+                          placeholder="เช่น มัดจำ 50% ส่วนที่เหลือ 30 วัน Credit"
+                          className="rounded-xl h-11 bg-gray-50 border-none"
+                        />
+                      </div>
+                    )}
                   </RadioGroup>
                 </div>
               </CardContent>

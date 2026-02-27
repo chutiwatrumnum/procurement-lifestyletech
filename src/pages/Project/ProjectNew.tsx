@@ -7,9 +7,7 @@ import {
   Building2, 
   Save,
   ArrowLeft,
-  Loader2,
-  DollarSign,
-  MapPin
+  Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -73,24 +71,18 @@ export default function ProjectNew() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="font-bold text-[#4B5563]">รหัสโครงการ (Project Code) *</Label>
-                <Input name="code" placeholder="เช่น SKY-001" required className="h-12 rounded-xl bg-gray-50 border-none px-4 font-mono font-bold" />
+                <Label className="font-bold text-[#4B5563]">รหัสโครงการ (Project Code)</Label>
+                <Input name="code" placeholder="เช่น SKY-001" className="h-12 rounded-xl bg-gray-50 border-none px-4 font-mono font-bold" />
               </div>
               <div className="space-y-2">
                 <Label className="font-bold text-[#4B5563]">งบประมาณโครงการ (Budget)</Label>
-                <div className="relative">
-                  <Input name="budget" type="number" placeholder="5,000,000" className="h-12 rounded-xl bg-gray-50 border-none pl-10 px-4 font-black" />
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
+                <Input name="budget" type="number" placeholder="5,000,000" className="h-12 rounded-xl bg-gray-50 border-none px-4 font-black" />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label className="font-bold text-[#4B5563]">สถานที่ก่อสร้าง (Location)</Label>
-              <div className="relative">
-                <Textarea name="location" placeholder="ระบุที่ตั้งโครงการ..." rows={3} className="rounded-xl bg-gray-50 border-none pl-10 p-4 font-medium" />
-                <MapPin className="absolute left-3 top-4 h-4 w-4 text-gray-400" />
-              </div>
+              <Textarea name="location" placeholder="ระบุที่ตั้งโครงการ..." rows={3} className="rounded-xl bg-gray-50 border-none p-4 font-medium" />
             </div>
 
             <div className="flex gap-4 pt-4">

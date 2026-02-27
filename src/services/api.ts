@@ -38,13 +38,16 @@ export const prService = {
     const customExpand = options.expand ? options.expand.split(',') : [];
     const allExpand = [...new Set([...defaultExpand, ...customExpand])].join(',');
     
-    // ดึง PRs
-    const prs = await pb.collection('purchase_requests').getFullList({
+    // ดึง PRs โดยระบุ fields ที่ต้องการเอง (รวม expand fields)
+    const result = await pb.collection('purchase_requests').getList(1, 100, {
       filter,
       expand: allExpand,
-      sort: '-created'
+      sort: '-created',
+      fields: 'id,pr_number,type,po_ref,delivery_location,status,total_amount,attachments,project,vendor,requester,requester_name,rejection_reason,approved_by,approved_at,approval_level,head_of_dept_approved_by,head_of_dept_approved_at,head_of_dept_comment,manager_approved_by,manager_approved_at,head_of_dept_signature,manager_signature,head_of_dept_approved_by_name,manager_approved_by_name,manager_comment,created,updated,expand.project,expand.vendor'
     });
-
+    
+    const prs = result.items;
+    
     // เก็บ requester IDs ที่ unique
     const requesterIds = [...new Set(prs.map(pr => pr.requester).filter(Boolean))];
     
@@ -96,6 +99,7 @@ export const prService = {
     // แนบข้อมูล requester เข้าไปในแต่ละ PR
     return prs.map(pr => ({
       ...pr,
+      requester_name: pr.requester_name,
       expand: {
         ...pr.expand,
         requester: userMap[pr.requester] || null
@@ -129,37 +133,41 @@ export const prService = {
     });
   },
   async create(data: any, items: any[]) {
-    // Generate PR number with format: PR-YYYY-MM-DD-{daily_sequence}
+    // Generate PR number with format: PR{X}-YYYY-MM-{monthly_sequence}
+    // PRP = Project, PRS = Subcontractor, PRO = Other
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const datePrefix = `PR-${year}-${month}-${day}`;
+    
+    // Determine prefix based on type
+    const typePrefix = data.type === 'project' ? 'PRP' : data.type === 'sub' ? 'PRS' : 'PRO';
+    const datePrefix = `${typePrefix}-${year}-${month}`;
     
     let prNumber: string;
     
     try {
-      // Count how many PRs were created today by checking pr_number prefix
-      const todayPRs = await pb.collection('purchase_requests').getFullList({
+      // Count how many PRs of this type were created this month
+      const monthPRs = await pb.collection('purchase_requests').getFullList({
         filter: `pr_number ~ "${datePrefix}-"`,
         fields: 'pr_number',
         sort: '-created'
       });
       
-      // Find the highest sequence number for today
+      // Find the highest sequence number for this month
       let maxSequence = 0;
-      for (const pr of todayPRs) {
+      for (const pr of monthPRs) {
         const match = pr.pr_number?.match(new RegExp(`${datePrefix}-(\\d+)`));
         if (match) {
           const seq = parseInt(match[1], 10);
-          if (seq > maxSequence && seq < 10000) { // Ignore timestamp fallback numbers (> 10000)
+          if (seq > maxSequence && seq < 10000) {
             maxSequence = seq;
           }
         }
       }
       
-      const dailySequence = maxSequence + 1;
-      prNumber = `${datePrefix}-${dailySequence}`;
+      const monthlySequence = maxSequence + 1;
+      // Pad with zeros to make it 4 digits (e.g., 0001, 0042, 0150)
+      prNumber = `${datePrefix}-${String(monthlySequence).padStart(4, '0')}`;
     } catch (err) {
       // Fallback: use timestamp-based number
       console.error('Error counting PRs, using fallback:', err);
@@ -315,6 +323,25 @@ export const prService = {
         by: userId || '',
         details: comment || details
       });
+      
+      // 6. หักลบจากงบประมาณโครงการ (หลังอนุมัติสมบูรณ์)
+      if (pr.project && pr.total_amount) {
+        try {
+          const project = await pb.collection('projects').getOne(pr.project);
+          const currentBudget = project.budget || 0;
+          const prAmount = pr.total_amount || 0;
+          
+          // หักลบจากงบประมาณ
+          await pb.collection('projects').update(pr.project, {
+            budget: Math.max(0, currentBudget - prAmount)
+          });
+          
+          console.log(`Budget deducted: ${prAmount} from project ${project.code || project.name}`);
+        } catch (budgetErr) {
+          console.error('Budget deduction failed:', budgetErr);
+          // ไม่สำเร็จก็ยังอนุมัติได้
+        }
+      }
       
       return { 
         ...pr, 

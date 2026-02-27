@@ -15,7 +15,6 @@ import {
   DollarSign,
   Download,
   Building2,
-  AlertCircle,
   Loader2
 } from 'lucide-react';
 import { projectService, prService } from '@/services/api';

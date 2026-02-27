@@ -11,18 +11,15 @@ import {
   Plus, 
   Trash2,
   FileText,
-  Save,
   Send,
   AlertCircle,
   ArrowLeft,
   Loader2,
   DollarSign,
-  Package,
   User,
   History,
   X,
   Download,
-  Check,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';

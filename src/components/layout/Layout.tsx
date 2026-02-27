@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { notificationService } from '@/services/notification';
 import {
   LayoutDashboard,
   FileText,
@@ -31,7 +33,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Package,
 } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 
@@ -300,6 +301,42 @@ export default function Layout({ children }: LayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [pendingPRProject, setPendingPRProject] = useState(0);
   const [pendingPRSub, setPendingPRSub] = useState(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // ดึง notifications
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+    try {
+      const result = await notificationService.getByUser(user.id, 20);
+      setNotifications(result.items || []);
+      setUnreadCount((result.items || []).filter((n: any) => !n.is_read).length);
+    } catch (err) {
+      console.error('Fetch notifications error:', err);
+    }
+  };
+
+  // ดึงตอนโหลดและทุก 30 วินาที
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
+  // ฟัง real-time updates
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const channel = pb.collection('notifications').subscribe('*', async (e) => {
+      if (e.action === 'create' && e.record.user === user.id) {
+        fetchNotifications();
+      }
+    });
+    
+    return () => {
+      pb.collection('notifications').unsubscribe(channel);
+    };
+  }, [user?.id]);
 
   // Filter nav items based on user role
   const navItems = allNavItems.filter(item => {
@@ -414,10 +451,66 @@ export default function Layout({ children }: LayoutProps) {
               />
             </div>
             
-            <Button variant="ghost" size="icon" className="relative text-[#6B7280]">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-[#EF4444]" />
-            </Button>
+            {/* Notification Bell */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative text-[#6B7280]">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 rounded-full bg-red-500 text-white text-xs items-center justify-center font-bold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+                <div className="px-3 py-2 border-b">
+                  <p className="font-bold text-sm">การแจ้งเตือน</p>
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={() => { notificationService.markAllAsRead(user?.id || ''); fetchNotifications(); }}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      ทำเครื่องหมายว่าอ่านทั้งหมด
+                    </button>
+                  )}
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-gray-400 text-sm">
+                    ไม่มีการแจ้งเตือน
+                  </div>
+                ) : (
+                  notifications.map((notif: any) => (
+                    <DropdownMenuItem 
+                      key={notif.id} 
+                      className={`px-3 py-2 cursor-pointer ${!notif.is_read ? 'bg-blue-50' : ''}`}
+                      onClick={() => {
+                        if (!notif.is_read) {
+                          notificationService.markAsRead(notif.id);
+                          fetchNotifications();
+                        }
+                        if (notif.pr_id) {
+                          navigate('/purchase-requests');
+                        }
+                      }}
+                    >
+                      <div className="flex-1">
+                        <p className={`font-bold text-sm ${notif.type === 'rejection' ? 'text-red-600' : notif.type === 'approval' ? 'text-green-600' : 'text-gray-600'}`}>
+                          {notif.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">{notif.message}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {notif.created ? new Date(notif.created).toLocaleString('th-TH') : ''}
+                        </p>
+                      </div>
+                      {!notif.is_read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full ml-2" />
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 

@@ -1,0 +1,96 @@
+{
+  "id": "notifications",
+  "name": "notifications",
+  "type": "base",
+  "system": false,
+  "schema": [
+    {
+      "system": false,
+      "id": "user",
+      "name": "user",
+      "type": "relation",
+      "required": true,
+      "presentable": false,
+      "unique": false,
+      "options": {
+        "collectionId": "_pb_users_auth_",
+        "cascadeDelete": true,
+        "minSelect": null,
+        "maxSelect": 1,
+        "displayFields": null
+      }
+    },
+    {
+      "system": false,
+      "id": "title",
+      "name": "title",
+      "type": "text",
+      "required": true,
+      "presentable": false,
+      "unique": false,
+      "options": {
+        "min": null,
+        "max": null,
+        "pattern": ""
+      }
+    },
+    {
+      "system": false,
+      "id": "message",
+      "name": "message",
+      "type": "text",
+      "required": true,
+      "presentable": false,
+      "unique": false,
+      "options": {
+        "min": null,
+        "max": null,
+        "pattern": ""
+      }
+    },
+    {
+      "system": false,
+      "id": "type",
+      "name": "type",
+      "type": "select",
+      "required": false,
+      "presentable": false,
+      "unique": false,
+      "options": {
+        "maxSelect": 1,
+        "values": ["approval", "rejection", "info"]
+      }
+    },
+    {
+      "system": false,
+      "id": "pr_id",
+      "name": "pr_id",
+      "type": "text",
+      "required": false,
+      "presentable": false,
+      "unique": false,
+      "options": {
+        "min": null,
+        "max": null,
+        "pattern": ""
+      }
+    },
+    {
+      "system": false,
+      "id": "is_read",
+      "name": "is_read",
+      "type": "bool",
+      "required": false,
+      "presentable": false,
+      "unique": false,
+      "options": {}
+    }
+  ],
+  "indexes": [],
+  "listRule": "@request.auth.id = user",
+  "viewRule": "@request.auth.id = user",
+  "createRule": null,
+  "updateRule": "@request.auth.id = user",
+  "deleteRule": "@request.auth.id = user",
+  "options": {}
+}

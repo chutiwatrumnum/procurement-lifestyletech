@@ -13,7 +13,6 @@ import {
 import { 
   Building2, 
   User, 
-  MapPin, 
   Upload, 
   Plus, 
   Trash2,
@@ -21,7 +20,6 @@ import {
   Save,
   Send,
   Loader2,
-  Paperclip,
   X,
   ArrowLeft,
   History,
@@ -30,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { prService, projectService } from '@/services/api';
+import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import pb from '@/lib/pocketbase';
@@ -343,18 +342,22 @@ export default function PRProject() {
           project: projectId,
           status: status,
           total_amount: totalAmount,
+          requester_name: user?.name || user?.email || 'ไม่ระบุ',
+          requester: user?.id || ''
         };
 
-        try {
-          if (user?.id) {
-            await pb.collection('users').getOne(user.id);
-            prData.requester = user.id;
-          }
-        } catch (e) {
-          console.log('User not found in users collection');
-        }
-
         const pr = await prService.create(prData, prItems);
+        
+        // ส่ง notification เมื่อส่ง PR ใหม่
+        if (status === 'pending') {
+          console.log('[DEBUG] About to send notification for PR:', pr.pr_number, 'by user:', user?.id);
+          try {
+            await notificationService.notifyNewPR(pr, user?.id);
+            console.log('[DEBUG] Notification sent successfully');
+          } catch (err) {
+            console.error('[DEBUG] Failed to send notification:', err);
+          }
+        }
         
         // เพิ่ม/อัพเดตอุปกรณ์ในโครงการ (project_items)
         if (status === 'pending') {

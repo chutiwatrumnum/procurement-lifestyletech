@@ -10,7 +10,6 @@ import {
   Package, 
   FileText, 
   DollarSign,
-  MapPin,
   Loader2,
   Download,
   TrendingUp,
