@@ -99,8 +99,11 @@ export default function PREdit() {
         try {
           const history = await prService.getHistory(pr.id);
           
-          // Collect all user IDs from history to fetch names
-          const userIds = [...new Set(history.map((h: any) => h.by).filter(Boolean))];
+          // Collect all user IDs from history + PR requester to fetch names
+          const historyUserIds = history.map((h: any) => h.by).filter(Boolean);
+          // Also include requester ID so we can resolve the name for "สร้าง PR"
+          if (pr.requester) historyUserIds.push(pr.requester);
+          const userIds = [...new Set(historyUserIds)];
           const userMap: Record<string, string> = {};
           
           // Fetch user names
@@ -118,15 +121,17 @@ export default function PREdit() {
             }
           }
           
+          // Resolve requester name from userMap first, fallback to PR fields
+          const resolvedRequesterName = (pr.requester && userMap[pr.requester]) || pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+          
           // If no history records, create from PR data
           if (history.length === 0) {
             const createdDate = pr.created;
-            const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
             setEditHistory([
               { 
                 date: createdDate || new Date().toISOString(), 
                 action: 'สร้าง PR ครั้งแรก', 
-                by: requesterName,
+                by: resolvedRequesterName,
                 oldAttachments: []
               },
               { 
@@ -137,22 +142,32 @@ export default function PREdit() {
               }
             ]);
           } else {
-            const historyData = history.map((h: any) => ({
-              date: h.created,
-              action: h.action,
-              by: userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
-              oldAttachments: h.old_attachments || []
-            }));
+            const historyData = history.map((h: any) => {
+              let resolvedName = userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email;
+              
+              // Fallback to cached names in PR data if PB permissions block access
+              if (!resolvedName || resolvedName === 'ไม่ระบุ') {
+                if (h.by === pr.requester) resolvedName = pr.requester_name;
+                else if (h.by === pr.head_of_dept_approved_by) resolvedName = pr.head_of_dept_approved_by_name;
+                else if (h.by === pr.manager_approved_by) resolvedName = pr.manager_approved_by_name;
+              }
+              
+              return {
+                date: h.created,
+                action: h.action,
+                by: resolvedName || 'ไม่ระบุ',
+                oldAttachments: h.old_attachments || []
+              };
+            });
             
             // Check if 'สร้าง PR' is in history, if not add it
             const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR');
             if (!hasCreateAction) {
               const createdDate = pr.created;
-              const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
               historyData.push({
                 date: createdDate || new Date().toISOString(),
                 action: 'สร้าง PR',
-                by: requesterName,
+                by: resolvedRequesterName,
                 oldAttachments: []
               });
             }
@@ -282,6 +297,18 @@ export default function PREdit() {
       await pb.collection('purchase_requests').update(id!, {
         vendor: vendorIds[0],
         vendors: vendorIds,
+        // Reset approval flow to start from Head of Dept again
+        approval_level: 0,
+        head_of_dept_approved_by: '',
+        head_of_dept_approved_at: '',
+        head_of_dept_comment: '',
+        head_of_dept_signature: '',
+        head_of_dept_approved_by_name: '',
+        manager_approved_by: '',
+        manager_approved_at: '',
+        manager_comment: '',
+        manager_signature: '',
+        manager_approved_by_name: '',
       });
       
       await prService.updateStatus(id!, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);

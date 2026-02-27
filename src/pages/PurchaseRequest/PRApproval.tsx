@@ -193,8 +193,10 @@ export default function PRApproval() {
         const history = await prService.getHistory(pr.id);
         console.log('History records:', history);
         
-        // Collect all user IDs from history to fetch names
-        const userIds = [...new Set(history.map((h: any) => h.by).filter(Boolean))];
+        // Collect all user IDs from history + PR requester to fetch names
+        const historyUserIds = history.map((h: any) => h.by).filter(Boolean);
+        if (pr.requester) historyUserIds.push(pr.requester);
+        const userIds = [...new Set(historyUserIds)];
         console.log('User IDs from history:', userIds);
         const userMap: Record<string, string> = {};
         
@@ -215,39 +217,51 @@ export default function PRApproval() {
         }
         console.log('User map:', userMap);
         
+        // Resolve requester name from userMap first, fallback to PR fields
+        const resolvedRequesterName = (pr.requester && userMap[pr.requester]) || pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+        
         // If no history records, create from PR data
         if (history.length === 0) {
           const createdDate = pr.created;
-          const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
           setEditHistory([
             { 
               date: createdDate || new Date().toISOString(), 
               action: 'สร้าง PR ครั้งแรก', 
-              by: requesterName 
+              by: resolvedRequesterName 
             },
             { 
               date: pr.updated || new Date().toISOString(), 
               action: 'ส่งอนุมัติ (รอการอนุมัติ)', 
-              by: requesterName 
+              by: resolvedRequesterName 
             }
           ]);
         } else {
-          const historyData = history.map((h: any) => ({
-            date: h.created,
-            action: h.action,
-            by: userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
-            oldAttachments: h.old_attachments || []
-          }));
+          const historyData = history.map((h: any) => {
+            let resolvedName = userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email;
+            
+            // Fallback to cached names in PR data if PB permissions block access
+            if (!resolvedName || resolvedName === 'ไม่ระบุ') {
+              if (h.by === pr.requester) resolvedName = pr.requester_name;
+              else if (h.by === pr.head_of_dept_approved_by) resolvedName = pr.head_of_dept_approved_by_name;
+              else if (h.by === pr.manager_approved_by) resolvedName = pr.manager_approved_by_name;
+            }
+            
+            return {
+              date: h.created,
+              action: h.action,
+              by: resolvedName || 'ไม่ระบุ',
+              oldAttachments: h.old_attachments || []
+            };
+          });
           
           // Check if 'สร้าง PR' is in history, if not add it
           const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR');
           if (!hasCreateAction) {
             const createdDate = pr.created;
-            const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
             historyData.push({
               date: createdDate || new Date().toISOString(),
               action: 'สร้าง PR',
-              by: requesterName,
+              by: resolvedRequesterName,
               oldAttachments: []
             });
           }
