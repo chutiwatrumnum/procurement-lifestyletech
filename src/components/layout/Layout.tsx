@@ -327,14 +327,14 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (!user?.id) return;
     
-    const channel = pb.collection('notifications').subscribe('*', async (e) => {
+    pb.collection('notifications').subscribe('*', async (e) => {
       if (e.action === 'create' && e.record.user === user.id) {
         fetchNotifications();
       }
     });
     
     return () => {
-      pb.collection('notifications').unsubscribe(channel);
+      pb.collection('notifications').unsubscribe('*');
     };
   }, [user?.id]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { prService, poService } from '@/services/api';
+import { usePurchaseRequest, usePRItems } from '@/hooks/usePurchaseRequests';
+import { useCreatePO } from '@/hooks/usePurchaseOrders';
 import { toast } from 'sonner';
 
 export default function POCreate() {
@@ -20,38 +21,18 @@ export default function POCreate() {
   const [searchParams] = useSearchParams();
   const prId = searchParams.get('prId');
   
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [prData, setPrData] = useState<any>(null);
-  const [items, setItems] = useState<any[]>([]);
+  const { data: prData, isLoading: loadingPR } = usePurchaseRequest(prId || undefined);
+  const { data: items = [], isLoading: loadingItems } = usePRItems(prId || undefined);
+  const createPOMutation = useCreatePO();
+  const loading = loadingPR || loadingItems;
 
-  useEffect(() => {
-    async function loadData() {
-      if (!prId) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const pr = await prService.getById(prId);
-        const prItems = await prService.getItems(prId);
-        setPrData(pr);
-        setItems(prItems);
-      } catch (err) {
-        console.error('Fetch failed');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, [prId]);
-
-  const subtotal = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  const subtotal = items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
   const discount = 0;
   const vat = subtotal * 0.07;
   const grandTotal = subtotal - discount + vat;
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
+    if (!prId) return;
     try {
       const poData = {
         po_number: `PO-${Date.now().toString().slice(-6)}`,
@@ -64,13 +45,11 @@ export default function POCreate() {
         grand_total: grandTotal,
         terms_conditions: 'Net 30 Days'
       };
-      await poService.createFromPR(prId!, poData);
+      await createPOMutation.mutateAsync({ prId, data: poData });
       toast.success('สร้างใบสั่งซื้อและส่งให้ผู้ขายเรียบร้อยแล้ว');
       navigate('/purchase-orders');
     } catch (err) {
       toast.error('สร้างใบสั่งซื้อไม่สำเร็จ');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -102,8 +81,8 @@ export default function POCreate() {
           <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB] font-bold" onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-2" /> พิมพ์ / PDF
           </Button>
-          <Button className="bg-[#FB923C] hover:bg-[#F97316] text-white rounded-xl px-8 font-bold shadow-lg shadow-orange-500/20" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+          <Button className="bg-[#FB923C] hover:bg-[#F97316] text-white rounded-xl px-8 font-bold shadow-lg shadow-orange-500/20" onClick={handleSubmit} disabled={createPOMutation.isPending}>
+            {createPOMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
             ส่งใบสั่งซื้อให้ผู้ขาย
           </Button>
         </div>

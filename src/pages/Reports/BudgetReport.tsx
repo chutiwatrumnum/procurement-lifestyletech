@@ -1,14 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { 
   TrendingUp,
   TrendingDown,
@@ -17,51 +10,37 @@ import {
   Building2,
   Loader2
 } from 'lucide-react';
-import { projectService, prService } from '@/services/api';
+import { useDashboardData } from '@/hooks/useDashboard';
 
 export default function BudgetReport() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useDashboardData();
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [projList, prList] = await Promise.all([
-          projectService.getAll(),
-          prService.getAll()
-        ]);
+  const projects = useMemo(() => {
+    if (!data) return [];
+    const { allPRs, projects: projList } = data;
 
-        const enrichedProjects = projList.map(p => {
-          const prsForProject = prList.filter(pr => pr.project === p.id);
-          const used = prsForProject.reduce((sum, pr) => sum + pr.total_amount, 0);
-          const percentage = p.budget > 0 ? Math.min(100, Math.round((used / p.budget) * 100)) : 0;
-          
-          return {
-            ...p,
-            used,
-            remaining: p.budget - used,
-            percentage,
-            prCount: prsForProject.length,
-            status: percentage >= 90 ? 'critical' : percentage >= 75 ? 'warning' : 'good'
-          };
-        });
-
-        setProjects(enrichedProjects);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
+    return projList.map(p => {
+      const prsForProject = allPRs.filter(pr => pr.project === p.id);
+      const used = prsForProject.reduce((sum, pr) => sum + pr.total_amount, 0);
+      const percentage = p.budget > 0 ? Math.min(100, Math.round((used / p.budget) * 100)) : 0;
+      
+      return {
+        ...p,
+        used,
+        remaining: p.budget - used,
+        percentage,
+        prCount: prsForProject.length,
+        status: percentage >= 90 ? 'critical' : percentage >= 75 ? 'warning' : 'good'
+      };
+    });
+  }, [data]);
 
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
   const totalUsed = projects.reduce((sum, p) => sum + (p.used || 0), 0);
   const totalRemaining = totalBudget - totalUsed;
   const averageUsage = totalBudget > 0 ? (totalUsed / totalBudget) * 100 : 0;
 
-  if (loading) {
+  if (isLoading) {
     return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
   }
 

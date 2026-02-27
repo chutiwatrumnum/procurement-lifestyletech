@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,7 @@ export default function PRProject() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const isEditMode = !!id;
@@ -401,8 +403,11 @@ export default function PRProject() {
       if (status === 'pending') {
         // Refresh badge counts before navigating
         window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
+        queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
         navigate('/purchase-requests/approval');
       } else {
+        queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         navigate('/purchase-requests');
       }
     } catch (error) {

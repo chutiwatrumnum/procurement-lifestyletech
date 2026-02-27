@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,6 +73,7 @@ export default function PRSubcontractor() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const isEditMode = !!id;
@@ -246,7 +248,7 @@ export default function PRSubcontractor() {
                 total_price: remaining * (item.unit_price || 0),
                 max_quantity: remaining,
                 isExisting: true,
-                item_type: 'regular'
+                item_type: 'regular' as const
               };
             })
             .filter((item: any) => item.quantity > 0);
@@ -447,8 +449,11 @@ export default function PRSubcontractor() {
       if (status === 'pending') {
         // Refresh badge counts before navigating
         window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
+        queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
         navigate('/purchase-orders/approval');
       } else {
+        queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         navigate('/purchase-requests');
       }
     } catch (error) {

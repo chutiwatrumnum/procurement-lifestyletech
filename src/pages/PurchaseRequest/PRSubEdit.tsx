@@ -1,5 +1,6 @@
 // PRSubEdit.tsx - Edit mode for Sub PR (draft only)
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +42,7 @@ export default function PRSubEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [loading, setLoading] = useState(true);
@@ -212,6 +214,8 @@ export default function PRSubEdit() {
       }
 
       toast.success(submit ? 'ส่งคำขอจัดซื้อเรียบร้อยแล้ว' : 'บันทึกแบบร่างเรียบร้อยแล้ว');
+      queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       navigate('/purchase-requests');
     } catch (err) {
       console.error('Error saving PR:', err);

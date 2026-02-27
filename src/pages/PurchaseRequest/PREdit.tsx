@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +22,8 @@ import {
   X,
   Download,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Paperclip
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { prService, projectService, vendorService } from '@/services/api';
@@ -40,6 +42,7 @@ export default function PREdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,41 +95,89 @@ export default function PREdit() {
           });
         }
         
+        // Load edit history from pr_history collection
         try {
           const history = await prService.getHistory(pr.id);
-          const historyData = history.map((h: any) => ({
-            date: h.created,
-            action: h.action,
-            by: h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ'
-          }));
           
-          const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR');
-          if (!hasCreateAction) {
-            const createdDate = pr.created;
-            const requesterName = pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
-            historyData.push({
-              date: createdDate || new Date().toISOString(),
-              action: 'สร้าง PR',
-              by: requesterName
-            });
+          // Collect all user IDs from history to fetch names
+          const userIds = [...new Set(history.map((h: any) => h.by).filter(Boolean))];
+          const userMap: Record<string, string> = {};
+          
+          // Fetch user names
+          if (userIds.length > 0) {
+            try {
+              const users = await pb.collection('users').getFullList({
+                filter: userIds.map((uid: string) => `id = "${uid}"`).join(' || '),
+                fields: 'id,name,email'
+              });
+              users.forEach((u: any) => {
+                userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
+              });
+            } catch (e) {
+              console.log('Could not fetch users:', e);
+            }
           }
           
-          historyData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-          setEditHistory(historyData);
+          // If no history records, create from PR data
+          if (history.length === 0) {
+            const createdDate = pr.created;
+            const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+            setEditHistory([
+              { 
+                date: createdDate || new Date().toISOString(), 
+                action: 'สร้าง PR ครั้งแรก', 
+                by: requesterName,
+                oldAttachments: []
+              },
+              { 
+                date: pr.updated || new Date().toISOString(), 
+                action: 'ตีกลับเพื่อแก้ไข', 
+                by: 'ผู้อนุมัติ',
+                oldAttachments: []
+              }
+            ]);
+          } else {
+            const historyData = history.map((h: any) => ({
+              date: h.created,
+              action: h.action,
+              by: userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email || 'ไม่ระบุ',
+              oldAttachments: h.old_attachments || []
+            }));
+            
+            // Check if 'สร้าง PR' is in history, if not add it
+            const hasCreateAction = historyData.some((h: any) => h.action === 'สร้าง PR');
+            if (!hasCreateAction) {
+              const createdDate = pr.created;
+              const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+              historyData.push({
+                date: createdDate || new Date().toISOString(),
+                action: 'สร้าง PR',
+                by: requesterName,
+                oldAttachments: []
+              });
+            }
+            
+            // Sort by date ascending (oldest first)
+            historyData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
+            setEditHistory(historyData);
+          }
         } catch (err) {
           const createdDate = pr.created || pr.expand?.requester?.created;
-          const requesterName = pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
+          const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
           
           setEditHistory([
             { 
               date: createdDate || new Date().toISOString(), 
               action: 'สร้าง PR ครั้งแรก', 
-              by: requesterName 
+              by: requesterName,
+              oldAttachments: []
             },
             { 
               date: pr.updated || new Date().toISOString(), 
               action: 'ตีกลับเพื่อแก้ไข', 
-              by: 'ผู้อนุมัติ' 
+              by: 'ผู้อนุมัติ',
+              oldAttachments: []
             }
           ]);
         }
@@ -237,6 +288,8 @@ export default function PREdit() {
       toast.success('อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
       // Refresh badge counts
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
+      queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       navigate('/purchase-requests');
     } catch (err: any) {
       console.error('Update error:', err);
@@ -270,8 +323,10 @@ export default function PREdit() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">แก้ไขใบขอซื้อ (Edit PR)</h1>
-            <p className="text-sm text-gray-500 mt-1 font-bold uppercase tracking-widest">รหัสใบขอซื้อ: {prData?.pr_number}</p>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">แก้ไขใบขอซื้อ</h1>
+            <p className="text-sm text-gray-500 mt-1 font-bold uppercase tracking-widest">
+              {prData?.pr_number} · {prData?.requester_name || prData?.expand?.requester?.name || 'ไม่ระบุผู้ร้องขอ'}
+            </p>
           </div>
         </div>
         <div className="flex gap-3">
@@ -293,47 +348,78 @@ export default function PREdit() {
         </div>
       </div>
 
-      {/* Rejection Reason Banner */}
-      <Card className="bg-red-50 border-none rounded-2xl shadow-sm">
-        <CardContent className="p-6 flex gap-4">
-          <div className="p-3 bg-red-100 rounded-2xl h-fit">
-            <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">เหตุผลที่ต้องแก้ไข</p>
-            <p className="text-sm text-red-900 font-bold leading-relaxed">{prData?.rejection_reason || 'กรุณาตรวจสอบรายละเอียดรายการและราคาต่อหน่วยให้ตรงกับใบเสนอราคาล่าสุดค่ะ'}</p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Rejection Reason Banner — only show when real reason exists */}
+      {prData?.rejection_reason && (
+        <Card className="bg-red-50 border-none rounded-2xl shadow-sm">
+          <CardContent className="p-6 flex gap-4">
+            <div className="p-3 bg-red-100 rounded-2xl h-fit">
+              <AlertCircle className="w-6 h-6 text-red-600 shrink-0" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">เหตุผลที่ต้องแก้ไข</p>
+              <p className="text-sm text-red-900 font-bold leading-relaxed">{prData.rejection_reason}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Project Info */}
-          <Card className="border-none shadow-sm rounded-2xl">
+          
+          {/* Summary Card: Project + Budget + Delivery combined */}
+          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                <Building2 className="w-5 h-5 text-blue-600" /> ข้อมูลโครงการ
+                <Building2 className="w-5 h-5 text-blue-600" /> ข้อมูลสรุป
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-semibold">โครงการ</Label>
-                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
-                  <Building2 className="w-4 h-4 text-gray-400" />
-                  <span className="font-bold text-gray-900">
+            <CardContent className="space-y-4">
+              {/* Project + Requester row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">โครงการ</p>
+                  <p className="font-bold text-gray-900">
                     {selectedProject?.code && (
-                      <span className="text-blue-600 mr-2">[{selectedProject.code}]</span>
+                      <span className="text-blue-600 mr-1">[{selectedProject.code}]</span>
                     )}
                     {selectedProject?.name || 'ไม่ระบุ'}
-                  </span>
+                  </p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ผู้ร้องขอ</p>
+                  <p className="font-bold text-gray-900">{prData?.requester_name || prData?.expand?.requester?.name || 'ไม่ระบุ'}</p>
                 </div>
               </div>
 
+              {/* Delivery location */}
               {prData?.delivery_location && (
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">สถานที่ส่งของ</Label>
-                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl">{prData.delivery_location}</p>
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">สถานที่ส่งของ</p>
+                  <p className="text-sm font-medium text-gray-900">{prData.delivery_location}</p>
+                </div>
+              )}
+
+              {/* Budget bar — if available */}
+              {budgetInfo && budgetInfo.budget > 0 && (
+                <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">งบประมาณโครงการ</p>
+                    <p className="text-sm font-black text-gray-900">{budgetInfo.percentage}%</p>
+                  </div>
+                  <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        budgetInfo.percentage >= 90 ? 'bg-red-500' : 
+                        budgetInfo.percentage >= 70 ? 'bg-orange-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${budgetInfo.percentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>ใช้แล้ว: ฿{budgetInfo.spent.toLocaleString()}</span>
+                    <span>เหลือ: ฿{(budgetInfo.budget - budgetInfo.spent).toLocaleString()}</span>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -344,6 +430,7 @@ export default function PREdit() {
             <CardHeader className="flex flex-row items-center justify-between py-5 px-6">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <FileText className="w-5 h-5 text-blue-600" /> รายการวัสดุอุปกรณ์
+                <Badge variant="secondary" className="ml-1 text-xs">{items.length} รายการ</Badge>
               </CardTitle>
               <Button variant="ghost" onClick={addItem} className="text-blue-600 font-bold hover:bg-blue-50 h-9">
                 <Plus className="w-4 h-4 mr-1" /> เพิ่มรายการ
@@ -389,7 +476,7 @@ export default function PREdit() {
                           />
                         </td>
                         <td className="py-4 pl-4 text-right font-black text-gray-900 leading-10">
-                          {item.total_price?.toLocaleString()}
+                          ฿{item.total_price?.toLocaleString()}
                         </td>
                         <td className="py-4 pl-2 text-right">
                           <Button 
@@ -418,37 +505,6 @@ export default function PREdit() {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Budget Status */}
-          {budgetInfo && budgetInfo.budget > 0 && (
-            <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-              <CardHeader className="bg-white pb-2">
-                <CardTitle className="flex items-center gap-2 text-base font-bold">
-                  <DollarSign className="w-5 h-5 text-blue-600" /> งบประมาณโครงการ
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-2xl font-black text-gray-900">{budgetInfo.percentage}% Used</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500">เหลือ: {(budgetInfo.budget - budgetInfo.spent).toLocaleString()} THB</p>
-                    <p className="text-xs text-gray-400">งบทั้งหมด: {budgetInfo.budget.toLocaleString()} THB</p>
-                  </div>
-                </div>
-                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      budgetInfo.percentage >= 90 ? 'bg-red-500' : 
-                      budgetInfo.percentage >= 70 ? 'bg-orange-500' : 'bg-green-500'
-                    }`}
-                    style={{ width: `${budgetInfo.percentage}%` }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Vendor Card */}
           <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="bg-white pb-2">
@@ -486,7 +542,7 @@ export default function PREdit() {
                         {vendor.name}
                         <button 
                           type="button"
-                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
+                          onClick={() => setVendorIds(vendorIds.filter(vid => vid !== vendor.id))}
                           className="hover:text-blue-900 ml-1"
                         >
                           ×
@@ -512,73 +568,76 @@ export default function PREdit() {
             </CardContent>
           </Card>
 
-          {/* Existing Attachments */}
+          {/* Combined Attachments Card */}
           <Card className="border-none shadow-sm rounded-2xl">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-600" /> เอกสารแนบเดิม
+                <Paperclip className="w-4 h-4 text-blue-600" /> เอกสารแนบ
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {attachments.length > 0 ? (
-                attachments.map((file, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group">
-                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                      <FileText className="h-4 w-4 text-red-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700 truncate">{file}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <a 
-                        href={getFileUrl(id!, file)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-red-500"
-                        onClick={() => removeExistingAttachment(file)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-4">ไม่มีเอกสารแนบ</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* New Attachments Upload */}
-          <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base font-bold">เอกสารอ้างอิงใหม่</CardTitle>
-            </CardHeader>
             <CardContent className="space-y-4">
-              <div 
-                className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 cursor-pointer transition-colors group"
-                onClick={triggerFileInput}
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-sm w-fit mx-auto mb-3 group-hover:scale-110 transition-transform">
-                  <Upload className="h-6 w-6 text-blue-600" />
+              {/* Existing files */}
+              {attachments.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">เอกสารเดิม</p>
+                  <div className="space-y-2">
+                    {attachments.map((file, index) => (
+                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group">
+                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                          <FileText className="h-4 w-4 text-red-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-700 truncate">{file}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <a 
+                            href={getFileUrl(id!, file)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8 text-gray-400 hover:text-red-500"
+                            onClick={() => removeExistingAttachment(file)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-sm font-bold text-gray-700">อัปโหลดไฟล์</p>
-                <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, XLSX (MAX 10MB)</p>
+              )}
+
+              {/* Upload new files */}
+              <div>
+                {attachments.length > 0 && (
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">เพิ่มเอกสารใหม่</p>
+                )}
+                <div 
+                  className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-50 cursor-pointer transition-colors group"
+                  onClick={triggerFileInput}
+                >
+                  <div className="p-2.5 bg-white rounded-xl shadow-sm w-fit mx-auto mb-2 group-hover:scale-110 transition-transform">
+                    <Upload className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <p className="text-sm font-bold text-gray-700">อัปโหลดไฟล์</p>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, XLSX, JPG (MAX 10MB)</p>
+                </div>
               </div>
-              
+
+              {/* Newly selected files */}
               {newAttachments.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">ไฟล์ที่เลือก:</p>
+                  <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest">ไฟล์ใหม่ที่เลือก</p>
                   {newAttachments.map((file, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
-                      <FileText className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
+                    <div key={index} className="flex items-center gap-2 p-2.5 bg-green-50 rounded-xl border border-green-100">
+                      <FileText className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-gray-700 flex-1 truncate font-medium">{file.name}</span>
                       <Button 
                         variant="ghost" 
                         size="icon"
@@ -591,6 +650,10 @@ export default function PREdit() {
                   ))}
                 </div>
               )}
+
+              {attachments.length === 0 && newAttachments.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-2">ยังไม่มีเอกสารแนบ</p>
+              )}
             </CardContent>
           </Card>
 
@@ -599,9 +662,9 @@ export default function PREdit() {
             <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="py-5 px-6 bg-blue-50/80 flex flex-row items-center justify-between">
                 <CardTitle className="text-base font-bold flex items-center gap-2 text-blue-600">
-                  <History className="w-4 h-4" /> ประวัติการแก้ไข
+                  <History className="w-4 h-4" /> ประวัติการดำเนินการ
                   <span className="bg-blue-400 text-white px-2 py-0.5 rounded-full text-[10px]">
-                    {editHistory.length}
+                    {editHistory.length} รายการ
                   </span>
                 </CardTitle>
                 {editHistory.length > 3 && (
@@ -614,38 +677,62 @@ export default function PREdit() {
                     {historyExpanded ? (
                       <><ChevronUp className="w-4 h-4 mr-1" /> ย่อ</>
                     ) : (
-                      <><ChevronDown className="w-4 h-4 mr-1" /> ขยาย</>
+                      <><ChevronDown className="w-4 h-4 mr-1" /> ขยาย ({editHistory.length - 3} รายการ)</>
                     )}
                   </Button>
                 )}
               </CardHeader>
-              <CardContent className="p-6 space-y-4 bg-blue-50/30">
-                {(historyExpanded ? editHistory : editHistory.slice(-3)).map((history, index) => (
-                  <div key={index} className="flex items-start gap-3 text-sm p-3 bg-white rounded-xl border border-blue-100">
-                    <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
-                      index === editHistory.length - 1 ? 'bg-green-500' : 'bg-blue-500'
-                    }`} />
-                    <div className="flex-1">
-                      <p className="font-bold text-gray-900">{history.action}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {history.date && !isNaN(new Date(history.date).getTime())
-                          ? new Date(history.date).toLocaleString('th-TH', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })
-                          : 'ไม่ระบุวันที่'} โดย {history.by}
-                      </p>
+              <CardContent className="p-6 bg-blue-50/30">
+                <div className="space-y-4">
+                  {(historyExpanded ? editHistory : editHistory.slice(0, 3)).map((history, index) => (
+                    <div key={index} className="bg-white p-4 rounded-xl border border-blue-100">
+                      <div className="flex items-start gap-3 text-sm">
+                        <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
+                          index === 0 ? 'bg-green-500' : 'bg-blue-500'
+                        }`} />
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{history.action}</p>
+                          <p className="text-xs text-gray-500">
+                            {history.date && !isNaN(new Date(history.date).getTime())
+                              ? new Date(history.date).toLocaleString('th-TH', { 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })
+                              : 'ไม่ระบุวันที่'} โดย {history.by}
+                          </p>
+                        </div>
+                      </div>
+                      {history.oldAttachments && history.oldAttachments.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1">
+                            <Paperclip className="w-3 h-3" /> เอกสารแนบก่อนหน้า ({history.oldAttachments.length} ไฟล์)
+                          </p>
+                          <div className="space-y-2">
+                            {history.oldAttachments.map((file: string, idx: number) => (
+                              <a
+                                key={idx}
+                                href={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/pbc_3482049810/${id}/${file}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-xs hover:bg-blue-50 transition-colors"
+                              >
+                                <FileText className="w-3 h-3 text-red-500" />
+                                <span className="flex-1 truncate">{file}</span>
+                                <Download className="w-3 h-3 text-gray-400" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}
-
-          {/* Action Buttons removed - moved to header */}
         </div>
       </div>
     </div>

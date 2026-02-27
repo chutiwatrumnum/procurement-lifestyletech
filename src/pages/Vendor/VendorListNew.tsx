@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,32 +23,18 @@ import {
   Trash2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { vendorService } from '@/services/api';
 import { toast } from 'sonner';
+import { useVendors, useDeleteVendor } from '@/hooks/useVendors';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function VendorListNew() {
-  const [vendors, setVendors] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    async function loadVendors() {
-      try {
-        const data = await vendorService.getAll();
-        setVendors(data);
-      } catch (err) {
-        console.error('Fetch error:', err);
-        setVendors([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadVendors();
-  }, []);
+  const { data: vendors = [], isLoading } = useVendors();
+  const deleteVendorMutation = useDeleteVendor();
 
   const filteredVendors = vendors.filter(v => {
     const matchSearch = v.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -72,18 +58,15 @@ export default function VendorListNew() {
     if (!confirm('คุณแน่ใจหรือไม่ที่จะลบผู้ขายรายนี้?')) return;
     
     try {
-      await vendorService.delete(id);
+      await deleteVendorMutation.mutateAsync(id);
       toast.success('ลบผู้ขายเรียบร้อยแล้ว');
-      // Reload vendors
-      const data = await vendorService.getAll();
-      setVendors(data);
     } catch (err) {
       console.error('Delete error:', err);
       toast.error('ไม่สามารถลบผู้ขายได้');
     }
   };
 
-  if (loading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังดึงข้อมูลผู้ขายจากระบบ...</div>;
+  if (isLoading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังดึงข้อมูลผู้ขายจากระบบ...</div>;
 
   return (
     <div className="space-y-6">

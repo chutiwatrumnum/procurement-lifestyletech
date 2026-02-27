@@ -19,13 +19,13 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { vendorService } from '@/services/api';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
+import { useCreateVendor } from '@/hooks/useVendors';
 
 export default function VendorNew() {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createVendorMutation = useCreateVendor();
   const [paymentTerm, setPaymentTerm] = useState('30days');
   const [paymentTermDetail, setPaymentTermDetail] = useState('');
   const [vendorType, setVendorType] = useState<'domestic' | 'foreign'>('domestic');
@@ -44,7 +44,6 @@ export default function VendorNew() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
     
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -63,7 +62,7 @@ export default function VendorNew() {
     };
 
     try {
-      const vendor = await vendorService.create(data);
+      const vendor = await createVendorMutation.mutateAsync(data);
       
       // Upload attachments if any
       if (uploadedFiles.length > 0) {
@@ -79,8 +78,6 @@ export default function VendorNew() {
     } catch (error) {
       console.error(error);
       toast.error('ไม่สามารถบันทึกข้อมูลได้ กรุณาเช็ค API Rules ใน PocketBase');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -305,8 +302,8 @@ export default function VendorNew() {
 
           <div className="space-y-6">
             <div className="flex flex-col gap-3">
-              <Button type="submit" size="lg" className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl h-12 font-bold shadow-lg shadow-blue-500/20" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              <Button type="submit" size="lg" className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl h-12 font-bold shadow-lg shadow-blue-500/20" disabled={createVendorMutation.isPending}>
+                {createVendorMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 บันทึกลงระบบฐานข้อมูล
               </Button>
               <Button type="button" variant="outline" size="lg" className="w-full rounded-xl h-12 border-[#E5E7EB] text-gray-600" onClick={() => navigate(-1)}>

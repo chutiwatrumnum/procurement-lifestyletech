@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,54 +38,43 @@ import {
   Building2,
   Loader2,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
-import { prService } from '@/services/api';
 import { toast } from 'sonner';
+import { usePurchaseRequests, useDeletePR } from '@/hooks/usePurchaseRequests';
 
 interface PurchaseRequestListProps {
   type?: 'project' | 'sub' | 'other';
 }
 
 export default function PurchaseRequestList({ type }: PurchaseRequestListProps = {}) {
-  const [prs, setPrs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; pr: any | null }>({ open: false, pr: null });
-  const [isDeleting, setIsDeleting] = useState(false);
+  const ITEMS_PER_PAGE = 15;
   const navigate = useNavigate();
   
-  // กำหนด active tab จาก prop type
   const activeTab = type || 'all';
 
-  async function loadPRs() {
-    try {
-      const data = await prService.getAll();
-      setPrs(data.map(pr => ({
-        id: pr.id,
-        pr_number: pr.pr_number,
-        project: pr.expand?.project?.name || 'รายการทั่วไป',
-        type: (pr.type || 'N/A').toUpperCase(),
-        rawType: pr.type,
-        rawStatus: pr.status,
-        requester: pr.requester_name || pr.expand?.requester?.name || 'N/A',
-        date: new Date(pr.created).toLocaleDateString('th-TH'),
-        amount: pr.total_amount || 0,
-        status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
-        color: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
-      })));
-    } catch (err) {
-      console.error('Fetch error:', err);
-      setPrs([]);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: rawPRs = [], isLoading } = usePurchaseRequests();
+  const deletePRMutation = useDeletePR();
 
-  useEffect(() => {
-    loadPRs();
-  }, []);
+  const prs = useMemo(() => rawPRs.map(pr => ({
+    id: pr.id,
+    pr_number: pr.pr_number,
+    project: pr.expand?.project?.name || 'รายการทั่วไป',
+    type: (pr.type || 'N/A').toUpperCase(),
+    rawType: pr.type,
+    rawStatus: pr.status,
+    requester: pr.requester_name || pr.expand?.requester?.name || 'N/A',
+    date: new Date(pr.created).toLocaleDateString('th-TH'),
+    amount: pr.total_amount || 0,
+    status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
+    color: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
+  })), [rawPRs]);
 
   const handleDelete = (pr: any) => {
     setDeleteDialog({ open: true, pr });
@@ -93,39 +82,42 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
 
   const confirmDelete = async () => {
     if (!deleteDialog.pr) return;
-    
-    setIsDeleting(true);
     try {
-      await prService.delete(deleteDialog.pr.id);
+      await deletePRMutation.mutateAsync(deleteDialog.pr.id);
       toast.success('ลบคำขอจัดซื้อเรียบร้อยแล้ว');
-      loadPRs();
       setDeleteDialog({ open: false, pr: null });
     } catch (err) {
       console.error('Delete error:', err);
       toast.error('ไม่สามารถลบคำขอจัดซื้อได้');
-    } finally {
-      setIsDeleting(false);
     }
   };
 
   const filteredPRs = prs.filter(pr => {
-    // กรองตาม search term
     const matchesSearch = pr.pr_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pr.project.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // กรองตาม type (tab)
     const matchesType = activeTab === 'all' || 
       (activeTab === 'project' && pr.rawType === 'project') ||
       (activeTab === 'sub' && pr.rawType === 'sub') ||
       (activeTab === 'other' && pr.rawType === 'other');
-    
-    // กรองตาม status
     const matchesStatus = statusFilter === 'all' || pr.rawStatus === statusFilter;
-    
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  if (loading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังดึงข้อมูล...</div>;
+  // Pagination
+  const totalPages = Math.ceil(filteredPRs.length / ITEMS_PER_PAGE);
+  const paginatedPRs = filteredPRs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  // Reset page when filters change
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+  const handleStatusFilter = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  if (isLoading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังดึงข้อมูล...</div>;
 
   return (
     <div className="space-y-6">
@@ -217,7 +209,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
               <Input
                 placeholder="ค้นหาเลข PR หรือโครงการ..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -225,14 +217,14 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
               <Button
                 variant={statusFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setStatusFilter('all')}
+                onClick={() => handleStatusFilter('all')}
               >
                 ทั้งหมด
               </Button>
               <Button
                 variant={statusFilter === 'pending' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setStatusFilter('pending')}
+                onClick={() => handleStatusFilter('pending')}
                 className={statusFilter === 'pending' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
               >
                 รออนุมัติ
@@ -240,7 +232,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
               <Button
                 variant={statusFilter === 'approved' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setStatusFilter('approved')}
+                onClick={() => handleStatusFilter('approved')}
                 className={statusFilter === 'approved' ? 'bg-green-600 hover:bg-green-700' : ''}
               >
                 อนุมัติแล้ว
@@ -276,7 +268,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPRs.map((pr) => (
+                {paginatedPRs.map((pr) => (
                   <TableRow key={pr.id} className="cursor-pointer hover:bg-gray-50" onClick={() => navigate(`/purchase-requests/${pr.id}`)}>
                     <TableCell className="font-medium">{pr.pr_number}</TableCell>
                     <TableCell>
@@ -333,6 +325,60 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
               </TableBody>
             </Table>
           </CardContent>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                แสดง {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredPRs.length)} จาก {filteredPRs.length} รายการ
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-9 px-3 rounded-lg"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" /> ก่อนหน้า
+                </Button>
+                <div className="flex gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                      if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push('...');
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((page, idx) => (
+                      typeof page === 'string' ? (
+                        <span key={`ellipsis-${idx}`} className="px-2 py-1 text-gray-400 text-sm">...</span>
+                      ) : (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className={`h-9 w-9 p-0 rounded-lg ${
+                            currentPage === page ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''
+                          }`}
+                        >
+                          {page}
+                        </Button>
+                      )
+                    ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="h-9 px-3 rounded-lg"
+                >
+                  ถัดไป <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -356,9 +402,9 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
             <Button 
               variant="destructive" 
               onClick={confirmDelete}
-              disabled={isDeleting}
+              disabled={deletePRMutation.isPending}
             >
-              {isDeleting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> กำลังลบ...</> : 'ลบใบขอซื้อ'}
+              {deletePRMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> กำลังลบ...</> : 'ลบใบขอซื้อ'}
             </Button>
           </DialogFooter>
         </DialogContent>

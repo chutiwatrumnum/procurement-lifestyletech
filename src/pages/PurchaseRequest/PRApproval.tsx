@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,7 @@ import {
 
 export default function PRApproval() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [pendingPRs, setPendingPRs] = useState<any[]>([]);
   const [selectedPR, setSelectedPR] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
@@ -424,6 +426,9 @@ export default function PRApproval() {
       setComment('');
       setConfirmDialog({ open: false, action: null });
       await loadPRs();
+      // Invalidate React Query caches
+      queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       // Refresh badge counts in sidebar
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
     } catch (err) {

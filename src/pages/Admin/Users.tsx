@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import pb from '@/lib/pocketbase';
+import { useUsers, useDepartments, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers';
 
 interface UserData {
   id: string;
@@ -77,9 +77,6 @@ export default function UserManagement() {
   const navigate = useNavigate();
   const { user: currentUser, isSuperAdmin, isHeadOfDept, canManageUsers } = useAuth();
   
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -89,7 +86,6 @@ export default function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -103,74 +99,48 @@ export default function UserManagement() {
     is_active: true
   });
 
+  // TanStack Query hooks
+  const { data: rawUsers = [], isLoading: loading } = useUsers();
+  const { data: departments = [] } = useDepartments();
+  const createUserMutation = useCreateUser();
+  const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
+
+  const users: UserData[] = useMemo(() => rawUsers.map((u: any) => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    department: u.department,
+    departmentName: u.expand?.department?.name,
+    manager: u.manager,
+    managerName: u.expand?.manager?.name,
+    is_active: u.is_active ?? true,
+    phone: u.phone,
+    position: u.position,
+    created: u.created
+  })), [rawUsers]);
+
   useEffect(() => {
     if (!canManageUsers()) {
       toast.error('คุณไม่มีสิทธิ์จัดการผู้ใช้');
       navigate('/');
-      return;
     }
-    loadData();
   }, []);
-
-  async function loadData() {
-    try {
-      setLoading(true);
-      
-      // Load users
-      const usersData = await pb.collection('users').getFullList({
-        expand: 'department,manager',
-        sort: '-created'
-      });
-      
-      const formattedUsers: UserData[] = usersData.map((u: any) => ({
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        role: u.role,
-        department: u.department,
-        departmentName: u.expand?.department?.name,
-        manager: u.manager,
-        managerName: u.expand?.manager?.name,
-        is_active: u.is_active ?? true,
-        phone: u.phone,
-        position: u.position,
-        created: u.created
-      }));
-      
-      setUsers(formattedUsers);
-      
-      // Load departments
-      const deptData = await pb.collection('departments').getFullList({
-        sort: 'name'
-      }).catch(() => []);
-      
-      setDepartments(deptData as any);
-    } catch (err) {
-      console.error('Load data failed:', err);
-      toast.error('ไม่สามารถโหลดข้อมูลได้');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const handleCreate = async () => {
     if (!formData.name || !formData.email) {
       toast.error('กรุณากรอกชื่อและอีเมล');
       return;
     }
-
-    // Check permissions
     if (!isSuperAdmin() && formData.role === 'superadmin') {
       toast.error('คุณไม่มีสิทธิ์สร้างผู้ดูแลระบบ');
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      // Generate random password
       const tempPassword = Math.random().toString(36).slice(-8);
-      
-      await pb.collection('users').create({
+      await createUserMutation.mutateAsync({
         email: formData.email,
         password: tempPassword,
         passwordConfirm: tempPassword,
@@ -182,70 +152,56 @@ export default function UserManagement() {
         position: formData.position || undefined,
         is_active: true
       });
-      
       toast.success(`สร้างผู้ใช้สำเร็จ (รหัสผ่านชั่วคราว: ${tempPassword})`);
       setIsCreateDialogOpen(false);
       resetForm();
-      loadData();
     } catch (err: any) {
       console.error('Create user failed:', err);
       toast.error(err.message || 'สร้างผู้ใช้ไม่สำเร็จ');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleUpdate = async () => {
     if (!selectedUser) return;
-
-    // Check permissions
     if (!isSuperAdmin()) {
-      // Head_of_dept can only manage users in same department
       if (isHeadOfDept() && selectedUser.department !== currentUser?.department) {
         toast.error('คุณไม่มีสิทธิ์แก้ไขผู้ใช้นอกแผนก');
         return;
       }
-      // Cannot change to superadmin
       if (formData.role === 'superadmin') {
         toast.error('คุณไม่มีสิทธิ์ตั้งเป็นผู้ดูแลระบบ');
         return;
       }
     }
 
-    setIsSubmitting(true);
     try {
-      await pb.collection('users').update(selectedUser.id, {
-        name: formData.name,
-        role: formData.role,
-        department: formData.department === 'none' ? undefined : formData.department,
-        manager: formData.manager === 'none' ? undefined : formData.manager,
-        phone: formData.phone || undefined,
-        position: formData.position || undefined,
-        is_active: formData.is_active
+      await updateUserMutation.mutateAsync({
+        id: selectedUser.id,
+        data: {
+          name: formData.name,
+          role: formData.role,
+          department: formData.department === 'none' ? undefined : formData.department,
+          manager: formData.manager === 'none' ? undefined : formData.manager,
+          phone: formData.phone || undefined,
+          position: formData.position || undefined,
+          is_active: formData.is_active
+        }
       });
-      
       toast.success('อัปเดตผู้ใช้สำเร็จ');
       setIsEditDialogOpen(false);
       setSelectedUser(null);
-      loadData();
     } catch (err: any) {
       console.error('Update user failed:', err);
       toast.error(err.message || 'อัปเดตไม่สำเร็จ');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!selectedUser) return;
-
-    // Prevent deleting yourself
     if (selectedUser.id === currentUser?.id) {
       toast.error('ไม่สามารถลบตัวเองได้');
       return;
     }
-
-    // Check permissions
     if (!isSuperAdmin()) {
       if (isHeadOfDept() && selectedUser.department !== currentUser?.department) {
         toast.error('คุณไม่มีสิทธิ์ลบผู้ใช้นอกแผนก');
@@ -257,18 +213,14 @@ export default function UserManagement() {
       }
     }
 
-    setIsSubmitting(true);
     try {
-      await pb.collection('users').delete(selectedUser.id);
+      await deleteUserMutation.mutateAsync(selectedUser.id);
       toast.success('ลบผู้ใช้สำเร็จ');
       setIsDeleteDialogOpen(false);
       setSelectedUser(null);
-      loadData();
     } catch (err: any) {
       console.error('Delete user failed:', err);
       toast.error(err.message || 'ลบไม่สำเร็จ');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -638,10 +590,10 @@ export default function UserManagement() {
             </Button>
             <Button 
               onClick={handleCreate} 
-              disabled={isSubmitting}
+              disabled={createUserMutation.isPending || updateUserMutation.isPending || deleteUserMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700 rounded-xl"
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'สร้างผู้ใช้'}
+              {createUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'สร้างผู้ใช้'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -752,10 +704,10 @@ export default function UserManagement() {
             </Button>
             <Button 
               onClick={handleUpdate} 
-              disabled={isSubmitting}
+              disabled={createUserMutation.isPending || updateUserMutation.isPending || deleteUserMutation.isPending}
               className="bg-blue-600 hover:bg-blue-700 rounded-xl"
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'บันทึก'}
+              {updateUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'บันทึก'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -781,10 +733,10 @@ export default function UserManagement() {
             </Button>
             <Button 
               onClick={handleDelete} 
-              disabled={isSubmitting}
+              disabled={createUserMutation.isPending || updateUserMutation.isPending || deleteUserMutation.isPending}
               className="bg-red-600 hover:bg-red-700 rounded-xl"
             >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'ลบผู้ใช้'}
+              {deleteUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'ลบผู้ใช้'}
             </Button>
           </DialogFooter>
         </DialogContent>

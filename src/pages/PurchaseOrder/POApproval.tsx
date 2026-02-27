@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,8 @@ import {
   Lock,
   Unlock,
   UserCheck,
-  Users
+  Users,
+  PenTool
 } from 'lucide-react';
 import { prService } from '@/services/api';
 import { notificationService } from '@/services/notification';
@@ -41,6 +43,7 @@ import {
 
 export default function POApproval() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [subPRs, setSubPRs] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -392,16 +395,16 @@ export default function POApproval() {
               await pb.collection('purchase_requests').update(selectedItem.id, formData);
               
               // แล้วค่อยอนุมัติ + ตัด stock
-              await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
+              await prService.approveSub(selectedItem.id, user?.id, comment);
             } catch (err) {
               console.error('Failed to copy signature:', err);
               // ถ้า copy ไม่ได้ ให้อัพเดตแบบไม่มีลายเซ็น แล้วค่อยอนุมัติ
               await pb.collection('purchase_requests').update(selectedItem.id, updateData);
-              await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
+              await prService.approveSub(selectedItem.id, user?.id, comment);
             }
           } else {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
-            await prService.approveSub(selectedItem.id, user?.id, comment, oldAttachments);
+            await prService.approveSub(selectedItem.id, user?.id, comment);
           }
           
           // ส่ง notification ตาม role (ผู้จัดการอนุมัติ)
@@ -416,6 +419,9 @@ export default function POApproval() {
       setComment('');
       setConfirmDialog({ open: false, action: null });
       await loadData();
+      // Invalidate React Query caches
+      queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       // Refresh badge counts in sidebar
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
     } catch (err) {
@@ -830,7 +836,7 @@ export default function POApproval() {
                 {(selectedItem.head_of_dept_approved_by || selectedItem.manager_approved_by) && (
                   <div className="mb-10">
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <Signature className="w-3 h-3" /> ผู้อนุมัติ
+                      <PenTool className="w-3 h-3" /> ผู้อนุมัติ
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       {/* Head of Dept Card */}

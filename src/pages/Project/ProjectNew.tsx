@@ -10,17 +10,15 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { projectService } from '@/services/api';
+import { useCreateProject } from '@/hooks/useProjects';
 import { toast } from 'sonner';
 
 export default function ProjectNew() {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const createProjectMutation = useCreateProject();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
     
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -32,14 +30,12 @@ export default function ProjectNew() {
     };
 
     try {
-      await projectService.create(data);
+      await createProjectMutation.mutateAsync(data);
       toast.success('เพิ่มโครงการใหม่เรียบร้อยแล้ว');
       navigate('/projects');
     } catch (error) {
       console.error(error);
       toast.error('ไม่สามารถบันทึกข้อมูลได้');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -86,8 +82,8 @@ export default function ProjectNew() {
             </div>
 
             <div className="flex gap-4 pt-4">
-              <Button type="submit" size="lg" className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-black h-12 rounded-xl shadow-lg shadow-blue-500/20" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+              <Button type="submit" size="lg" className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-black h-12 rounded-xl shadow-lg shadow-blue-500/20" disabled={createProjectMutation.isPending}>
+                {createProjectMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
                 บันทึกสร้างโครงการ
               </Button>
               <Button type="button" variant="outline" size="lg" className="px-8 h-12 rounded-xl border-gray-200 text-gray-500 font-bold" onClick={() => navigate(-1)}>

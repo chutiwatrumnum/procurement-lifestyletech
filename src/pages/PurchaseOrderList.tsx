@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,34 +31,20 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { poService } from '@/services/api';
+import { usePurchaseOrders } from '@/hooks/usePurchaseOrders';
 
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [pos, setPos] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    async function loadPOs() {
-      try {
-        const data = await poService.getAll();
-        setPos(data);
-      } catch (err) {
-        console.error('Fetch failed');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadPOs();
-  }, []);
+  const { data: pos = [], isLoading } = usePurchaseOrders();
 
   const filteredPOs = pos.filter(po => 
     po.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (po.expand?.vendor?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
+  if (isLoading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
 
   return (
     <div className="space-y-6">

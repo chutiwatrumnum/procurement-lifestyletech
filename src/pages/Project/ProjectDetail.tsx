@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { toast } from 'sonner';
-import pb from '@/lib/pocketbase';
+import { useProjectDetail } from '@/hooks/useProjects';
 
 interface WithdrawDetail {
   pr_number: string;
@@ -72,156 +71,17 @@ interface PRSub {
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [project, setProject] = useState<any>(null);
-  const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
-  const [reserveItems, setReserveItems] = useState<ReserveItem[]>([]);
-  const [reserveTotal, setReserveTotal] = useState(0);
-  const [prProjects, setPrProjects] = useState<PRProject[]>([]);
-  const [prSubs, setPrSubs] = useState<PRSub[]>([]);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
-  const [stats, setStats] = useState({
-    totalPlanned: 0,
-    totalWithdrawn: 0,
-    remaining: 0,
-    totalReserve: 0
-  });
 
-  useEffect(() => {
-    if (id) {
-      loadProjectData(id);
-    }
-  }, [id]);
+  const { data, isLoading: loading } = useProjectDetail(id);
 
-  async function loadProjectData(projectId: string) {
-    try {
-      setLoading(true);
-      
-      // 1. โหลดข้อมูลโครงการ
-      const projectData = await pb.collection('projects').getOne(projectId);
-      setProject(projectData);
-
-      // 2. โหลด PR Projects ของโครงการนี้ (พร้อมไฟล์แนบ)
-      const prData = await pb.collection('purchase_requests').getFullList({
-        filter: `project = "${projectId}" && type = "project"`,
-        sort: '-created'
-      });
-      setPrProjects(prData as any);
-
-      // 3. โหลด project_items (แผน)
-      const itemsData = await pb.collection('project_items').getFullList({
-        filter: `project = "${projectId}"`,
-        sort: 'name'
-      });
-
-      // 4. โหลด PR Sub ทั้งหมด (ไม่ใช่แค่ approved) เพื่อแสดงเอกสาร
-      const prSubsData = await pb.collection('purchase_requests').getFullList({
-        filter: `project = "${projectId}" && type = "sub"`,
-        sort: '-created'
-      });
-      setPrSubs(prSubsData as any);
-
-      // 5. โหลด PR Sub ที่อนุมัติแล้ว เพื่อคำนวณจำนวนที่เบิก (stock)
-      const prSubsApproved = await pb.collection('purchase_requests').getFullList({
-        filter: `project = "${projectId}" && type = "sub" && status = "approved"`,
-        expand: 'pr_items'
-      });
-
-      // 6. คำนวณจำนวนที่เบิกไปแล้ว (ใช้เฉพาะ PR Sub ที่อนุมัติแล้ว) พร้อมเก็บรายละเอียด
-      const withdrawnMap: Record<string, number> = {};
-      const withdrawnDetailsMap: Record<string, WithdrawDetail[]> = {};
-      
-      for (const prSub of prSubsApproved) {
-        const prItems = await pb.collection('pr_items').getFullList({
-          filter: `pr = "${prSub.id}" && (item_type = "regular" || item_type = "")`,
-          expand: 'project_item'
-        });
-        
-        for (const item of prItems) {
-          const projectItemId = item.project_item;
-          if (projectItemId) {
-            // สะสมจำนวนรวม (เฉพาะ regular)
-            withdrawnMap[projectItemId] = (withdrawnMap[projectItemId] || 0) + (item.quantity || 0);
-            
-            // เก็บรายละเอียดแต่ละครั้ง
-            if (!withdrawnDetailsMap[projectItemId]) {
-              withdrawnDetailsMap[projectItemId] = [];
-            }
-            withdrawnDetailsMap[projectItemId].push({
-              pr_number: prSub.pr_number,
-              quantity: item.quantity || 0,
-              unit_price: item.unit_price || 0,
-              total: (item.quantity || 0) * (item.unit_price || 0),
-              date: prSub.created
-            });
-          }
-        }
-      }
-
-      // 7. รวมข้อมูล project_items พร้อมจำนวนที่เบิกและรายละเอียด
-      const itemsWithWithdrawn = itemsData.map((item: any) => ({
-        ...item,
-        withdrawn: withdrawnMap[item.id] || 0,
-        withdrawnDetails: withdrawnDetailsMap[item.id] || []
-      }));
-
-      setProjectItems(itemsWithWithdrawn);
-
-      // 8. คำนวณสถิติ (ใช้ราคาจริงจาก PR Sub ที่เบิก)
-      const totalPlanned = itemsWithWithdrawn.reduce((sum, item) => sum + (item.total_price || 0), 0);
-      const totalWithdrawn = itemsWithWithdrawn.reduce((sum, item) => {
-        // คำนวณจากรายละเอียดการเบิกจริง (ใช้ราคาจาก PR Sub)
-        const withdrawnTotal = item.withdrawnDetails?.reduce((detailSum: number, detail: WithdrawDetail) => detailSum + detail.total, 0) || 0;
-        return sum + withdrawnTotal;
-      }, 0);
-
-      setStats({
-        totalPlanned,
-        totalWithdrawn,
-        remaining: totalPlanned - totalWithdrawn,
-        totalReserve: 0
-      });
-
-      // 9. โหลดรายการสำรอง (reserve items) จาก PR Sub ที่อนุมัติแล้ว
-      const reserveItemsList: ReserveItem[] = [];
-      let reserveTotalAmount = 0;
-      
-      for (const prSub of prSubsApproved) {
-        const prItems = await pb.collection('pr_items').getFullList({
-          filter: `pr = "${prSub.id}" && item_type = "reserve"`
-        });
-        
-        for (const item of prItems) {
-          reserveItemsList.push({
-            id: item.id,
-            name: item.name,
-            unit: item.unit || 'งาน',
-            quantity: item.quantity || 0,
-            unit_price: item.unit_price || 0,
-            total_price: item.total_price || 0,
-            pr_number: prSub.pr_number,
-            created: prSub.created
-          });
-          reserveTotalAmount += item.total_price || 0;
-        }
-      }
-      
-      setReserveItems(reserveItemsList);
-      setReserveTotal(reserveTotalAmount);
-      
-      // Update stats with reserve total
-      setStats(prev => ({
-        ...prev,
-        totalReserve: reserveTotalAmount
-      }));
-
-    } catch (err) {
-      console.error('Error loading project:', err);
-      toast.error('ไม่สามารถโหลดข้อมูลโครงการได้');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const project = data?.project;
+  const projectItems = data?.projectItems || [];
+  const reserveItems = data?.reserveItems || [];
+  const reserveTotal = data?.reserveTotal || 0;
+  const prProjects = data?.prProjects || [];
+  const prSubs = data?.prSubs || [];
+  const stats = data?.stats || { totalPlanned: 0, totalWithdrawn: 0, remaining: 0, totalReserve: 0 };
 
   const toggleExpand = (itemId: string) => {
     setExpandedItems(prev => ({
@@ -426,7 +286,7 @@ export default function ProjectDetail() {
                                     <span className="text-right">ราคา/หน่วย</span>
                                     <span className="text-right">มูลค่ารวม</span>
                                   </div>
-                                  {item.withdrawnDetails.map((detail, idx) => (
+                                  {item.withdrawnDetails.map((detail: any, idx: number) => (
                                     <div key={idx} className="grid grid-cols-4 gap-4 text-sm py-2 border-t border-orange-100">
                                       <span className="font-medium text-gray-700">{detail.pr_number}</span>
                                       <span className="text-right font-bold text-orange-600">{detail.quantity}</span>

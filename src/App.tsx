@@ -46,7 +46,15 @@ import ProfileSettings from '@/pages/Settings/Profile';
 import PurchaseRequestList from '@/pages/PurchaseRequestList';
 import PurchaseOrderList from '@/pages/PurchaseOrderList';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, isLoading } = useAuth();

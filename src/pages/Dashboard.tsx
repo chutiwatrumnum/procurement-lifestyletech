@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,27 +11,17 @@ import {
   FileText,
   Building2,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { prService, projectService } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDashboardData } from '@/hooks/useDashboard';
+import { useMemo, useState } from 'react';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [pendingCounts, setPendingCounts] = useState({
-    projectPR: 0,
-    subPR: 0,
-    otherPR: 0
-  });
-  const [stats, setStats] = useState([
-    { title: 'รายการรออนุมัติทั้งหมด', value: '0', subtitle: 'ข้อมูลจากฐานข้อมูลจริง', icon: Calendar, trend: 'Live', trendUp: true },
-    { title: 'โครงการที่กำลังดำเนินการ', value: '0', subtitle: 'โครงการที่รันอยู่ในระบบ', icon: Wrench, badge: 'Real' },
-    { title: 'ยอดซื้อรวมทั้งหมด', value: '฿0.00', subtitle: 'รวมทุกโครงการจริง', icon: CreditCard, trend: 'Live', trendUp: true }
-  ]);
-
-  const [recentPRs, setRecentPRs] = useState<any[]>([]);
 
   // ตรวจสอบ role
   const isHeadOfDept = user?.role === 'head_of_dept';
@@ -40,73 +29,76 @@ export default function Dashboard() {
   const isSuperAdmin = user?.role === 'superadmin';
   const canApprovePR = isHeadOfDept || isManager || isSuperAdmin;
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        // ดึง PR ทั้งหมด
-        const allPRs = await prService.getAll();
-        const [projects] = await Promise.all([
-          projectService.getAll()
-        ]);
-        
-        // นับจำนวนรออนุมัติตามประเภท
-        const pendingProject = allPRs.filter(p => p.status === 'pending' && (p.type === 'project' || !p.type));
-        const pendingSub = allPRs.filter(p => p.status === 'pending' && p.type === 'sub');
-        const pendingOther = allPRs.filter(p => p.status === 'pending' && p.type === 'other');
-        
-        // กรองตามระดับที่ user อนุมัติได้
-        let projectPRsToShow = pendingProject;
-        let subPRsToShow = pendingSub;
-        let otherPRsToShow = pendingOther;
-        
-        if (isHeadOfDept || isSuperAdmin) {
-          // หัวหน้าแผนก: เห็น level 0 ที่รออนุมัติ
-          projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 0);
-          subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 0);
-          otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 0);
-        } else if (isManager) {
-          // ผู้จัดการ: เห็น level 1 ที่รออนุมัติ
-          projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 1);
-          subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 1);
-          otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 1);
-        }
-        
-        setPendingCounts({
-          projectPR: projectPRsToShow.length,
-          subPR: subPRsToShow.length,
-          otherPR: otherPRsToShow.length
-        });
-        
-        if (allPRs.length > 0) {
-          setRecentPRs(allPRs.slice(0, 5).map(pr => ({
-            id: pr.pr_number,
-            project: pr.expand?.project?.name || 'รายการทั่วไป',
-            projectType: (pr.type || '').toUpperCase(),
-            type: pr.requester_name || pr.expand?.requester?.name || 'N/A',
-            date: new Date(pr.created).toLocaleDateString('th-TH'),
-            status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
-            statusColor: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
-          })));
-        }
-        
-        const pendingPrs = allPRs.filter(p => p.status === 'pending');
-        const totalAmount = allPRs.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
-        
-        setStats([
-          { title: 'รายการรออนุมัติทั้งหมด', value: pendingPrs.length.toString(), subtitle: 'ใบขอซื้อที่ค้างอนุมัติ', icon: Calendar, trend: 'Live', trendUp: true },
-          { title: 'โครงการที่กำลังดำเนินการ', value: projects.length.toString(), subtitle: 'โครงการในฐานข้อมูล', icon: Wrench, badge: 'Real' },
-          { title: 'ยอดจัดซื้อรวมทั้งหมด', value: `฿${(totalAmount / 1000000).toFixed(2)}M`, subtitle: 'รวมทุกโครงการ', icon: CreditCard, trend: 'Live', trendUp: true }
-        ]);
-      } catch (err) {
-        console.error('Fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, [user, isHeadOfDept, isManager, isSuperAdmin]);
+  const { data, isLoading } = useDashboardData();
 
-  if (loading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังโหลดข้อมูล...</div>;
+  const { pendingCounts, stats, recentPRs } = useMemo(() => {
+    if (!data) return {
+      pendingCounts: { projectPR: 0, subPR: 0, otherPR: 0 },
+      stats: [
+        { title: 'รายการรออนุมัติทั้งหมด', value: '0', subtitle: 'ข้อมูลจากฐานข้อมูลจริง', icon: Calendar, trend: 'Live', trendUp: true },
+        { title: 'โครงการที่กำลังดำเนินการ', value: '0', subtitle: 'โครงการที่รันอยู่ในระบบ', icon: Wrench, badge: 'Real' },
+        { title: 'ยอดซื้อรวมทั้งหมด', value: '฿0.00', subtitle: 'รวมทุกโครงการจริง', icon: CreditCard, trend: 'Live', trendUp: true }
+      ],
+      recentPRs: [] as any[]
+    };
+
+    const { allPRs, projects } = data;
+
+    // นับจำนวนรออนุมัติตามประเภท
+    const pendingProject = allPRs.filter(p => p.status === 'pending' && (p.type === 'project' || !p.type));
+    const pendingSub = allPRs.filter(p => p.status === 'pending' && p.type === 'sub');
+    const pendingOther = allPRs.filter(p => p.status === 'pending' && p.type === 'other');
+    
+    // กรองตามระดับที่ user อนุมัติได้
+    let projectPRsToShow = pendingProject;
+    let subPRsToShow = pendingSub;
+    let otherPRsToShow = pendingOther;
+    
+    if (isHeadOfDept || isSuperAdmin) {
+      projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 0);
+      subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 0);
+      otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 0);
+    } else if (isManager) {
+      projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 1);
+      subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 1);
+      otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 1);
+    }
+
+    const recentPRsMapped = allPRs.map(pr => ({
+      id: pr.pr_number,
+      project: pr.expand?.project?.name || 'รายการทั่วไป',
+      projectType: (pr.type || '').toUpperCase(),
+      type: pr.requester_name || pr.expand?.requester?.name || 'N/A',
+      date: new Date(pr.created).toLocaleDateString('th-TH'),
+      status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
+      statusColor: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
+    }));
+
+    const pendingPrs = allPRs.filter(p => p.status === 'pending');
+    const totalAmount = allPRs.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
+
+    return {
+      pendingCounts: {
+        projectPR: projectPRsToShow.length,
+        subPR: subPRsToShow.length,
+        otherPR: otherPRsToShow.length
+      },
+      stats: [
+        { title: 'รายการรออนุมัติทั้งหมด', value: pendingPrs.length.toString(), subtitle: 'ใบขอซื้อที่ค้างอนุมัติ', icon: Calendar, trend: 'Live', trendUp: true },
+        { title: 'โครงการที่กำลังดำเนินการ', value: projects.length.toString(), subtitle: 'โครงการในฐานข้อมูล', icon: Wrench, badge: 'Real' },
+        { title: 'ยอดจัดซื้อรวมทั้งหมด', value: `฿${(totalAmount / 1000000).toFixed(2)}M`, subtitle: 'รวมทุกโครงการ', icon: CreditCard, trend: 'Live', trendUp: true }
+      ],
+      recentPRs: recentPRsMapped
+    };
+  }, [data, isHeadOfDept, isManager, isSuperAdmin]);
+
+  // Pagination for dashboard table
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(recentPRs.length / ITEMS_PER_PAGE);
+  const paginatedPRs = recentPRs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  if (isLoading) return <div className="flex h-[80vh] items-center justify-center font-bold text-blue-600"><Loader2 className="h-10 w-10 animate-spin mr-3" /> กำลังโหลดข้อมูล...</div>;
 
   return (
     <div className="space-y-6">
@@ -246,7 +238,7 @@ export default function Dashboard() {
       {/* Recent PRs */}
       <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
         <CardHeader className="border-b border-gray-50 py-6 px-8 flex-row items-center justify-between">
-          <CardTitle className="text-xs font-black text-[#111827] uppercase tracking-widest">รายการใบขอซื้อล่าสุดในระบบ</CardTitle>
+          <CardTitle className="text-xs font-black text-[#111827] uppercase tracking-widest">รายการใบขอซื้อทั้งหมด</CardTitle>
           <Link to="/purchase-requests">
             <Button variant="ghost" className="text-blue-600 font-black hover:bg-blue-50 rounded-xl px-4 h-9 uppercase text-[10px] tracking-widest">ดูทั้งหมด</Button>
           </Link>
@@ -267,7 +259,7 @@ export default function Dashboard() {
                 {recentPRs.length === 0 ? (
                   <tr><td colSpan={5} className="py-20 text-center text-gray-400 font-bold uppercase tracking-widest text-[10px]">ไม่มีข้อมูลใบขอซื้อในฐานข้อมูล</td></tr>
                 ) : (
-                  recentPRs.map((pr) => (
+                  paginatedPRs.map((pr) => (
                     <tr key={pr.id} className="hover:bg-[#F9FAFB] transition-colors cursor-pointer group">
                       <td className="py-6 px-8 font-black text-blue-600 group-hover:underline">{pr.id}</td>
                       <td className="py-6 px-8">
@@ -292,6 +284,60 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-4 border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                แสดง {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, recentPRs.length)} จาก {recentPRs.length} รายการ
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-9 px-3 rounded-lg"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" /> ก่อนหน้า
+                </Button>
+                <div className="flex gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                    .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                      if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push('...');
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((page, idx) => (
+                      typeof page === 'string' ? (
+                        <span key={`ellipsis-${idx}`} className="px-2 py-1 text-gray-400 text-sm">...</span>
+                      ) : (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className={`h-9 w-9 p-0 rounded-lg ${
+                            currentPage === page ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''
+                          }`}
+                        >
+                          {page}
+                        </Button>
+                      )
+                    ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="h-9 px-3 rounded-lg"
+                >
+                  ถัดไป <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

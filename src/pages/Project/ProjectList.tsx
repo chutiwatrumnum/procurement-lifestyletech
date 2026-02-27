@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,9 +17,8 @@ import {
   X
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { projectService } from '@/services/api';
 import { toast } from 'sonner';
-import pb from '@/lib/pocketbase';
+import { useProjects, useDeleteProject } from '@/hooks/useProjects';
 import {
   Dialog,
   DialogContent,
@@ -31,44 +30,24 @@ import {
 
 export default function ProjectList() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; projectId: string | null; projectName: string }>({ 
     open: false, 
     projectId: null,
     projectName: ''
   });
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  async function loadProjects() {
-    try {
-      const data = await projectService.getAll();
-      setProjects(data);
-    } catch (err: any) {
-      console.error('Fetch projects failed:', err);
-      setError(err.message || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data: projects = [], isLoading, error } = useProjects();
+  const deleteProjectMutation = useDeleteProject();
 
   const handleDelete = async () => {
     if (!deleteDialog.projectId) return;
-    setIsDeleting(true);
     try {
-      await pb.collection('projects').delete(deleteDialog.projectId);
-      setProjects(projects.filter(p => p.id !== deleteDialog.projectId));
+      await deleteProjectMutation.mutateAsync(deleteDialog.projectId);
       toast.success('ลบโครงการเรียบร้อยแล้ว');
     } catch (err: any) {
       toast.error('ลบไม่สำเร็จ: ' + (err.message || 'ไม่สามารถลบโครงการได้'));
     } finally {
-      setIsDeleting(false);
       setDeleteDialog({ open: false, projectId: null, projectName: '' });
     }
   };
@@ -78,7 +57,7 @@ export default function ProjectList() {
     p.code.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
+  if (isLoading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
 
   return (
     <div className="space-y-6">
@@ -104,7 +83,7 @@ export default function ProjectList() {
       {error && (
         <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700">
           <AlertTriangle className="w-5 h-5" />
-          <p className="font-bold">Error: {error} (กรุณาเช็ค API Rules ใน PocketBase)</p>
+          <p className="font-bold">Error: {(error as Error).message} (กรุณาเช็ค API Rules ใน PocketBase)</p>
         </div>
       )}
 
@@ -230,16 +209,16 @@ export default function ProjectList() {
               variant="outline" 
               onClick={() => setDeleteDialog({ open: false, projectId: null, projectName: '' })}
               className="flex-1 rounded-xl h-12 font-bold border-gray-200 hover:bg-gray-50"
-              disabled={isDeleting}
+              disabled={deleteProjectMutation.isPending}
             >
               <X className="w-4 h-4 mr-2" /> ยกเลิก
             </Button>
             <Button 
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={deleteProjectMutation.isPending}
               className="flex-1 rounded-xl h-12 font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20"
             >
-              {isDeleting ? (
+              {deleteProjectMutation.isPending ? (
                 <Loader2 className="w-5 h-5 animate-spin mx-auto" />
               ) : (
                 <>

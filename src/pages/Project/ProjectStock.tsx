@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,7 @@ import {
   Boxes,
   ArrowLeft
 } from 'lucide-react';
-import { projectService } from '@/services/api';
-import pb from '@/lib/pocketbase';
+import { useProjects, useProjectItems } from '@/hooks/useProjects';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 interface ProjectItem {
@@ -38,52 +37,23 @@ export default function ProjectStock() {
   const [searchParams] = useSearchParams();
   const projectIdFromUrl = searchParams.get('project');
   
-  const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
-  const [projectItems, setProjectItems] = useState<ProjectItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
+  const { data: projects = [], isLoading: loading } = useProjects();
+  const { data: rawProjectItems = [] } = useProjectItems(selectedProject || undefined);
+  const projectItems = rawProjectItems as any as ProjectItem[];
 
+  // Auto-select project
   useEffect(() => {
-    if (selectedProject) {
-      loadProjectItems(selectedProject);
-    }
-  }, [selectedProject]);
-
-  async function loadProjects() {
-    try {
-      const data = await projectService.getAll();
-      setProjects(data);
-      
-      // ถ้ามี projectId จาก URL ให้ใช้ตัวนั้น
-      if (projectIdFromUrl && data.find((p: Project) => p.id === projectIdFromUrl)) {
+    if (projects.length > 0 && !selectedProject) {
+      if (projectIdFromUrl && projects.find((p: any) => p.id === projectIdFromUrl)) {
         setSelectedProject(projectIdFromUrl);
-      } else if (data.length > 0) {
-        setSelectedProject(data[0].id);
+      } else {
+        setSelectedProject(projects[0].id);
       }
-    } catch (err) {
-      console.error('Error loading projects:', err);
-    } finally {
-      setLoading(false);
     }
-  }
-
-  async function loadProjectItems(projectId: string) {
-    try {
-      const items = await pb.collection('project_items').getFullList({
-        filter: `project = "${projectId}"`,
-        sort: 'name'
-      });
-      setProjectItems(items as any);
-    } catch (err) {
-      console.error('Error loading project items:', err);
-      setProjectItems([]);
-    }
-  }
+  }, [projects, selectedProject, projectIdFromUrl]);
 
   const filteredItems = projectItems.filter(item => 
     item.name?.toLowerCase().includes(searchTerm.toLowerCase())

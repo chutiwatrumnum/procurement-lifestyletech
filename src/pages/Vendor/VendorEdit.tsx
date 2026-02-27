@@ -19,44 +19,39 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { vendorService } from '@/services/api';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
+import { useVendor, useUpdateVendor } from '@/hooks/useVendors';
 
 export default function VendorEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [paymentTerm, setPaymentTerm] = useState('cash');
   const [paymentTermDetail, setPaymentTermDetail] = useState('');
   const [vendorType, setVendorType] = useState<'domestic' | 'foreign'>('domestic');
-  const [vendor, setVendor] = useState<any>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
 
+  const { data: vendor, isLoading: loading, error } = useVendor(id);
+  const updateVendorMutation = useUpdateVendor();
+
   useEffect(() => {
-    async function loadVendor() {
-      if (!id) return;
-      try {
-        const data = await vendorService.getById(id);
-        setVendor(data);
-        setPaymentTerm(data.payment_term || '30days');
-        setPaymentTermDetail(data.payment_term_detail || '');
-        setVendorType(data.vendor_type || 'domestic');
-        if (data.attachments) {
-          setExistingAttachments(Array.isArray(data.attachments) ? data.attachments : [data.attachments]);
-        }
-      } catch (err) {
-        console.error('Load vendor failed:', err);
-        toast.error('ไม่สามารถโหลดข้อมูลผู้ขายได้');
-        navigate('/vendors');
-      } finally {
-        setLoading(false);
+    if (vendor) {
+      setPaymentTerm(vendor.payment_term || '30days');
+      setPaymentTermDetail(vendor.payment_term_detail || '');
+      setVendorType(vendor.vendor_type || 'domestic');
+      if (vendor.attachments) {
+        setExistingAttachments(Array.isArray(vendor.attachments) ? vendor.attachments : [vendor.attachments]);
       }
     }
-    loadVendor();
-  }, [id, navigate]);
+  }, [vendor]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error('ไม่สามารถโหลดข้อมูลผู้ขายได้');
+      navigate('/vendors');
+    }
+  }, [error, navigate]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -93,8 +88,6 @@ export default function VendorEdit() {
     e.preventDefault();
     if (!id) return;
     
-    setIsSubmitting(true);
-    
     const formData = new FormData(e.currentTarget);
     const data = {
       name: formData.get('company_name'),
@@ -112,7 +105,7 @@ export default function VendorEdit() {
     };
 
     try {
-      await vendorService.update(id, data);
+      await updateVendorMutation.mutateAsync({ id, data });
       
       // Upload new attachments if any
       if (uploadedFiles.length > 0) {
@@ -124,8 +117,6 @@ export default function VendorEdit() {
     } catch (error) {
       console.error(error);
       toast.error('ไม่สามารถอัพเดตข้อมูลได้');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -442,8 +433,8 @@ export default function VendorEdit() {
 
           <div className="space-y-6">
             <div className="flex flex-col gap-3">
-              <Button type="submit" size="lg" className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl h-12 font-bold shadow-lg shadow-blue-500/20" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              <Button type="submit" size="lg" className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl h-12 font-bold shadow-lg shadow-blue-500/20" disabled={updateVendorMutation.isPending}>
+                {updateVendorMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 บันทึกการแก้ไข
               </Button>
               <Button type="button" variant="outline" size="lg" className="w-full rounded-xl h-12 border-[#E5E7EB] text-gray-600" onClick={() => navigate(-1)}>

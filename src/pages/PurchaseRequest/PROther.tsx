@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ interface LineItem {
 export default function PROther() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vendors, setVendors] = useState<any[]>([]);
   
@@ -109,7 +111,7 @@ export default function PROther() {
       // ส่ง notification เมื่อส่ง PR ใหม่
       if (status === 'pending') {
         try {
-          await notificationService.notifyNewPR(pr, user?.id);
+          await notificationService.notifyNewPR(pr, user?.id || '');
         } catch (err) {
           console.error('Failed to send notification:', err);
         }
@@ -122,6 +124,7 @@ export default function PROther() {
         window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
       }
       
+      queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
       navigate('/purchase-requests');
     } catch (error) {
       console.error(error);

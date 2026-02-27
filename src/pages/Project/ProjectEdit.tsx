@@ -5,15 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Loader2, Save, Building2 } from 'lucide-react';
-import { projectService } from '@/services/api';
+import { useProject, useUpdateProject } from '@/hooks/useProjects';
 import { toast } from 'sonner';
-import pb from '@/lib/pocketbase';
 
 export default function ProjectEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [project, setProject] = useState({
     name: '',
     code: '',
@@ -22,43 +19,31 @@ export default function ProjectEdit() {
     status: 'active'
   });
 
-  useEffect(() => {
-    if (id) {
-      loadProject(id);
-    }
-  }, [id]);
+  const { data: projectData, isLoading: loading } = useProject(id);
+  const updateProjectMutation = useUpdateProject();
 
-  async function loadProject(projectId: string) {
-    try {
-      const data = await pb.collection('projects').getOne(projectId);
+  useEffect(() => {
+    if (projectData) {
       setProject({
-        name: data.name || '',
-        code: data.code || '',
-        budget: data.budget || 0,
-        location: data.location || '',
-        status: data.status || 'active'
+        name: projectData.name || '',
+        code: projectData.code || '',
+        budget: projectData.budget || 0,
+        location: projectData.location || '',
+        status: projectData.status || 'active'
       });
-    } catch (err) {
-      toast.error('ไม่สามารถโหลดข้อมูลโครงการได้');
-      navigate('/projects');
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [projectData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
     
-    setSaving(true);
     try {
-      await pb.collection('projects').update(id, project);
+      await updateProjectMutation.mutateAsync({ id, data: project });
       toast.success('บันทึกการแก้ไขเรียบร้อยแล้ว');
       navigate('/projects');
     } catch (err: any) {
       toast.error('บันทึกไม่สำเร็จ: ' + (err.message || 'เกิดข้อผิดพลาด'));
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -140,16 +125,16 @@ export default function ProjectEdit() {
                 variant="outline"
                 className="flex-1 rounded-xl h-11 font-bold"
                 onClick={() => navigate('/projects')}
-                disabled={saving}
+                disabled={updateProjectMutation.isPending}
               >
                 ยกเลิก
               </Button>
               <Button
                 type="submit"
                 className="flex-1 rounded-xl h-11 font-bold bg-blue-600 hover:bg-blue-700"
-                disabled={saving}
+                disabled={updateProjectMutation.isPending}
               >
-                {saving ? (
+                {updateProjectMutation.isPending ? (
                   <Loader2 className="w-5 h-5 animate-spin mr-2" />
                 ) : (
                   <Save className="w-4 h-4 mr-2" />

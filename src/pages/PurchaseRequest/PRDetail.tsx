@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,34 +10,15 @@ import {
   Download
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { prService } from '@/services/api';
-import pb from '@/lib/pocketbase';
+import { usePurchaseRequest, usePRItems } from '@/hooks/usePurchaseRequests';
 
 export default function PRDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [pr, setPr] = useState<any>(null);
-  const [items, setItems] = useState<any[]>([]);
 
-  useEffect(() => {
-    async function loadData() {
-      if (!id) return;
-      try {
-        const [prData, prItems] = await Promise.all([
-          prService.getById(id),
-          prService.getItems(id)
-        ]);
-        setPr(prData);
-        setItems(prItems);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, [id]);
+  const { data: pr, isLoading: loadingPR } = usePurchaseRequest(id);
+  const { data: items = [], isLoading: loadingItems } = usePRItems(id);
+  const loading = loadingPR || loadingItems;
 
   const getFileUrl = (recordId: string, filename: string) => {
     return `${import.meta.env.VITE_POCKETBASE_URL}/api/files/pbc_3482049810/${recordId}/${filename}`;
