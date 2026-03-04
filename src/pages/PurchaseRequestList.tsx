@@ -303,8 +303,19 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                             <Eye className="w-4 h-4 mr-2" />
                             ดูรายละเอียด
                           </DropdownMenuItem>
-                          {pr.rawStatus === 'pending' && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/purchase-requests/edit/${pr.id}`); }}>
+                          {(pr.rawStatus === 'pending' || pr.rawStatus === 'rejected') && (
+                            <DropdownMenuItem onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (pr.rawType === 'other') {
+                                navigate(`/purchase-requests/edit/other/${pr.id}`);
+                              } else if (pr.rawType === 'sub') {
+                                navigate(`/purchase-requests/edit/sub/${pr.id}`);
+                              } else if (pr.rawType === 'project') {
+                                navigate(`/purchase-requests/edit/project/${pr.id}`);
+                              } else {
+                                navigate(`/purchase-requests/edit/${pr.id}`);
+                              }
+                            }}>
                               <Edit className="w-4 h-4 mr-2" />
                               แก้ไข
                             </DropdownMenuItem>

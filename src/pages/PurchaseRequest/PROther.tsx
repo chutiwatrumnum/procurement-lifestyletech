@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { 
   Select,
   SelectContent,
@@ -20,14 +20,24 @@ import {
   FileText,
   Save,
   Send,
-  Loader2
+  Loader2,
+  Upload,
+  X,
+  Download,
+  History,
+  AlertCircle,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Paperclip
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
 import { prService, vendorService } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import pb from '@/lib/pocketbase';
 
 interface LineItem {
   id: string;
@@ -38,30 +48,143 @@ interface LineItem {
   total_price: number;
 }
 
+interface Attachment {
+  id: string;
+  file?: File;
+  name: string;
+  size: string;
+  isExisting?: boolean;
+  filename?: string;
+}
+
 export default function PROther() {
+  const { id } = useParams();
+  const isEditMode = !!id;
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(isEditMode);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [prData, setPrData] = useState<any>(null);
   
   const [vendorId, setVendorId] = useState('');
   const [otherType, setOtherType] = useState('office');
   const [items, setItems] = useState<LineItem[]>([
     { id: '1', name: '', unit: '', quantity: 1, unit_price: 0, total_price: 0 },
   ]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [editHistory, setEditHistory] = useState<any[]>([]);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [pbCategories, setPbCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    pb.collection('product_categories').getFullList({ sort: 'category' })
+      .then(result => setPbCategories(result))
+      .catch(err => console.error('Failed to fetch categories:', err));
+  }, []);
 
   useEffect(() => {
     async function loadData() {
       try {
         const vendList = await vendorService.getAll();
         setVendors(vendList);
+
+        if (isEditMode && id) {
+          const [pr, prItems] = await Promise.all([
+            prService.getById(id),
+            prService.getItems(id),
+          ]);
+          
+          setPrData(pr);
+          setVendorId(pr.vendor || '');
+          setOtherType(pr.category || '');
+          
+          if (prItems.length > 0) {
+            setItems(prItems.map((item: any) => ({
+              id: item.id,
+              name: item.name || '',
+              unit: item.unit || '',
+              quantity: item.quantity || 1,
+              unit_price: item.unit_price || 0,
+              total_price: item.total_price || 0,
+            })));
+          }
+
+          // Load existing attachments
+          if (pr.attachments && pr.attachments.length > 0) {
+            setAttachments(pr.attachments.map((filename: string) => ({
+              id: filename,
+              name: filename,
+              size: '',
+              isExisting: true,
+              filename: filename,
+            })));
+          }
+
+          // Load edit history
+          try {
+            const history = await prService.getHistory(pr.id);
+            const historyUserIds = history.map((h: any) => h.by).filter(Boolean);
+            if (pr.requester) historyUserIds.push(pr.requester);
+            const userIds = [...new Set(historyUserIds)];
+            const userMap: Record<string, string> = {};
+            
+            if (userIds.length > 0) {
+              try {
+                const users = await pb.collection('users').getFullList({
+                  filter: userIds.map((uid: string) => `id = "${uid}"`).join(' || '),
+                  fields: 'id,name,email'
+                });
+                users.forEach((u: any) => {
+                  userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
+                });
+              } catch (e) { console.log('Could not fetch users:', e); }
+            }
+
+            const resolvedRequesterName = (pr.requester && userMap[pr.requester]) || pr.requester_name || 'ไม่ระบุ';
+
+            if (history.length === 0) {
+              setEditHistory([
+                { date: pr.created, action: 'สร้าง PR', by: resolvedRequesterName },
+                { date: pr.updated, action: 'ตีกลับเพื่อแก้ไข', by: 'ผู้อนุมัติ' }
+              ]);
+            } else {
+              const historyData = history.map((h: any) => {
+                let resolvedName = userMap[h.by] || h.expand?.by?.name || h.expand?.by?.email;
+                if (!resolvedName || resolvedName === 'ไม่ระบุ') {
+                  if (h.by === pr.requester) resolvedName = pr.requester_name;
+                  else if (h.by === pr.head_of_dept_approved_by) resolvedName = pr.head_of_dept_approved_by_name;
+                  else if (h.by === pr.manager_approved_by) resolvedName = pr.manager_approved_by_name;
+                }
+                return { date: h.created, action: h.action, by: resolvedName || 'ไม่ระบุ' };
+              });
+              
+              const hasCreate = historyData.some((h: any) => h.action === 'สร้าง PR');
+              if (!hasCreate) {
+                historyData.push({ date: pr.created, action: 'สร้าง PR', by: resolvedRequesterName });
+              }
+              historyData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+              setEditHistory(historyData);
+            }
+          } catch (err) {
+            const requesterName = pr.requester_name || 'ไม่ระบุ';
+            setEditHistory([
+              { date: pr.created, action: 'สร้าง PR', by: requesterName },
+              { date: pr.updated, action: 'ตีกลับเพื่อแก้ไข', by: 'ผู้อนุมัติ' }
+            ]);
+          }
+        }
       } catch (err) {
-        console.error('Data load failed');
+        console.error('Data load failed:', err);
+        if (isEditMode) toast.error('ไม่พบข้อมูลใบขอซื้อ');
+      } finally {
+        setLoading(false);
       }
     }
     loadData();
-  }, []);
+  }, [id, isEditMode]);
 
   const addItem = () => {
     setItems([...items, { id: Date.now().toString(), name: '', unit: '', quantity: 1, unit_price: 0, total_price: 0 }]);
@@ -86,6 +209,26 @@ export default function PROther() {
 
   const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newAttachments: Attachment[] = Array.from(files).map(file => ({
+      id: Date.now().toString() + Math.random(),
+      file,
+      name: file.name,
+      size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+    }));
+    setAttachments(prev => [...prev, ...newAttachments]);
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments(attachments.filter(a => a.id !== id));
+  };
+
+  const getFileUrl = (recordId: string, filename: string) => {
+    return `${import.meta.env.VITE_POCKETBASE_URL}/api/files/pbc_3482049810/${recordId}/${filename}`;
+  };
+
   const handleSubmit = async (status: string) => {
     if (!vendorId) {
       toast.error('กรุณาเลือกผู้ขาย');
@@ -94,37 +237,99 @@ export default function PROther() {
 
     setIsSubmitting(true);
     try {
-      const prData = {
-        type: 'other',
-        vendor: vendorId,
-        requester: user?.id,
-        status: status,
-        total_amount: totalAmount,
-        requester_name: user?.name || user?.email || 'ไม่ระบุ'
-      };
-
-      const prItems = items.map(({ name, quantity, unit_price, total_price }) => ({
-        name, quantity, unit_price, total_price
-      }));
-
-      const pr = await prService.create(prData, prItems);
-      
-      // ส่ง notification เมื่อส่ง PR ใหม่
-      if (status === 'pending') {
-        try {
-          await notificationService.notifyNewPR(pr, user?.id || '');
-        } catch (err) {
-          console.error('Failed to send notification:', err);
+      if (isEditMode && id) {
+        // Edit mode — update existing PR
+        for (const item of items) {
+          if (item.id?.length === 15) {
+            await pb.collection('pr_items').update(item.id, {
+              name: item.name,
+              unit: item.unit,
+              quantity: Number(item.quantity),
+              unit_price: Number(item.unit_price),
+              total_price: Number(item.total_price)
+            });
+          } else {
+            await pb.collection('pr_items').create({
+              pr: id,
+              name: item.name,
+              unit: item.unit,
+              quantity: Number(item.quantity),
+              unit_price: Number(item.unit_price),
+              total_price: Number(item.total_price)
+            });
+          }
         }
+
+        // Upload new files
+        const newFiles = attachments.filter(a => a.file);
+        if (newFiles.length > 0) {
+          const formData = new FormData();
+          newFiles.forEach(a => {
+            if (a.file) formData.append('attachments', a.file);
+          });
+          await pb.collection('purchase_requests').update(id, formData);
+        }
+
+        // Reset approval flow
+        await pb.collection('purchase_requests').update(id, {
+          vendor: vendorId,
+          total_amount: totalAmount,
+          category: otherType,
+          approval_level: 0,
+          head_of_dept_approved_by: '',
+          head_of_dept_approved_at: '',
+          head_of_dept_comment: '',
+          head_of_dept_signature: '',
+          head_of_dept_approved_by_name: '',
+          manager_approved_by: '',
+          manager_approved_at: '',
+          manager_comment: '',
+          manager_signature: '',
+          manager_approved_by_name: '',
+        });
+
+        await prService.updateStatus(id, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);
+        toast.success('อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
+      } else {
+        // Create new PR
+        const prData = {
+          type: 'other',
+          category: otherType,
+          vendor: vendorId,
+          requester: user?.id,
+          status: status,
+          total_amount: totalAmount,
+          requester_name: user?.name || user?.email || 'ไม่ระบุ'
+        };
+
+        const prItems = items.map(({ name, unit, quantity, unit_price, total_price }) => ({
+          name, unit, quantity, unit_price, total_price
+        }));
+
+        const pr = await prService.create(prData, prItems);
+
+        // Upload files
+        const newFiles = attachments.filter(a => a.file);
+        if (newFiles.length > 0) {
+          const formData = new FormData();
+          newFiles.forEach(a => {
+            if (a.file) formData.append('attachments', a.file);
+          });
+          await pb.collection('purchase_requests').update(pr.id, formData);
+        }
+
+        if (status === 'pending') {
+          try {
+            await notificationService.notifyNewPR(pr, user?.id || '');
+          } catch (err) {
+            console.error('Failed to send notification:', err);
+          }
+        }
+        
+        toast.success('บันทึกใบขอซื้อเรียบร้อยแล้ว');
       }
       
-      toast.success('บันทึกใบขอซื้อเรียบร้อยแล้ว');
-      
-      // Refresh badge counts if submitting for approval
-      if (status === 'pending') {
-        window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
-      }
-      
+      window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
       queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
       navigate('/purchase-requests');
     } catch (error) {
@@ -135,23 +340,88 @@ export default function PROther() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-12">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        multiple
+        accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
+        className="hidden"
+      />
+
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">สร้างใบขอซื้อ - อื่นๆ (General)</h1>
-          <p className="text-gray-500 text-sm mt-1">สำหรับอุปกรณ์สำนักงาน คอมพิวเตอร์ และรายการจัดซื้อทั่วไป</p>
+        <div className="flex items-center gap-3">
+          {isEditMode && (
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              {isEditMode ? 'แก้ไขใบขอซื้อ - อื่นๆ' : 'สร้างใบขอซื้อ - อื่นๆ (General)'}
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              {isEditMode 
+                ? `${prData?.pr_number || ''} · ${prData?.requester_name || ''}` 
+                : 'สำหรับอุปกรณ์สำนักงาน คอมพิวเตอร์ และรายการจัดซื้อทั่วไป'}
+            </p>
+          </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB]" onClick={() => handleSubmit('draft')} disabled={isSubmitting}>
-            <Save className="w-4 h-4 mr-2" /> บันทึกร่าง
-          </Button>
-          <Button className="bg-[#4B5563] hover:bg-[#1F2937] text-white rounded-xl px-8 font-bold shadow-lg" onClick={() => handleSubmit('pending')} disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-            ส่งคำขอจัดซื้อ
-          </Button>
+          {isEditMode ? (
+            <>
+              <Button variant="outline" className="rounded-xl px-6 border-gray-200 font-bold" onClick={() => navigate(-1)}>
+                ยกเลิก
+              </Button>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-bold shadow-lg" onClick={() => handleSubmit('pending')} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                ส่งคำขอจัดซื้ออีกครั้ง
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB]" onClick={() => handleSubmit('draft')} disabled={isSubmitting}>
+                <Save className="w-4 h-4 mr-2" /> บันทึกร่าง
+              </Button>
+              <Button className="bg-[#4B5563] hover:bg-[#1F2937] text-white rounded-xl px-8 font-bold shadow-lg" onClick={() => handleSubmit('pending')} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                ส่งคำขอจัดซื้อ
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Rejection Banner */}
+      {isEditMode && prData?.status === 'rejected' && (
+        <Card className="border-none shadow-sm rounded-2xl bg-red-50">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-red-700">ใบขอซื้อนี้ถูกตีกลับ</p>
+                {(prData?.head_of_dept_comment || prData?.manager_comment) && (
+                  <p className="text-sm text-red-600 mt-1">
+                    เหตุผล: {prData?.manager_comment || prData?.head_of_dept_comment}
+                  </p>
+                )}
+                <p className="text-xs text-red-400 mt-1">กรุณาแก้ไขข้อมูลแล้วส่งอีกครั้ง</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -164,15 +434,17 @@ export default function PROther() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>หมวดหมู่สินค้า *</Label>
-                <Select onValueChange={setOtherType} defaultValue="office">
+                <Select onValueChange={setOtherType} value={otherType}>
                   <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
                     <SelectValue placeholder="เลือกหมวดหมู่" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="office">อุปกรณ์สำนักงาน (Office Supplies)</SelectItem>
-                    <SelectItem value="it">อุปกรณ์ไอที (IT Equipment)</SelectItem>
-                    <SelectItem value="furniture">เฟอร์นิเจอร์ (Furniture)</SelectItem>
-                    <SelectItem value="marketing">สื่อโฆษณา (Marketing Material)</SelectItem>
+                    {pbCategories.map(cat => (
+                      <SelectItem key={cat.id} value={cat.category}>{cat.category}</SelectItem>
+                    ))}
+                    {pbCategories.length === 0 && (
+                      <SelectItem value="other" disabled>กำลังโหลดหมวดหมู่...</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -247,6 +519,61 @@ export default function PROther() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Attachments */}
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between py-5">
+              <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                <Paperclip className="w-5 h-5 text-gray-600" /> เอกสารแนบ
+              </CardTitle>
+              <Button variant="ghost" onClick={() => fileInputRef.current?.click()} className="text-blue-600 font-bold hover:bg-blue-50">
+                <Upload className="w-4 h-4 mr-1" /> อัพโหลดไฟล์
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {attachments.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Paperclip className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">ยังไม่มีเอกสารแนบ</p>
+                  <p className="text-xs mt-1">รองรับ PDF, Excel, Word, รูปภาพ</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {attachments.map((att) => (
+                    <div key={att.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{att.name}</p>
+                          {att.size && <p className="text-[10px] text-gray-400">{att.size}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {att.isExisting && prData?.id && (
+                          <a
+                            href={getFileUrl(prData.id, att.filename || att.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded-full"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeAttachment(att.id)}
+                          className="h-7 w-7 text-gray-300 hover:text-red-500 rounded-full"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -259,7 +586,7 @@ export default function PROther() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>เลือกผู้ขาย *</Label>
-                <Select onValueChange={setVendorId}>
+                <Select onValueChange={setVendorId} value={vendorId}>
                   <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
                     <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
                   </SelectTrigger>
@@ -270,6 +597,52 @@ export default function PROther() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Edit History */}
+          {isEditMode && editHistory.length > 0 && (
+            <Card className="border-none shadow-sm rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle 
+                  className="flex items-center justify-between gap-2 text-base font-bold text-[#1F2937] cursor-pointer"
+                  onClick={() => setHistoryExpanded(!historyExpanded)}
+                >
+                  <span className="flex items-center gap-2">
+                    <History className="w-5 h-5 text-gray-600" /> ประวัติการดำเนินการ
+                    <Badge variant="secondary" className="text-[10px]">{editHistory.length}</Badge>
+                  </span>
+                  {historyExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                </CardTitle>
+              </CardHeader>
+              {historyExpanded && (
+                <CardContent className="pt-2">
+                  <div className="space-y-3">
+                    {editHistory.map((h, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${
+                            h.action.includes('ตีกลับ') || h.action.includes('ปฏิเสธ') ? 'bg-red-400' :
+                            h.action.includes('อนุมัติ') ? 'bg-green-400' :
+                            h.action.includes('สร้าง') ? 'bg-blue-400' :
+                            'bg-gray-300'
+                          }`} />
+                          {i < editHistory.length - 1 && <div className="w-px flex-1 bg-gray-100 mt-1" />}
+                        </div>
+                        <div className="pb-3">
+                          <p className="text-sm font-bold text-gray-900">{h.action}</p>
+                          <p className="text-xs text-gray-500">{h.by}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {new Date(h.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} 
+                            {' '}
+                            {new Date(h.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )}
         </div>
       </div>
     </div>

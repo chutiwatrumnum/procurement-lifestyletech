@@ -86,6 +86,12 @@ const allNavItems: NavItem[] = [
     roles: ['superadmin', 'head_of_dept', 'manager'],
   },
   {
+    title: 'อนุมัติใบขอซื้ออื่นๆ',
+    href: '/purchase-requests/approval-other',
+    icon: FileText,
+    roles: ['superadmin', 'head_of_dept', 'manager'],
+  },
+  {
     title: 'รายชื่อผู้ขาย',
     href: '/vendors',
     icon: Users,
@@ -172,6 +178,7 @@ function Sidebar({
   navItems,
   pendingPRProject,
   pendingPRSub,
+  pendingPROther,
   user,
   onLogout,
   onToggleCollapse,
@@ -183,6 +190,7 @@ function Sidebar({
   navItems: NavItem[];
   pendingPRProject: number;
   pendingPRSub: number;
+  pendingPROther: number;
   user: any;
   onLogout: () => void;
   onToggleCollapse: () => void;
@@ -204,6 +212,9 @@ function Sidebar({
     }
     if (item.href === '/purchase-orders/approval') {
       return pendingPRSub;
+    }
+    if (item.href === '/purchase-requests/approval-other') {
+      return pendingPROther;
     }
     return item.badge || 0;
   };
@@ -307,6 +318,7 @@ export default function Layout({ children }: LayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [pendingPRProject, setPendingPRProject] = useState(0);
   const [pendingPRSub, setPendingPRSub] = useState(0);
+  const [pendingPROther, setPendingPROther] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -365,6 +377,12 @@ export default function Layout({ children }: LayoutProps) {
         filter: 'status = "pending" && type = "sub"',
       });
       setPendingPRSub(prSubResult.totalItems);
+      
+      // นับ PR Other ที่รออนุมัติ
+      const prOtherResult = await pb.collection('purchase_requests').getList(1, 1, {
+        filter: 'status = "pending" && type = "other"',
+      });
+      setPendingPROther(prOtherResult.totalItems);
     } catch (err) {
       console.error('Failed to fetch pending counts:', err);
     }
@@ -405,6 +423,7 @@ export default function Layout({ children }: LayoutProps) {
           navItems={navItems}
           pendingPRProject={pendingPRProject}
           pendingPRSub={pendingPRSub}
+          pendingPROther={pendingPROther}
           user={user}
           onLogout={handleLogout}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -429,6 +448,7 @@ export default function Layout({ children }: LayoutProps) {
                 navItems={navItems}
                 pendingPRProject={pendingPRProject}
                 pendingPRSub={pendingPRSub}
+                pendingPROther={pendingPROther}
                 user={user}
                 onLogout={handleLogout}
                 onClose={() => setIsMobileMenuOpen(false)}

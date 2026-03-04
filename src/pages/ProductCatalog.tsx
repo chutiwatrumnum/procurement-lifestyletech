@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ import {
   Trash2,
   Loader2,
   Tag,
+  Settings2,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
@@ -34,19 +36,6 @@ interface ProductForm {
 
 const emptyForm: ProductForm = { name: '', unit_price: 0, category: '' };
 
-const CATEGORIES = [
-  'เซ็นเซอร์',
-  'ตัวควบคุม',
-  'อุปกรณ์เครือข่าย',
-  'โมดูล',
-  'บอร์ด',
-  'จอแสดงผล',
-  'แหล่งจ่ายไฟ',
-  'สายไฟและสายสัญญาณ',
-  'อุปกรณ์เสริม',
-  'อื่นๆ',
-];
-
 export default function ProductCatalog() {
   const queryClient = useQueryClient();
   const { data: products = [], isLoading } = useProductCatalog();
@@ -58,6 +47,61 @@ export default function ProductCatalog() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+
+  // Dynamic categories from PocketBase
+  const [pbCategories, setPbCategories] = useState<any[]>([]);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+
+  // Fetch categories from PocketBase
+  const fetchCategories = async () => {
+    try {
+      const result = await pb.collection('product_categories').getFullList({ sort: 'category' });
+      setPbCategories(result);
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error('กรุณาระบุชื่อหมวดหมู่');
+      return;
+    }
+    // Check duplicate
+    if (pbCategories.some(c => c.category === newCategoryName.trim())) {
+      toast.error('หมวดหมู่นี้มีอยู่แล้ว');
+      return;
+    }
+    setSavingCategory(true);
+    try {
+      await pb.collection('product_categories').create({ category: newCategoryName.trim() });
+      toast.success('เพิ่มหมวดหมู่เรียบร้อย');
+      setNewCategoryName('');
+      await fetchCategories();
+    } catch (err) {
+      console.error(err);
+      toast.error('เพิ่มหมวดหมู่ไม่สำเร็จ');
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await pb.collection('product_categories').delete(id);
+      toast.success('ลบหมวดหมู่เรียบร้อย');
+      await fetchCategories();
+    } catch (err) {
+      console.error(err);
+      toast.error('ลบหมวดหมู่ไม่สำเร็จ');
+    }
+  };
 
   // Filter products
   const filtered = products.filter((p: any) => {
@@ -76,8 +120,8 @@ export default function ProductCatalog() {
     return acc;
   }, {});
 
-  // Get unique categories from data
-  const categories = [...new Set(products.map((p: any) => p.category).filter(Boolean))];
+  // ใช้หมวดหมู่จาก PocketBase เป็นตัวหลัก
+  const categories = pbCategories.map((c: any) => c.category);
 
   const openAddDialog = () => {
     setEditingId(null);
@@ -151,9 +195,14 @@ export default function ProductCatalog() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">รายการอุปกรณ์ IOT</h1>
           <p className="text-sm text-gray-500 mt-1">จัดการรายการอุปกรณ์สำหรับใช้ในใบขอซื้อ — ทั้งหมด {products.length} รายการ</p>
         </div>
-        <Button onClick={openAddDialog} className="bg-blue-600 hover:bg-blue-700 rounded-xl font-bold">
-          <Plus className="w-4 h-4 mr-2" /> เพิ่มสินค้า
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCategoryDialogOpen(true)} className="rounded-xl font-bold">
+            <Settings2 className="w-4 h-4 mr-2" /> จัดการหมวดหมู่
+          </Button>
+          <Button onClick={openAddDialog} className="bg-blue-600 hover:bg-blue-700 rounded-xl font-bold">
+            <Plus className="w-4 h-4 mr-2" /> เพิ่มสินค้า
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filter */}
@@ -303,25 +352,19 @@ export default function ProductCatalog() {
             <div className="space-y-2">
               <Label className="font-semibold">หมวดหมู่</Label>
               <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map(cat => (
+                {pbCategories.map(cat => (
                   <Button
-                    key={cat}
+                    key={cat.id}
                     type="button"
-                    variant={form.category === cat ? 'default' : 'outline'}
+                    variant={form.category === cat.category ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setForm({ ...form, category: form.category === cat ? '' : cat })}
+                    onClick={() => setForm({ ...form, category: form.category === cat.category ? '' : cat.category })}
                     className="rounded-xl text-xs"
                   >
-                    {cat}
+                    {cat.category}
                   </Button>
                 ))}
               </div>
-              <Input
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="หรือพิมพ์หมวดหมู่เอง..."
-                className="h-10 rounded-xl bg-gray-50 border-none mt-2"
-              />
             </div>
           </div>
           <DialogFooter>
@@ -344,6 +387,64 @@ export default function ProductCatalog() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} className="rounded-xl">ยกเลิก</Button>
             <Button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 rounded-xl font-bold">ลบ</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Management Dialog */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Settings2 className="w-5 h-5 text-blue-500" /> จัดการหมวดหมู่สินค้า
+            </DialogTitle>
+            <DialogDescription>เพิ่มหรือลบหมวดหมู่ที่ใช้จัดกลุ่มสินค้า</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Add new category */}
+            <div className="flex gap-2">
+              <Input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="ชื่อหมวดหมู่ใหม่..."
+                className="h-10 rounded-xl bg-gray-50 border-none flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+              />
+              <Button
+                onClick={handleAddCategory}
+                disabled={savingCategory}
+                className="bg-blue-600 hover:bg-blue-700 rounded-xl font-bold h-10 px-4"
+              >
+                {savingCategory ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            {/* Category list */}
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {pbCategories.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">ยังไม่มีหมวดหมู่</p>
+              ) : (
+                pbCategories.map(cat => (
+                  <div key={cat.id} className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl group hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="text-sm font-medium text-gray-800">{cat.category}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteCategory(cat.id)}
+                      className="h-7 w-7 text-red-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)} className="rounded-xl">ปิด</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

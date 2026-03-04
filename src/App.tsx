@@ -20,6 +20,7 @@ import PRProject from '@/pages/PurchaseRequest/PRProject';
 import PRSubcontractor from '@/pages/PurchaseRequest/PRSubcontractor';
 import PROther from '@/pages/PurchaseRequest/PROther';
 import PRApproval from '@/pages/PurchaseRequest/PRApproval';
+import PROtherApproval from '@/pages/PurchaseRequest/PROtherApproval';
 import PREdit from '@/pages/PurchaseRequest/PREdit';
 import PRDetail from '@/pages/PurchaseRequest/PRDetail';
 
@@ -94,7 +95,10 @@ function AppRoutes() {
       <Route path="/purchase-requests/new/sub" element={<ProtectedRoute><PRSubcontractor /></ProtectedRoute>} />
       <Route path="/purchase-requests/edit/sub/:id" element={<ProtectedRoute><PRSubcontractor /></ProtectedRoute>} />
       <Route path="/purchase-requests/new/other" element={<ProtectedRoute><PROther /></ProtectedRoute>} />
+      <Route path="/purchase-requests/edit/other/:id" element={<ProtectedRoute><PROther /></ProtectedRoute>} />
       <Route path="/purchase-requests/approval" element={<ProtectedRoute><PRApproval /></ProtectedRoute>} />
+      <Route path="/purchase-requests/approval-other" element={<ProtectedRoute><PROtherApproval /></ProtectedRoute>} />
+      <Route path="/purchase-requests/other" element={<ProtectedRoute><PurchaseRequestList type="other" /></ProtectedRoute>} />
       <Route path="/purchase-requests/edit/:id" element={<ProtectedRoute><PREdit /></ProtectedRoute>} />
 
       {/* Purchase Orders */}
