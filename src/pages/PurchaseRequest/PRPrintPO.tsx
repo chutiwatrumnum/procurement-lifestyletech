@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Printer, ArrowLeft, Loader2 } from 'lucide-react';
-import { prService } from '@/services/api';
+import { Printer, ArrowLeft, Loader2, Save } from 'lucide-react';
+import { prService, poService } from '@/services/api';
 import pb from '@/lib/pocketbase';
+import { toast } from 'sonner';
 
 export default function PRPrintPO() {
   const { id } = useParams();
@@ -12,6 +13,11 @@ export default function PRPrintPO() {
   const [items, setItems] = useState<any[]>([]);
   const [company, setCompany] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // PO data
+  const [existingPO, setExistingPO] = useState<any>(null);
+  const [poNumber, setPONumber] = useState('-');
+  const [saving, setSaving] = useState(false);
 
   // Tax options
   const [includeVAT, setIncludeVAT] = useState(false);
@@ -59,6 +65,21 @@ export default function PRPrintPO() {
           if (companyRecords.length > 0) setCompany(companyRecords[0]);
         } catch (e) { console.log('Company settings not found'); }
 
+        // Load existing PO for this PR
+        try {
+          const po = await poService.getByPR(id);
+          if (po) {
+            setExistingPO(po);
+            setPONumber(po.po_number || '-');
+            setIncludeVAT(po.include_vat || false);
+            setIncludeWHT(po.include_wht || false);
+            setRemarks(po.remarks || '');
+            setPaymentNote(po.payment_note || '');
+          } else {
+            setPONumber('(รอบันทึก)');
+          }
+        } catch (e) { console.log('No existing PO'); }
+
       } catch (err) {
         console.error('Failed to load PR:', err);
       } finally {
@@ -90,8 +111,43 @@ export default function PRPrintPO() {
   const whtAmount = includeWHT ? subtotal * 0.03 : 0;
   const grandTotal = subtotal + vatAmount - whtAmount;
 
-  // PO Number: LS-PO-{PR Number}
-  const poNumber = pr.pr_number ? `LS-PO-${pr.pr_number}` : '-';
+  // Save PO handler
+  const handleSavePO = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      const poData = {
+        include_vat: includeVAT,
+        include_wht: includeWHT,
+        subtotal,
+        vat_amount: vatAmount,
+        wht_amount: whtAmount,
+        grand_total: grandTotal,
+        remarks,
+        payment_note: paymentNote,
+        vendor: pr.vendor || '',
+        status: 'draft',
+      };
+
+      if (existingPO) {
+        // Update existing PO
+        const updated = await poService.update(existingPO.id, poData);
+        setExistingPO(updated);
+        toast.success('อัปเดตใบสั่งซื้อเรียบร้อยแล้ว');
+      } else {
+        // Create new PO — number generated at save time to prevent duplicates
+        const newPO = await poService.createFromPR(id, poData);
+        setExistingPO(newPO);
+        setPONumber(newPO.po_number || '-');
+        toast.success(`สร้างใบสั่งซื้อ ${newPO.po_number} เรียบร้อยแล้ว`);
+      }
+    } catch (err) {
+      console.error('Failed to save PO:', err);
+      toast.error('บันทึกใบสั่งซื้อไม่สำเร็จ');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // PR Type label
   const getTypeLabel = (type: string) => {
@@ -152,6 +208,14 @@ export default function PRPrintPO() {
               </label>
             </div>
 
+            <Button
+              onClick={handleSavePO}
+              disabled={saving}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl px-5"
+            >
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {existingPO ? 'อัปเดต PO' : 'บันทึก PO'}
+            </Button>
             <Button
               onClick={() => window.print()}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-6"

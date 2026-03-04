@@ -377,12 +377,64 @@ export const prService = {
 };
 
 export const poService = {
+  async generatePONumber() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const prefix = `LS-PO-${year}-${month}`;
+
+    try {
+      const existing = await pb.collection('purchase_orders').getFullList({
+        filter: `po_number ~ "${prefix}-"`,
+        fields: 'po_number',
+        sort: '-created'
+      });
+
+      let maxSeq = 0;
+      for (const po of existing) {
+        const match = po.po_number?.match(new RegExp(`${prefix}-(\\d+)`));
+        if (match) {
+          const seq = parseInt(match[1], 10);
+          if (seq > maxSeq && seq < 10000) maxSeq = seq;
+        }
+      }
+
+      return `${prefix}-${String(maxSeq + 1).padStart(4, '0')}`;
+    } catch (err) {
+      console.error('Error generating PO number:', err);
+      const timestamp = Date.now().toString().slice(-4);
+      return `${prefix}-${timestamp}`;
+    }
+  },
+
   async getAll() {
     return await pb.collection('purchase_orders').getFullList({
       expand: 'pr'
     });
   },
+
+  async getByPR(prId: string) {
+    try {
+      const records = await pb.collection('purchase_orders').getFullList({
+        filter: `pr = "${prId}"`,
+        sort: '-created'
+      });
+      return records.length > 0 ? records[0] : null;
+    } catch (err) {
+      console.error('Error fetching PO by PR:', err);
+      return null;
+    }
+  },
+
+  async update(id: string, data: any) {
+    return await pb.collection('purchase_orders').update(id, data);
+  },
+
   async createFromPR(prId: string, data: any) {
+    // Generate PO number if not provided
+    if (!data.po_number) {
+      data.po_number = await poService.generatePONumber();
+    }
     return await pb.collection('purchase_orders').create({ ...data, pr: prId });
   }
 };
