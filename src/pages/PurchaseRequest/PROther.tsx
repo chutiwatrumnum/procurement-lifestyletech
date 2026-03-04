@@ -466,7 +466,6 @@ export default function PROther() {
                   <thead>
                     <tr className="text-gray-400 font-bold border-b border-gray-100">
                       <th className="pb-4 text-left font-bold uppercase text-[10px] tracking-wider">รายการ</th>
-                      <th className="pb-4 text-center font-bold uppercase text-[10px] tracking-wider w-24">หน่วย</th>
                       <th className="pb-4 text-right font-bold uppercase text-[10px] tracking-wider w-20">จำนวน</th>
                       <th className="pb-4 text-right font-bold uppercase text-[10px] tracking-wider w-32">ราคา/หน่วย</th>
                       <th className="pb-4 text-right font-bold uppercase text-[10px] tracking-wider w-32">รวมเงิน</th>
@@ -482,14 +481,10 @@ export default function PROther() {
                             onChange={(val) => updateItem(item.id, 'name', val)}
                             onSelectProduct={(product) => {
                               updateItem(item.id, 'name', product.name);
-                              updateItem(item.id, 'unit', product.unit);
                               updateItem(item.id, 'unit_price', product.unit_price);
                             }}
                             placeholder="ค้นหาหรือระบุชื่อสินค้า..."
                           />
-                        </td>
-                        <td className="py-4 px-2">
-                          <Input value={item.unit} onChange={(e) => updateItem(item.id, 'unit', e.target.value)} className="h-10 border-none bg-gray-50 rounded-lg text-center" />
                         </td>
                         <td className="py-4 px-2">
                           <Input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)} className="h-10 border-none bg-gray-50 rounded-lg text-right" />

@@ -7,7 +7,8 @@ import {
   Building2, 
   User,
   FileText,
-  Download
+  Download,
+  Printer
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePurchaseRequest, usePRItems } from '@/hooks/usePurchaseRequests';
@@ -205,6 +206,14 @@ export default function PRDetail() {
 
           {/* Actions */}
           <div className="flex flex-col gap-3">
+            {pr.status === 'approved' && (
+              <Button 
+                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl"
+                onClick={() => navigate(`/purchase-requests/${pr.id}/print-po`)}
+              >
+                <Printer className="w-4 h-4 mr-2" /> พิมพ์ใบสั่งซื้อ (PO)
+              </Button>
+            )}
             <Button 
               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl"
               onClick={() => navigate(`/purchase-requests/edit/${pr.id}`)}

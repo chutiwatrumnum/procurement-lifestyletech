@@ -23,6 +23,7 @@ import PRApproval from '@/pages/PurchaseRequest/PRApproval';
 import PROtherApproval from '@/pages/PurchaseRequest/PROtherApproval';
 import PREdit from '@/pages/PurchaseRequest/PREdit';
 import PRDetail from '@/pages/PurchaseRequest/PRDetail';
+import PRPrintPO from '@/pages/PurchaseRequest/PRPrintPO';
 
 // Vendor
 import VendorListNew from '@/pages/Vendor/VendorListNew';
@@ -89,6 +90,7 @@ function AppRoutes() {
       <Route path="/purchase-requests" element={<ProtectedRoute><PurchaseRequestList /></ProtectedRoute>} />
       <Route path="/purchase-requests/project" element={<ProtectedRoute><PurchaseRequestList type="project" /></ProtectedRoute>} />
       <Route path="/purchase-requests/sub" element={<ProtectedRoute><PurchaseRequestList type="sub" /></ProtectedRoute>} />
+      <Route path="/purchase-requests/:id/print-po" element={<ProtectedRoute><PRPrintPO /></ProtectedRoute>} />
       <Route path="/purchase-requests/:id" element={<ProtectedRoute><PRDetail /></ProtectedRoute>} />
       <Route path="/purchase-requests/new/project" element={<ProtectedRoute><PRProject /></ProtectedRoute>} />
       <Route path="/purchase-requests/edit/project/:id" element={<ProtectedRoute><PRProject /></ProtectedRoute>} />
