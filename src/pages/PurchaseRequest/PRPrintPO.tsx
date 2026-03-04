@@ -10,11 +10,14 @@ export default function PRPrintPO() {
   const navigate = useNavigate();
   const [pr, setPr] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [company, setCompany] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Tax options
   const [includeVAT, setIncludeVAT] = useState(false);
   const [includeWHT, setIncludeWHT] = useState(false);
+  const [remarks, setRemarks] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -49,6 +52,13 @@ export default function PRPrintPO() {
 
         setPr(prData);
         setItems(prItems);
+
+        // Load company settings
+        try {
+          const companyRecords = await pb.collection('company_settings').getFullList();
+          if (companyRecords.length > 0) setCompany(companyRecords[0]);
+        } catch (e) { console.log('Company settings not found'); }
+
       } catch (err) {
         console.error('Failed to load PR:', err);
       } finally {
@@ -158,13 +168,30 @@ export default function PRPrintPO() {
           
           {/* Header */}
           <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">LIFESTYLE TECHNOLOGY</h1>
-              <p className="text-xs text-gray-500 mt-1">บริษัท ไลฟ์สไตล์ เทคโนโลยี จำกัด</p>
+            <div className="flex items-start gap-4">
+              {company?.logo && (
+                <img 
+                  src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/${company.collectionId}/${company.id}/${company.logo}`} 
+                  alt="Logo" 
+                  className="w-16 h-16 object-contain"
+                />
+              )}
+              <div>
+                <h1 className="text-xl font-black text-gray-900 tracking-tight">{company?.name || 'LIFESTYLE TECHNOLOGY'}</h1>
+                <p className="text-xs text-gray-500">{company?.name_th || 'บริษัท ไลฟ์สไตล์ เทคโนโลยี จำกัด'}</p>
+                {company?.address_th && <p className="text-[10px] text-gray-400 mt-0.5">{company.address_th}</p>}
+                {company?.address_en && <p className="text-[10px] text-gray-400">{company.address_en}</p>}
+                <div className="flex gap-3 mt-1 text-[10px] text-gray-400 flex-wrap">
+                  {company?.tax_id && <span>เลขผู้เสียภาษี: {company.tax_id}</span>}
+                  {company?.phone && <span>โทร: {company.phone}</span>}
+                  {company?.email && <span>อีเมล: {company.email}</span>}
+                </div>
+              </div>
             </div>
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <h2 className="text-xl font-black text-blue-700">ใบสั่งซื้อ</h2>
               <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">PURCHASE ORDER</p>
+              {company?.branch_name && <p className="text-[10px] text-gray-400 mt-1">{company.branch_name}</p>}
             </div>
           </div>
 
@@ -213,10 +240,21 @@ export default function PRPrintPO() {
               {pr._vendor ? (
                 <div className="space-y-1 text-sm">
                   <p className="font-bold text-gray-900">{pr._vendor.name}</p>
+                  {pr._vendor.tax_id && <p className="text-gray-600">เลขผู้เสียภาษี: {pr._vendor.tax_id}</p>}
                   {pr._vendor.contact_person && <p className="text-gray-600">ติดต่อ: {pr._vendor.contact_person}</p>}
                   {pr._vendor.phone && <p className="text-gray-600">โทร: {pr._vendor.phone}</p>}
                   {pr._vendor.email && <p className="text-gray-600">อีเมล: {pr._vendor.email}</p>}
                   {pr._vendor.address && <p className="text-gray-600">ที่อยู่: {pr._vendor.address}</p>}
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">เงื่อนไขการชำระเงิน</p>
+                    <p className="text-gray-700 font-medium">
+                      {pr._vendor.payment_term === '30days' && 'เงินสด 30 วัน'}
+                      {pr._vendor.payment_term === '45days' && 'เงินสด 45 วัน'}
+                      {pr._vendor.payment_term === '60days' && 'เงินสด 60 วัน'}
+                      {pr._vendor.payment_term === 'custom' && (pr._vendor.payment_term_detail || 'ตามตกลง')}
+                      {!pr._vendor.payment_term && '-'}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <p className="text-gray-400 text-sm">ไม่ระบุผู้ขาย</p>
@@ -284,6 +322,32 @@ export default function PRPrintPO() {
             </div>
           </div>
 
+          {/* Remarks & Payment Conditions */}
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            {/* Remarks */}
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">หมายเหตุ / REMARKS</p>
+              <textarea
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="ระบุหมายเหตุเพิ่มเติม (ถ้ามี)..."
+                rows={4}
+                className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 print:border-gray-300 print:bg-white"
+              />
+            </div>
+            {/* Payment Conditions */}
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">เงื่อนไขการชำระเงิน / PAYMENT CONDITIONS</p>
+              <textarea
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                placeholder="ระบุเงื่อนไขการชำระเงิน เช่น มัดจำ 50%, โอนภายใน 30 วัน..."
+                rows={4}
+                className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 print:border-gray-300 print:bg-white"
+              />
+            </div>
+          </div>
+
           {/* Signatures */}
           <div className="grid grid-cols-3 gap-6 mt-8 pt-4">
             {/* Requester */}
@@ -329,8 +393,15 @@ export default function PRPrintPO() {
           </div>
 
           {/* Footer */}
-          <div className="mt-8 pt-4 border-t border-gray-200 text-center">
-            <p className="text-[9px] text-gray-400">เอกสารฉบับนี้ออกโดยระบบจัดซื้อจัดจ้าง LIFESTYLE TECHNOLOGY — พิมพ์เมื่อ {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+          <div className="mt-8 pt-4 border-t border-gray-200">
+            {company?.bank_name && (
+              <div className="text-[10px] text-gray-500 mb-2">
+                <span className="font-bold">ข้อมูลการโอนเงิน:</span> {company.bank_name}
+                {company.bank_account && <> เลขบัญชี: {company.bank_account}</>}
+                {company.bank_branch && <> สาขา: {company.bank_branch}</>}
+              </div>
+            )}
+            <p className="text-[9px] text-gray-400 text-center">เอกสารฉบับนี้ออกโดยระบบจัดซื้อจัดจ้าง {company?.name || 'LIFESTYLE TECHNOLOGY'} — พิมพ์เมื่อ {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
       </div>

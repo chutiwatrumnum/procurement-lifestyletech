@@ -282,6 +282,17 @@ function Sidebar({
             <Settings className="h-5 w-5 text-[#6B7280] flex-shrink-0" />
             {!collapsed && <span>ตั้งค่า</span>}
           </Link>
+          <Link
+            to="/settings/company"
+            className={cn(
+              'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[#9CA3AF] hover:text-white hover:bg-white/5 transition-all',
+              collapsed && 'justify-center px-2'
+            )}
+            title={collapsed ? "ข้อมูลบริษัท" : undefined}
+          >
+            <Building2 className="h-5 w-5 text-[#6B7280] flex-shrink-0" />
+            {!collapsed && <span>ข้อมูลบริษัท</span>}
+          </Link>
         </ScrollArea>
       </div>
       

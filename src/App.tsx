@@ -43,6 +43,7 @@ import UserManagement from '@/pages/Admin/Users';
 
 // Settings
 import ProfileSettings from '@/pages/Settings/Profile';
+import CompanySettings from '@/pages/Settings/CompanySettings';
 
 // Shared
 import PurchaseRequestList from '@/pages/PurchaseRequestList';
@@ -117,6 +118,7 @@ function AppRoutes() {
       
       {/* Settings */}
       <Route path="/settings/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+      <Route path="/settings/company" element={<ProtectedRoute><CompanySettings /></ProtectedRoute>} />
       
       {/* Vendors */}
       <Route path="/vendors" element={<ProtectedRoute><VendorListNew /></ProtectedRoute>} />
