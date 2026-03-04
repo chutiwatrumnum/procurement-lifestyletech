@@ -22,6 +22,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
 import { useVendor, useUpdateVendor } from '@/hooks/useVendors';
+import { rules, validateForm } from '@/lib/validation';
 
 export default function VendorEdit() {
   const { id } = useParams();
@@ -31,6 +32,7 @@ export default function VendorEdit() {
   const [vendorType, setVendorType] = useState<'domestic' | 'foreign'>('domestic');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: vendor, isLoading: loading, error } = useVendor(id);
   const updateVendorMutation = useUpdateVendor();
@@ -84,11 +86,55 @@ export default function VendorEdit() {
     }
   };
 
+  const validate = (formData: FormData): boolean => {
+    const data = {
+      name: formData.get('company_name') as string,
+      contact_person: formData.get('contact_name') as string,
+      email: formData.get('email') as string,
+      phone: formData.get('phone') as string,
+      tax_id: formData.get('tax_id') as string,
+      payment_term: paymentTerm,
+      payment_term_detail: paymentTermDetail,
+      website: formData.get('website') as string,
+    };
+
+    const schema = {
+      name: [rules.required('กรุณากรอกชื่อบริษัท')],
+      contact_person: [rules.required('กรุณากรอกชื่อผู้ติดต่อ')],
+      email: [
+        rules.required('กรุณากรอกอีเมล'),
+        rules.email('รูปแบบอีเมลไม่ถูกต้อง')
+      ],
+      phone: [rules.phone('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง')],
+      tax_id: [rules.taxId('เลขผู้เสียภาษีต้องมี 13 หลัก')],
+      website: [rules.url('URL ต้องขึ้นต้นด้วย http:// หรือ https://')],
+      payment_term_detail: paymentTerm === 'custom' ? [rules.required('กรุณาระบุเงื่อนไขการชำระเงินเพิ่มเติม')] : [],
+    };
+
+    const result = validateForm(data, schema);
+    
+    const mappedErrors: Record<string, string> = {};
+    if (result.errors.name) mappedErrors.company_name = result.errors.name;
+    if (result.errors.contact_person) mappedErrors.contact_name = result.errors.contact_person;
+    if (result.errors.email) mappedErrors.email = result.errors.email;
+    if (result.errors.phone) mappedErrors.phone = result.errors.phone;
+    if (result.errors.tax_id) mappedErrors.tax_id = result.errors.tax_id;
+    if (result.errors.website) mappedErrors.website = result.errors.website;
+    if (result.errors.payment_term_detail) mappedErrors.payment_term_detail = result.errors.payment_term_detail;
+
+    setErrors(mappedErrors);
+    if (!result.isValid) {
+      toast.error('กรุณาตรวจสอบข้อมูลที่กรอก');
+    }
+    return result.isValid;
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!id) return;
     
     const formData = new FormData(e.currentTarget);
+    if (!validate(formData)) return;
     const data = {
       name: formData.get('company_name'),
       tax_id: formData.get('tax_id'),
@@ -152,15 +198,16 @@ export default function VendorEdit() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="company_name">ชื่อบริษัท *</Label>
+                  <Label htmlFor="company_name">ชื่อบริษัท <span className="text-red-500">*</span></Label>
                   <Input 
                     name="company_name" 
                     id="company_name" 
                     defaultValue={vendor?.name}
                     placeholder="เช่น ABC Construction Ltd." 
-                    required 
-                    className="rounded-xl h-11 bg-gray-50 border-none" 
+                    className={`rounded-xl h-11 bg-gray-50 border ${errors.company_name ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                    onChange={() => setErrors(prev => ({ ...prev, company_name: '' }))}
                   />
+                  {errors.company_name && <p className="text-xs text-red-500 font-medium">{errors.company_name}</p>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -171,8 +218,10 @@ export default function VendorEdit() {
                       id="tax_id" 
                       defaultValue={vendor?.tax_id}
                       placeholder="0-0000-00000-00-0" 
-                      className="rounded-xl h-11 bg-gray-50 border-none" 
+                      className={`rounded-xl h-11 bg-gray-50 border ${errors.tax_id ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                      onChange={() => setErrors(prev => ({ ...prev, tax_id: '' }))}
                     />
+                    {errors.tax_id && <p className="text-xs text-red-500 font-medium">{errors.tax_id}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="category">หมวดหมู่</Label>
@@ -248,29 +297,31 @@ export default function VendorEdit() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="contact_name">ชื่อผู้ติดต่อ (Contact Person) *</Label>
+                  <Label htmlFor="contact_name">ชื่อผู้ติดต่อ (Contact Person) <span className="text-red-500">*</span></Label>
                   <Input 
                     name="contact_name" 
                     id="contact_name" 
                     defaultValue={vendor?.contact_person}
                     placeholder="ระบุชื่อผู้ประสานงาน" 
-                    required 
-                    className="rounded-xl h-11 bg-gray-50 border-none" 
+                    className={`rounded-xl h-11 bg-gray-50 border ${errors.contact_name ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                    onChange={() => setErrors(prev => ({ ...prev, contact_name: '' }))}
                   />
+                  {errors.contact_name && <p className="text-xs text-red-500 font-medium">{errors.contact_name}</p>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">อีเมล (Email) *</Label>
+                    <Label htmlFor="email">อีเมล (Email) <span className="text-red-500">*</span></Label>
                     <Input 
                       name="email" 
                       id="email" 
                       type="email" 
                       defaultValue={vendor?.email}
                       placeholder="contact@company.com" 
-                      required 
-                      className="rounded-xl h-11 bg-gray-50 border-none" 
+                      className={`rounded-xl h-11 bg-gray-50 border ${errors.email ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                      onChange={() => setErrors(prev => ({ ...prev, email: '' }))}
                     />
+                    {errors.email && <p className="text-xs text-red-500 font-medium">{errors.email}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">เบอร์โทรศัพท์ (Phone)</Label>
@@ -279,8 +330,10 @@ export default function VendorEdit() {
                       id="phone" 
                       defaultValue={vendor?.phone}
                       placeholder="02-XXX-XXXX" 
-                      className="rounded-xl h-11 bg-gray-50 border-none" 
+                      className={`rounded-xl h-11 bg-gray-50 border ${errors.phone ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                      onChange={() => setErrors(prev => ({ ...prev, phone: '' }))}
                     />
+                    {errors.phone && <p className="text-xs text-red-500 font-medium">{errors.phone}</p>}
                   </div>
                 </div>
 
@@ -292,8 +345,10 @@ export default function VendorEdit() {
                     type="url" 
                     defaultValue={vendor?.website}
                     placeholder="https://www.company.com" 
-                    className="rounded-xl h-11 bg-gray-50 border-none" 
+                    className={`rounded-xl h-11 bg-gray-50 border ${errors.website ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                    onChange={() => setErrors(prev => ({ ...prev, website: '' }))}
                   />
+                  {errors.website && <p className="text-xs text-red-500 font-medium">{errors.website}</p>}
                 </div>
               </CardContent>
             </Card>
@@ -327,14 +382,18 @@ export default function VendorEdit() {
                     </div>
                     {paymentTerm === 'custom' && (
                       <div className="mt-3 p-4 bg-white rounded-xl border-2 border-orange-200">
-                        <Label htmlFor="payment_term_detail" className="text-gray-600 font-bold mb-2 block">ระบุเงื่อนไขการชำระเงิน</Label>
+                        <Label htmlFor="payment_term_detail" className="text-gray-600 font-bold mb-2 block">ระบุเงื่อนไขการชำระเงิน <span className="text-red-500">*</span></Label>
                         <Input 
                           id="payment_term_detail"
                           value={paymentTermDetail}
-                          onChange={(e) => setPaymentTermDetail(e.target.value)}
+                          onChange={(e) => {
+                            setPaymentTermDetail(e.target.value);
+                            setErrors(prev => ({ ...prev, payment_term_detail: '' }));
+                          }}
                           placeholder="เช่น มัดจำ 50% ส่วนที่เหลือ 30 วัน Credit"
-                          className="rounded-xl h-11 bg-gray-50 border-none"
+                          className={`rounded-xl h-11 bg-gray-50 border ${errors.payment_term_detail ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
                         />
+                        {errors.payment_term_detail && <p className="text-xs text-red-500 font-medium mt-1">{errors.payment_term_detail}</p>}
                       </div>
                     )}
                   </RadioGroup>

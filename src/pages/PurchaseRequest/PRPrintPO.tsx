@@ -164,244 +164,274 @@ export default function PRPrintPO() {
 
       {/* Print Content */}
       <div className="print:mt-0 mt-20 flex justify-center pb-12">
-        <div className="po-page w-[210mm] min-h-[297mm] bg-white p-[15mm] print:p-[15mm] print:shadow-none shadow-lg mx-auto" style={{ fontFamily: "'Sarabun', 'Noto Sans Thai', sans-serif" }}>
+        <div className="po-page w-[210mm] min-h-[297mm] bg-white print:p-[15mm] print:shadow-none shadow-lg mx-auto" style={{ fontFamily: "'Sarabun', 'Noto Sans Thai', sans-serif", padding: '15mm' }}>
           
-          {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-gray-800 pb-4 mb-6">
-            <div className="flex items-start gap-4">
-              {company?.logo && (
-                <img 
-                  src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/${company.collectionId}/${company.id}/${company.logo}`} 
-                  alt="Logo" 
-                  className="w-16 h-16 object-contain"
-                />
-              )}
-              <div>
-                <h1 className="text-xl font-black text-gray-900 tracking-tight">{company?.name || 'LIFESTYLE TECHNOLOGY'}</h1>
-                <p className="text-xs text-gray-500">{company?.name_th || 'บริษัท ไลฟ์สไตล์ เทคโนโลยี จำกัด'}</p>
-                {company?.address_th && <p className="text-[10px] text-gray-400 mt-0.5">{company.address_th}</p>}
-                {company?.address_en && <p className="text-[10px] text-gray-400">{company.address_en}</p>}
-                <div className="flex gap-3 mt-1 text-[10px] text-gray-400 flex-wrap">
-                  {company?.tax_id && <span>เลขผู้เสียภาษี: {company.tax_id}</span>}
-                  {company?.phone && <span>โทร: {company.phone}</span>}
-                  {company?.email && <span>อีเมล: {company.email}</span>}
+          {/* ═══ Header ═══ */}
+          <div className="border-b-[3px] border-gray-900 pb-5 mb-5">
+            {/* Row 1: Logo + Company Name  |  Document Title */}
+            <div className="flex items-start justify-between">
+              {/* Left: Logo + Company */}
+              <div className="flex items-center gap-3">
+                {company?.logo && (
+                  <img
+                    src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/${company.collectionId}/${company.id}/${company.logo}`}
+                    alt="Logo"
+                    className="w-[52px] h-[52px] object-contain shrink-0"
+                  />
+                )}
+                <div>
+                  <h1 className="text-[17px] font-extrabold text-gray-900 leading-snug">{company?.name || 'LIFESTYLE TECHNOLOGY'}</h1>
+                  <p className="text-[13px] text-gray-600">{company?.name_th || 'บริษัท ไลฟ์สไตล์ เทคโนโลยี จำกัด'}</p>
                 </div>
               </div>
+              {/* Right: Document Title */}
+              <div className="text-right shrink-0 pl-6">
+                <h2 className="text-[22px] font-extrabold text-gray-900 leading-none">ใบสั่งซื้อ</h2>
+                <p className="text-[11px] font-bold text-gray-500 tracking-[0.15em] mt-0.5">PURCHASE ORDER</p>
+              </div>
             </div>
-            <div className="text-right flex-shrink-0">
-              <h2 className="text-xl font-black text-blue-700">ใบสั่งซื้อ</h2>
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">PURCHASE ORDER</p>
-              {company?.branch_name && <p className="text-[10px] text-gray-400 mt-1">{company.branch_name}</p>}
+
+            {/* Row 2: Address & contact details */}
+            <div className="mt-3 text-[10.5px] text-gray-500 leading-relaxed space-y-0.5">
+              {company?.address_th && <p>{company.address_th}</p>}
+              {company?.address_en && <p>{company.address_en}</p>}
+              <div className="flex flex-wrap gap-x-4 gap-y-0 mt-1 text-[10.5px]">
+                {company?.tax_id && <span>เลขประจำตัวผู้เสียภาษี: <strong className="text-gray-700">{company.tax_id}</strong></span>}
+                {company?.phone && <span>โทร: <strong className="text-gray-700">{company.phone}</strong></span>}
+                {company?.email && <span>อีเมล: <strong className="text-gray-700">{company.email}</strong></span>}
+                {company?.branch_name && <span>สาขา: <strong className="text-gray-700">{company.branch_name}</strong></span>}
+              </div>
             </div>
           </div>
 
-          {/* Type Badge */}
-          <div className="mb-4">
-            <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full">
-              {getTypeLabel(pr.type)}
-            </span>
-          </div>
-
-          {/* PO Info + Vendor Info */}
-          <div className="grid grid-cols-2 gap-8 mb-6">
+          {/* ═══ Document Info + Vendor ═══ */}
+          <div className="grid grid-cols-2 gap-5 mb-5">
             {/* Left: Document Info */}
-            <div className="space-y-2">
-              <div className="grid grid-cols-[110px_1fr] gap-1 text-sm">
-                <span className="text-gray-500 font-bold">เลขที่ PO:</span>
-                <span className="font-black text-gray-900">{poNumber}</span>
-              </div>
-              <div className="grid grid-cols-[110px_1fr] gap-1 text-sm">
-                <span className="text-gray-500 font-bold">อ้างอิง PR:</span>
-                <span className="text-gray-600">{pr.pr_number || '-'}</span>
-              </div>
-              <div className="grid grid-cols-[110px_1fr] gap-1 text-sm">
-                <span className="text-gray-500 font-bold">วันที่สร้าง:</span>
-                <span>{formatDate(pr.created)}</span>
-              </div>
-              <div className="grid grid-cols-[110px_1fr] gap-1 text-sm">
-                <span className="text-gray-500 font-bold">วันที่อนุมัติ:</span>
-                <span>{formatDate(pr.manager_approved_at || pr.head_of_dept_approved_at)}</span>
-              </div>
-              {pr.category && (
-                <div className="grid grid-cols-[110px_1fr] gap-1 text-sm">
-                  <span className="text-gray-500 font-bold">หมวดหมู่:</span>
-                  <span>{pr.category}</span>
-                </div>
-              )}
-              <div className="grid grid-cols-[110px_1fr] gap-1 text-sm">
-                <span className="text-gray-500 font-bold">ผู้ขอซื้อ:</span>
-                <span>{pr.requester_name || pr._requester?.name || pr._requester?.email || '-'}</span>
-              </div>
+            <div className="border border-gray-300 rounded p-3.5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em] mb-2.5 border-b border-gray-200 pb-1.5">ข้อมูลเอกสาร / DOCUMENT INFO</p>
+              <table className="w-full text-[12px]">
+                <tbody>
+                  <tr>
+                    <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top" style={{ width: '100px' }}>เลขที่ PO</td>
+                    <td className="font-bold text-gray-900 py-[3px]">{poNumber}</td>
+                  </tr>
+
+                  <tr>
+                    <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">วันที่สร้าง</td>
+                    <td className="text-gray-700 py-[3px]">{formatDate(pr.created)}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">วันที่อนุมัติ</td>
+                    <td className="text-gray-700 py-[3px]">{formatDate(pr.manager_approved_at || pr.head_of_dept_approved_at)}</td>
+                  </tr>
+                  {pr.category && (
+                    <tr>
+                      <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">หมวดหมู่</td>
+                      <td className="text-gray-700 py-[3px]">{pr.category}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">ผู้ขอซื้อ</td>
+                    <td className="text-gray-700 py-[3px]">{pr.requester_name || pr._requester?.name || pr._requester?.email || '-'}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             {/* Right: Vendor */}
-            <div className="border border-gray-200 rounded-lg p-4">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">ข้อมูลผู้ขาย / VENDOR</p>
+            <div className="border border-gray-300 rounded p-3.5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em] mb-2.5 border-b border-gray-200 pb-1.5">ข้อมูลผู้ขาย / VENDOR</p>
               {pr._vendor ? (
-                <div className="space-y-1 text-sm">
-                  <p className="font-bold text-gray-900">{pr._vendor.name}</p>
-                  {pr._vendor.tax_id && <p className="text-gray-600">เลขผู้เสียภาษี: {pr._vendor.tax_id}</p>}
-                  {pr._vendor.contact_person && <p className="text-gray-600">ติดต่อ: {pr._vendor.contact_person}</p>}
-                  {pr._vendor.phone && <p className="text-gray-600">โทร: {pr._vendor.phone}</p>}
-                  {pr._vendor.email && <p className="text-gray-600">อีเมล: {pr._vendor.email}</p>}
-                  {pr._vendor.address && <p className="text-gray-600">ที่อยู่: {pr._vendor.address}</p>}
-                  <div className="mt-2 pt-2 border-t border-gray-100">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">เงื่อนไขการชำระเงิน</p>
-                    <p className="text-gray-700 font-medium">
-                      {pr._vendor.payment_term === '30days' && 'เงินสด 30 วัน'}
-                      {pr._vendor.payment_term === '45days' && 'เงินสด 45 วัน'}
-                      {pr._vendor.payment_term === '60days' && 'เงินสด 60 วัน'}
-                      {pr._vendor.payment_term === 'custom' && (pr._vendor.payment_term_detail || 'ตามตกลง')}
-                      {!pr._vendor.payment_term && '-'}
-                    </p>
-                  </div>
-                </div>
+                <table className="w-full text-[12px]">
+                  <tbody>
+                    <tr>
+                      <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top" style={{ width: '90px' }}>ชื่อบริษัท</td>
+                      <td className="font-bold text-gray-900 py-[3px]">{pr._vendor.name}</td>
+                    </tr>
+                    {pr._vendor.tax_id && (
+                      <tr>
+                        <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">เลขผู้เสียภาษี</td>
+                        <td className="text-gray-700 py-[3px]">{pr._vendor.tax_id}</td>
+                      </tr>
+                    )}
+                    {pr._vendor.contact_person && (
+                      <tr>
+                        <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">ผู้ติดต่อ</td>
+                        <td className="text-gray-700 py-[3px]">{pr._vendor.contact_person}</td>
+                      </tr>
+                    )}
+                    {pr._vendor.phone && (
+                      <tr>
+                        <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">โทรศัพท์</td>
+                        <td className="text-gray-700 py-[3px]">{pr._vendor.phone}</td>
+                      </tr>
+                    )}
+                    {pr._vendor.email && (
+                      <tr>
+                        <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">อีเมล</td>
+                        <td className="text-gray-700 py-[3px]">{pr._vendor.email}</td>
+                      </tr>
+                    )}
+                    {pr._vendor.address && (
+                      <tr>
+                        <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">ที่อยู่</td>
+                        <td className="text-gray-700 py-[3px]">{pr._vendor.address}</td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td className="text-gray-500 py-[3px] pr-2 whitespace-nowrap align-top">เงื่อนไขชำระ</td>
+                      <td className="text-gray-700 py-[3px] font-medium">
+                        {pr._vendor.payment_term === '30days' && 'เงินสด 30 วัน'}
+                        {pr._vendor.payment_term === '45days' && 'เงินสด 45 วัน'}
+                        {pr._vendor.payment_term === '60days' && 'เงินสด 60 วัน'}
+                        {pr._vendor.payment_term === 'custom' && (pr._vendor.payment_term_detail || 'ตามตกลง')}
+                        {!pr._vendor.payment_term && '-'}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               ) : (
-                <p className="text-gray-400 text-sm">ไม่ระบุผู้ขาย</p>
+                <p className="text-gray-400 text-sm py-2">ไม่ระบุผู้ขาย</p>
               )}
             </div>
           </div>
 
-          {/* Items Table */}
-          <table className="w-full text-sm border-collapse mb-4">
+          {/* ═══ Items Table ═══ */}
+          <table className="w-full text-[12px] border-collapse mb-1">
             <thead>
-              <tr className="bg-gray-800 text-white">
-                <th className="py-2 px-3 text-center w-12 font-bold">ลำดับ</th>
-                <th className="py-2 px-3 text-left font-bold">รายการ</th>
-                <th className="py-2 px-3 text-center w-20 font-bold">จำนวน</th>
-                <th className="py-2 px-3 text-right w-28 font-bold">ราคา/หน่วย</th>
-                <th className="py-2 px-3 text-right w-28 font-bold">รวม (บาท)</th>
+              <tr className="bg-gray-900 text-white">
+                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '40px' }}>ลำดับ</th>
+                <th className="py-2 px-3 text-left font-bold border border-gray-900">รายการสินค้า / บริการ</th>
+                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '70px' }}>จำนวน</th>
+                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '50px' }}>หน่วย</th>
+                <th className="py-2 px-3 text-right font-bold border border-gray-900" style={{ width: '100px' }}>ราคา/หน่วย</th>
+                <th className="py-2 px-3 text-right font-bold border border-gray-900" style={{ width: '110px' }}>จำนวนเงิน (บาท)</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
-                <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="py-2.5 px-3 text-center border-b border-gray-100">{idx + 1}</td>
-                  <td className="py-2.5 px-3 border-b border-gray-100 font-medium">{item.name}</td>
-                  <td className="py-2.5 px-3 text-center border-b border-gray-100">{item.quantity} {item.unit || ''}</td>
-                  <td className="py-2.5 px-3 text-right border-b border-gray-100">{formatCurrency(item.unit_price || 0)}</td>
-                  <td className="py-2.5 px-3 text-right border-b border-gray-100 font-bold">{formatCurrency(item.total_price || 0)}</td>
+                <tr key={item.id}>
+                  <td className="py-2 px-2 text-center border border-gray-200">{idx + 1}</td>
+                  <td className="py-2 px-3 border border-gray-200 font-medium text-gray-800">{item.name}</td>
+                  <td className="py-2 px-2 text-center border border-gray-200">{item.quantity}</td>
+                  <td className="py-2 px-2 text-center border border-gray-200 text-gray-600">{item.unit || '-'}</td>
+                  <td className="py-2 px-3 text-right border border-gray-200">{formatCurrency(item.unit_price || 0)}</td>
+                  <td className="py-2 px-3 text-right border border-gray-200 font-bold">{formatCurrency(item.total_price || 0)}</td>
                 </tr>
               ))}
-              {/* Empty rows */}
+              {/* Empty rows to fill at least 5 rows */}
               {items.length < 5 && Array.from({ length: 5 - items.length }).map((_, i) => (
                 <tr key={`empty-${i}`}>
-                  <td className="py-2.5 px-3 text-center border-b border-gray-100 text-gray-300">{items.length + i + 1}</td>
-                  <td className="py-2.5 px-3 border-b border-gray-100">&nbsp;</td>
-                  <td className="py-2.5 px-3 border-b border-gray-100">&nbsp;</td>
-                  <td className="py-2.5 px-3 border-b border-gray-100">&nbsp;</td>
-                  <td className="py-2.5 px-3 border-b border-gray-100">&nbsp;</td>
+                  <td className="py-2 px-2 text-center border border-gray-200 text-gray-300">{items.length + i + 1}</td>
+                  <td className="py-2 px-3 border border-gray-200">&nbsp;</td>
+                  <td className="py-2 px-2 border border-gray-200">&nbsp;</td>
+                  <td className="py-2 px-2 border border-gray-200">&nbsp;</td>
+                  <td className="py-2 px-3 border border-gray-200">&nbsp;</td>
+                  <td className="py-2 px-3 border border-gray-200">&nbsp;</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* Totals Summary */}
-          <div className="flex justify-end mb-6">
-            <div className="w-72 space-y-1">
-              <div className="flex justify-between text-sm py-1">
-                <span className="text-gray-600">ยอดรวมก่อนภาษี</span>
-                <span className="font-bold">{formatCurrency(subtotal)}</span>
+          {/* ═══ Totals ═══ */}
+          <div className="flex justify-end mb-5">
+            <div style={{ width: '280px' }}>
+              <div className="flex justify-between text-[12px] py-1.5 border-b border-gray-100">
+                <span className="text-gray-500">ยอดรวมก่อนภาษี</span>
+                <span className="font-bold text-gray-800">{formatCurrency(subtotal)}</span>
               </div>
               {includeVAT && (
-                <div className="flex justify-between text-sm py-1">
-                  <span className="text-gray-600">ภาษีมูลค่าเพิ่ม (VAT 7%)</span>
+                <div className="flex justify-between text-[12px] py-1.5 border-b border-gray-100">
+                  <span className="text-gray-500">ภาษีมูลค่าเพิ่ม (VAT 7%)</span>
                   <span className="font-bold text-blue-700">+{formatCurrency(vatAmount)}</span>
                 </div>
               )}
               {includeWHT && (
-                <div className="flex justify-between text-sm py-1">
-                  <span className="text-gray-600">หัก ณ ที่จ่าย (WHT 3%)</span>
+                <div className="flex justify-between text-[12px] py-1.5 border-b border-gray-100">
+                  <span className="text-gray-500">หัก ณ ที่จ่าย (WHT 3%)</span>
                   <span className="font-bold text-red-600">-{formatCurrency(whtAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base py-2 border-t-2 border-gray-800 mt-1">
-                <span className="font-black text-gray-900">ยอดรวมสุทธิ</span>
-                <span className="font-black text-gray-900">฿{formatCurrency(grandTotal)}</span>
+              <div className="flex justify-between text-[14px] py-2 border-t-2 border-gray-900 mt-0.5">
+                <span className="font-extrabold text-gray-900">ยอดรวมสุทธิ</span>
+                <span className="font-extrabold text-gray-900">฿{formatCurrency(grandTotal)}</span>
               </div>
             </div>
           </div>
 
-          {/* Remarks & Payment Conditions */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            {/* Remarks */}
+          {/* ═══ Remarks & Payment ═══ */}
+          <div className="grid grid-cols-2 gap-5 mb-5">
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">หมายเหตุ / REMARKS</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em] mb-1.5">หมายเหตุ / REMARKS</p>
               <textarea
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
                 placeholder="ระบุหมายเหตุเพิ่มเติม (ถ้ามี)..."
-                rows={4}
-                className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 print:border-gray-300 print:bg-white"
+                rows={3}
+                className="w-full text-[12px] border border-gray-300 rounded p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 print:border-gray-300 print:bg-white"
               />
             </div>
-            {/* Payment Conditions */}
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">เงื่อนไขการชำระเงิน / PAYMENT CONDITIONS</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.12em] mb-1.5">เงื่อนไขการชำระเงิน / PAYMENT</p>
               <textarea
                 value={paymentNote}
                 onChange={(e) => setPaymentNote(e.target.value)}
-                placeholder="ระบุเงื่อนไขการชำระเงิน เช่น มัดจำ 50%, โอนภายใน 30 วัน..."
-                rows={4}
-                className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 print:border-gray-300 print:bg-white"
+                placeholder="ระบุเงื่อนไขการชำระเงิน..."
+                rows={3}
+                className="w-full text-[12px] border border-gray-300 rounded p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 print:border-gray-300 print:bg-white"
               />
             </div>
           </div>
 
-          {/* Signatures */}
-          <div className="grid grid-cols-3 gap-6 mt-8 pt-4">
-            {/* Requester */}
-            <div className="text-center">
-              <div className="h-20 flex items-end justify-center mb-1"></div>
-              <div className="border-t border-gray-400 pt-2 mx-4">
-                <p className="text-sm font-bold text-gray-800">{pr.requester_name || pr._requester?.name || '.........................'}</p>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">ผู้ขอซื้อ / REQUESTER</p>
-              </div>
-            </div>
+          {/* ═══ Signatures ═══ */}
+          <div className="grid grid-cols-2 gap-8 mt-6">
 
             {/* Head of Dept */}
             <div className="text-center">
-              <div className="h-20 flex items-end justify-center mb-1">
+              <div className="h-[60px] flex items-end justify-center mb-1">
                 {pr._head_sig_url && (
-                  <img src={pr._head_sig_url} alt="ลายเซ็นหัวหน้าแผนก" className="max-h-16 object-contain" />
+                  <img src={pr._head_sig_url} alt="ลายเซ็นหัวหน้าแผนก" className="max-h-[50px] object-contain" />
                 )}
               </div>
-              <div className="border-t border-gray-400 pt-2 mx-4">
-                <p className="text-sm font-bold text-gray-800">{pr.head_of_dept_approved_by_name || '.........................'}</p>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">หัวหน้าแผนก / HEAD OF DEPT</p>
+              <div className="border-t border-gray-400 pt-2 mx-6">
+                <p className="text-[12px] font-bold text-gray-800">{pr.head_of_dept_approved_by_name || '.........................'}</p>
+                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">หัวหน้าแผนก / HEAD OF DEPT</p>
                 {pr.head_of_dept_approved_at && (
-                  <p className="text-[9px] text-gray-400 mt-0.5">{formatDate(pr.head_of_dept_approved_at)}</p>
+                  <p className="text-[8px] text-gray-400 mt-0.5">{formatDate(pr.head_of_dept_approved_at)}</p>
                 )}
               </div>
             </div>
 
             {/* Manager */}
             <div className="text-center">
-              <div className="h-20 flex items-end justify-center mb-1">
+              <div className="h-[60px] flex items-end justify-center mb-1">
                 {pr._mgr_sig_url && (
-                  <img src={pr._mgr_sig_url} alt="ลายเซ็นผู้จัดการ" className="max-h-16 object-contain" />
+                  <img src={pr._mgr_sig_url} alt="ลายเซ็นผู้จัดการ" className="max-h-[50px] object-contain" />
                 )}
               </div>
-              <div className="border-t border-gray-400 pt-2 mx-4">
-                <p className="text-sm font-bold text-gray-800">{pr.manager_approved_by_name || '.........................'}</p>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">ผู้จัดการ / MANAGER</p>
+              <div className="border-t border-gray-400 pt-2 mx-6">
+                <p className="text-[12px] font-bold text-gray-800">{pr.manager_approved_by_name || '.........................'}</p>
+                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">ผู้จัดการ / MANAGER</p>
                 {pr.manager_approved_at && (
-                  <p className="text-[9px] text-gray-400 mt-0.5">{formatDate(pr.manager_approved_at)}</p>
+                  <p className="text-[8px] text-gray-400 mt-0.5">{formatDate(pr.manager_approved_at)}</p>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="mt-8 pt-4 border-t border-gray-200">
+          {/* ═══ Footer ═══ */}
+          <div className="mt-6 pt-3 border-t border-gray-300">
             {company?.bank_name && (
-              <div className="text-[10px] text-gray-500 mb-2">
-                <span className="font-bold">ข้อมูลการโอนเงิน:</span> {company.bank_name}
-                {company.bank_account && <> เลขบัญชี: {company.bank_account}</>}
-                {company.bank_branch && <> สาขา: {company.bank_branch}</>}
+              <div className="text-[10px] text-gray-500 mb-2 bg-gray-50 rounded px-3 py-2 border border-gray-200">
+                <span className="font-bold text-gray-600">ข้อมูลการโอนเงิน:</span>{' '}
+                ธนาคาร {company.bank_name}
+                {company.bank_account && <> &nbsp;|&nbsp; เลขบัญชี: <strong>{company.bank_account}</strong></>}
+                {company.bank_branch && <> &nbsp;|&nbsp; สาขา: {company.bank_branch}</>}
               </div>
             )}
-            <p className="text-[9px] text-gray-400 text-center">เอกสารฉบับนี้ออกโดยระบบจัดซื้อจัดจ้าง {company?.name || 'LIFESTYLE TECHNOLOGY'} — พิมพ์เมื่อ {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+            <p className="text-[8px] text-gray-400 text-center mt-2">
+              เอกสารฉบับนี้ออกโดยระบบจัดซื้อจัดจ้าง {company?.name || 'LIFESTYLE TECHNOLOGY'} — พิมพ์เมื่อ {new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </p>
           </div>
         </div>
       </div>

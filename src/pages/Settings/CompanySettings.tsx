@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
+import { rules, validateForm } from '@/lib/validation';
 
 export default function CompanySettings() {
   const [loading, setLoading] = useState(true);
@@ -107,43 +108,26 @@ export default function CompanySettings() {
   };
 
   const validate = (): boolean => {
-    const errs: Record<string, string> = {};
+    const schema = {
+      name: [rules.required('กรุณากรอกชื่อบริษัท (ภาษาอังกฤษ)')],
+      name_th: [rules.required('กรุณากรอกชื่อบริษัท (ภาษาไทย)')],
+      tax_id: [
+        rules.required('กรุณากรอกเลขประจำตัวผู้เสียภาษี'),
+        rules.taxId('เลขผู้เสียภาษีต้องมี 13 หลัก')
+      ],
+      address_th: [rules.required('กรุณากรอกที่อยู่ (ภาษาไทย)')],
+      email: [rules.email('รูปแบบอีเมลไม่ถูกต้อง')],
+      phone: [rules.phone('รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง')],
+      website: [rules.url('URL ต้องขึ้นต้นด้วย http:// หรือ https://')],
+    };
 
-    // Required fields
-    if (!form.name.trim()) errs.name = 'กรุณากรอกชื่อบริษัท (ภาษาอังกฤษ)';
-    if (!form.name_th.trim()) errs.name_th = 'กรุณากรอกชื่อบริษัท (ภาษาไทย)';
-    if (!form.tax_id.trim()) errs.tax_id = 'กรุณากรอกเลขประจำตัวผู้เสียภาษี';
-    if (!form.address_th.trim()) errs.address_th = 'กรุณากรอกที่อยู่ (ภาษาไทย)';
-
-    // Tax ID: must be 13 digits (allow dashes)
-    if (form.tax_id.trim()) {
-      const digitsOnly = form.tax_id.replace(/[-\s]/g, '');
-      if (!/^\d{13}$/.test(digitsOnly)) {
-        errs.tax_id = 'เลขผู้เสียภาษีต้องมี 13 หลัก';
-      }
-    }
-
-    // Email format
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errs.email = 'รูปแบบอีเมลไม่ถูกต้อง';
-    }
-
-    // Phone format (allow digits, dashes, spaces, +)
-    if (form.phone.trim() && !/^[\d\s\-+().]{6,20}$/.test(form.phone)) {
-      errs.phone = 'รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง';
-    }
-
-    // Website format
-    if (form.website.trim() && !/^https?:\/\/.+/.test(form.website)) {
-      errs.website = 'URL ต้องขึ้นต้นด้วย http:// หรือ https://';
-    }
-
-    setErrors(errs);
-    if (Object.keys(errs).length > 0) {
+    const result = validateForm(form, schema);
+    setErrors(result.errors);
+    
+    if (!result.isValid) {
       toast.error('กรุณาตรวจสอบข้อมูลที่กรอก');
-      return false;
     }
-    return true;
+    return result.isValid;
   };
 
   const handleSave = async () => {

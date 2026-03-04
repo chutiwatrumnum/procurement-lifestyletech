@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
+import { rules, validateForm } from '@/lib/validation';
 import { useProductCatalog, catalogKeys } from '@/hooks/useProductCatalog';
 
 interface ProductForm {
@@ -46,6 +47,7 @@ export default function ProductCatalog() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   // Dynamic categories from PocketBase
@@ -139,11 +141,23 @@ export default function ProductCatalog() {
     setDialogOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast.error('กรุณาระบุชื่อสินค้า');
-      return;
+  const validate = (): boolean => {
+    const schema = {
+      name: [rules.required('กรุณาระบุชื่อสินค้า')],
+    };
+    
+    const result = validateForm(form, schema);
+    setErrors(result.errors);
+    
+    if (!result.isValid) {
+      toast.error('กรุณาตรวจสอบข้อมูลที่กรอก');
     }
+    return result.isValid;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    
     setSaving(true);
     try {
       if (editingId) {
@@ -331,13 +345,17 @@ export default function ProductCatalog() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label className="font-semibold">ชื่ออุปกรณ์ *</Label>
+              <Label className="font-semibold">ชื่ออุปกรณ์ <span className="text-red-500">*</span></Label>
               <Input
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, name: e.target.value });
+                  setErrors(prev => ({ ...prev, name: '' }));
+                }}
                 placeholder="เช่น ESP32, DHT22, Relay Module"
-                className="h-11 rounded-xl bg-gray-50 border-none"
+                className={`h-11 rounded-xl bg-gray-50 border ${errors.name ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`}
               />
+              {errors.name && <p className="text-xs text-red-500 font-medium">{errors.name}</p>}
             </div>
             <div className="space-y-2">
               <Label className="font-semibold">ราคา (฿)</Label>
