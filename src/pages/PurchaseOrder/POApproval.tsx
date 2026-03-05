@@ -825,6 +825,7 @@ export default function POApproval() {
                         <tr className="bg-gray-50 text-gray-600 text-xs uppercase">
                           <th className="py-3 px-4 text-center w-16">ลำดับ</th>
                           <th className="py-3 px-4 text-left font-bold">รายการ</th>
+                          <th className="py-3 px-4 text-center w-24">ประเภท</th>
                           <th className="py-3 px-4 text-center w-24">จำนวน</th>
                           <th className="py-3 px-4 text-right w-28">ราคา/หน่วย</th>
                           <th className="py-3 px-4 text-right w-28">ยอดรวม</th>
@@ -832,10 +833,17 @@ export default function POApproval() {
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {items.map((item: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-gray-50">
+                          <tr key={idx} className={`hover:bg-gray-50 ${item.item_type === 'reserve' ? 'bg-purple-50/30' : ''}`}>
                             <td className="py-4 px-4 text-center text-gray-500">{idx + 1}</td>
                             <td className="py-4 px-4">
                               <p className="font-bold text-gray-900">{item.name}</p>
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              {item.item_type === 'reserve' ? (
+                                <Badge className="bg-purple-100 text-purple-700 border-none text-[10px] font-bold">สำรอง</Badge>
+                              ) : (
+                                <Badge className="bg-blue-100 text-blue-700 border-none text-[10px] font-bold">ปกติ</Badge>
+                              )}
                             </td>
                             <td className="py-4 px-4 text-center font-bold">{item.quantity}</td>
                             <td className="py-4 px-4 text-right">{item.unit_price?.toLocaleString()}</td>

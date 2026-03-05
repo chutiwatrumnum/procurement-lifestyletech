@@ -153,47 +153,91 @@ export default function ProjectDetail() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-none shadow-sm rounded-2xl bg-blue-50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">งบประมาณโครงการ</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-black text-blue-600">฿{stats.totalBudget?.toLocaleString() || 0}</p>
+      {(() => {
+        const budget = stats.totalBudget || 0;
+        const spent = stats.totalWithdrawn || 0;
+        const remaining = stats.budgetRemaining || 0;
+        const isOverBudget = budget > 0 && spent > budget;
+        const usagePercent = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+
+        return (
+          <>
+            {/* Over budget alert */}
+            {isOverBudget && (
+              <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl animate-pulse">
+                <div className="p-2 bg-red-100 rounded-xl">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">จาก PR Project ที่อนุมัติ</p>
+                <div>
+                  <p className="font-bold text-red-700">⚠️ โครงการนี้ใช้งบเกินแล้ว!</p>
+                  <p className="text-sm text-red-600">
+                    งบประมาณ ฿{budget.toLocaleString()} · ใช้ไป ฿{spent.toLocaleString()} · <span className="font-black">เกิน ฿{Math.abs(remaining).toLocaleString()}</span>
+                  </p>
+                </div>
               </div>
-              <TrendingUp className="w-8 h-8 text-blue-400" />
-            </div>
-          </CardContent>
-        </Card>
+            )}
 
-        <Card className="border-none shadow-sm rounded-2xl bg-orange-50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">เบิกจ่ายไปแล้ว</p>
-                <p className="text-2xl font-black text-orange-600">฿{stats.totalWithdrawn.toLocaleString()}</p>
-                <p className="text-xs text-gray-500 mt-1">จากอุปกรณ์โครงการ</p>
-              </div>
-              <TrendingDown className="w-8 h-8 text-orange-400" />
-            </div>
-          </CardContent>
-        </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border-none shadow-sm rounded-2xl bg-blue-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600">งบประมาณโครงการ</p>
+                      <p className="text-2xl font-black text-blue-600">฿{budget.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500 mt-1">จาก PR Project ที่อนุมัติ</p>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-blue-400" />
+                  </div>
+                </CardContent>
+              </Card>
 
-        <Card className="border-none shadow-sm rounded-2xl bg-green-50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">งบประมาณคงเหลือ</p>
-                <p className="text-2xl font-black text-green-600">฿{stats.budgetRemaining?.toLocaleString() || 0}</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-green-400" />
+              <Card className={`border-none shadow-sm rounded-2xl ${isOverBudget ? 'bg-red-50 ring-2 ring-red-200' : 'bg-orange-50'}`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600">เบิกจ่ายไปแล้ว</p>
+                      <p className={`text-2xl font-black ${isOverBudget ? 'text-red-600' : 'text-orange-600'}`}>
+                        ฿{spent.toLocaleString()}
+                      </p>
+                      {budget > 0 && (
+                        <>
+                          <div className="w-full bg-white/60 rounded-full h-2 mt-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${isOverBudget ? 'bg-red-500' : usagePercent > 80 ? 'bg-orange-500' : 'bg-blue-500'}`}
+                              style={{ width: `${usagePercent}%` }}
+                            />
+                          </div>
+                          <p className={`text-xs mt-1 font-bold ${isOverBudget ? 'text-red-600' : 'text-gray-500'}`}>
+                            ใช้ไป {usagePercent.toFixed(1)}% ของงบ
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <TrendingDown className={`w-8 h-8 ${isOverBudget ? 'text-red-400' : 'text-orange-400'}`} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className={`border-none shadow-sm rounded-2xl ${isOverBudget ? 'bg-red-50 ring-2 ring-red-200' : 'bg-green-50'}`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">งบประมาณคงเหลือ</p>
+                      <p className={`text-2xl font-black ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
+                        {isOverBudget ? '-' : ''}฿{Math.abs(remaining).toLocaleString()}
+                      </p>
+                      {isOverBudget && (
+                        <p className="text-xs text-red-600 font-bold mt-1">⚠ งบเกิน!</p>
+                      )}
+                    </div>
+                    <DollarSign className={`w-8 h-8 ${isOverBudget ? 'text-red-400' : 'text-green-400'}`} />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </>
+        );
+      })()}
 
       {/* Tabs */}
       <Tabs defaultValue="items" className="w-full">

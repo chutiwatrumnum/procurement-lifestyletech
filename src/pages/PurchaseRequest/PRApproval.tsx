@@ -837,6 +837,7 @@ export default function PRApproval() {
                         <tr className="bg-[#F9FAFB] text-[#6B7280]">
                           <th className="py-3 px-4 text-left font-bold uppercase text-[9px] tracking-wider">ลำดับ</th>
                           <th className="py-3 px-4 text-left font-bold uppercase text-[9px] tracking-wider">รายการ</th>
+                          <th className="py-3 px-4 text-center font-bold uppercase text-[9px] tracking-wider">ประเภท</th>
                           <th className="py-3 px-4 text-right font-bold uppercase text-[9px] tracking-wider">จำนวน</th>
                           <th className="py-3 px-4 text-right font-bold uppercase text-[9px] tracking-wider">ราคา/หน่วย</th>
                           <th className="py-3 px-4 text-right font-bold uppercase text-[9px] tracking-wider">ยอดรวม</th>
@@ -844,9 +845,16 @@ export default function PRApproval() {
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {items.map((item, idx) => (
-                          <tr key={item.id}>
+                          <tr key={item.id} className={item.item_type === 'reserve' ? 'bg-purple-50/30' : ''}>
                             <td className="py-4 px-4 text-gray-400">{idx + 1}</td>
                             <td className="py-4 px-4 font-medium text-gray-900">{item.name}</td>
+                            <td className="py-4 px-4 text-center">
+                              {item.item_type === 'reserve' ? (
+                                <Badge className="bg-purple-100 text-purple-700 border-none text-[10px] font-bold">สำรอง</Badge>
+                              ) : (
+                                <Badge className="bg-blue-100 text-blue-700 border-none text-[10px] font-bold">ปกติ</Badge>
+                              )}
+                            </td>
                             <td className="py-4 px-4 text-right text-gray-600">{item.quantity} {item.unit}</td>
                             <td className="py-4 px-4 text-right text-gray-600">{item.unit_price?.toLocaleString()}</td>
                             <td className="py-4 px-4 text-right font-bold text-gray-900">{item.total_price?.toLocaleString()}</td>

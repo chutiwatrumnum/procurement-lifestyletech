@@ -14,11 +14,14 @@ import {
   DollarSign,
   AlertTriangle,
   Package,
-  X
+  X,
+  TrendingDown
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useProjects, useDeleteProject } from '@/hooks/useProjects';
+import { useQuery } from '@tanstack/react-query';
+import pb from '@/lib/pocketbase';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +42,40 @@ export default function ProjectList() {
 
   const { data: projects = [], isLoading, error } = useProjects();
   const deleteProjectMutation = useDeleteProject();
+
+  // Fetch budget data for all projects (approved PR Projects & approved PR Subs)
+  const { data: budgetMap = {} } = useQuery({
+    queryKey: ['project-budgets'],
+    queryFn: async () => {
+      const [approvedPRProjects, approvedPRSubs] = await Promise.all([
+        pb.collection('purchase_requests').getFullList({
+          filter: `type = "project" && status = "approved"`,
+          fields: 'id,project,total_amount'
+        }),
+        pb.collection('purchase_requests').getFullList({
+          filter: `type = "sub" && status = "approved"`,
+          fields: 'id,project,total_amount'
+        })
+      ]);
+
+      const map: Record<string, { budget: number; spent: number }> = {};
+
+      for (const pr of approvedPRProjects) {
+        if (!pr.project) continue;
+        if (!map[pr.project]) map[pr.project] = { budget: 0, spent: 0 };
+        map[pr.project].budget += pr.total_amount || 0;
+      }
+
+      for (const pr of approvedPRSubs) {
+        if (!pr.project) continue;
+        if (!map[pr.project]) map[pr.project] = { budget: 0, spent: 0 };
+        map[pr.project].spent += pr.total_amount || 0;
+      }
+
+      return map;
+    },
+    enabled: projects.length > 0,
+  }) as { data: Record<string, { budget: number; spent: number }> };
 
   const handleDelete = async () => {
     if (!deleteDialog.projectId) return;
@@ -130,6 +167,55 @@ export default function ProjectList() {
               </CardHeader>
               <CardContent className="space-y-4 pt-5">
                 <div className="space-y-3">
+                  {(() => {
+                    const info = budgetMap[project.id];
+                    const budget = info?.budget || 0;
+                    const spent = info?.spent || 0;
+                    const remaining = budget - spent;
+                    const isOverBudget = budget > 0 && spent > budget;
+                    const usagePercent = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+
+                    return (
+                      <>
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className={`p-1.5 rounded-lg ${isOverBudget ? 'bg-red-50' : 'bg-blue-50'}`}>
+                            <DollarSign className={`w-3.5 h-3.5 ${isOverBudget ? 'text-red-500' : 'text-blue-500'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center">
+                              <span className="font-black text-[#1F2937]">฿{budget.toLocaleString()}</span>
+                              {budget > 0 && (
+                                <span className={`text-xs font-bold ${isOverBudget ? 'text-red-600' : 'text-gray-400'}`}>
+                                  ใช้ไป {usagePercent.toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                            {budget > 0 && (
+                              <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full transition-all ${isOverBudget ? 'bg-red-500' : usagePercent > 80 ? 'bg-orange-500' : 'bg-blue-500'}`}
+                                  style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                                />
+                              </div>
+                            )}
+                            {budget === 0 && (
+                              <p className="text-xs text-gray-400">ยังไม่มี PR Project ที่อนุมัติ</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {isOverBudget && (
+                          <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-100">
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-red-600">งบเกิน ฿{Math.abs(remaining).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+
                   <div className="flex items-center gap-3 text-sm">
                     <div className="p-1.5 bg-[#F9FAFB] rounded-lg"><MapPin className="w-3.5 h-3.5 text-[#6B7280]" /></div>
                     <span className="truncate text-gray-500 font-medium">{project.location || 'สำนักงานใหญ่'}</span>
