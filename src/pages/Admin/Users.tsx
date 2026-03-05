@@ -323,7 +323,7 @@ export default function UserManagement() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-none shadow-sm rounded-2xl bg-blue-50">
           <CardContent className="p-4">
             <p className="text-xs font-bold text-gray-500 uppercase">ผู้ใช้ทั้งหมด</p>
@@ -335,6 +335,14 @@ export default function UserManagement() {
             <p className="text-xs font-bold text-gray-500 uppercase">ใช้งานอยู่</p>
             <p className="text-2xl font-black text-green-600">
               {users.filter(u => u.is_active).length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className={`border-none shadow-sm rounded-2xl ${users.filter(u => !u.is_active).length > 0 ? 'bg-yellow-50 ring-2 ring-yellow-200' : 'bg-yellow-50'}`}>
+          <CardContent className="p-4">
+            <p className="text-xs font-bold text-gray-500 uppercase">รออนุมัติ</p>
+            <p className={`text-2xl font-black ${users.filter(u => !u.is_active).length > 0 ? 'text-yellow-600' : 'text-gray-400'}`}>
+              {users.filter(u => !u.is_active).length}
             </p>
           </CardContent>
         </Card>
@@ -355,6 +363,88 @@ export default function UserManagement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending Users Approval Section */}
+      {users.filter(u => !u.is_active).length > 0 && (
+        <Card className="border-2 border-yellow-200 shadow-sm rounded-2xl bg-yellow-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="p-2 bg-yellow-100 rounded-xl">
+                <AlertTriangle className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <span className="text-yellow-800">ผู้ใช้รออนุมัติ</span>
+                <Badge className="ml-3 bg-yellow-500 text-white border-none animate-pulse">
+                  {users.filter(u => !u.is_active).length} คน
+                </Badge>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-3">
+              {users.filter(u => !u.is_active).map((pendingUser) => (
+                <div key={pendingUser.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-yellow-100">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700 font-bold">
+                      {pendingUser.name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900">{pendingUser.name}</p>
+                      <p className="text-xs text-gray-500">{pendingUser.email}</p>
+                    </div>
+                    <Badge className={`${roleColors[pendingUser.role]} border-none ml-2`}>
+                      {roleLabels[pendingUser.role]}
+                    </Badge>
+                    <span className="text-xs text-gray-400">
+                      สมัครเมื่อ {new Date(pendingUser.created).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold h-9 px-4"
+                      disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
+                      onClick={async () => {
+                        try {
+                          await updateUserMutation.mutateAsync({
+                            id: pendingUser.id,
+                            data: { is_active: true }
+                          });
+                          toast.success(`อนุมัติ ${pendingUser.name} เรียบร้อยแล้ว`);
+                        } catch (err) {
+                          toast.error('อนุมัติไม่สำเร็จ');
+                        }
+                      }}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      อนุมัติ
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-200 text-red-600 hover:bg-red-50 rounded-xl font-bold h-9 px-4"
+                      disabled={updateUserMutation.isPending || deleteUserMutation.isPending}
+                      onClick={async () => {
+                        if (confirm(`ต้องการปฏิเสธและลบบัญชี ${pendingUser.name} ใช่ไหม?`)) {
+                          try {
+                            await deleteUserMutation.mutateAsync(pendingUser.id);
+                            toast.success(`ปฏิเสธ ${pendingUser.name} เรียบร้อยแล้ว`);
+                          } catch (err) {
+                            toast.error('ปฏิเสธไม่สำเร็จ');
+                          }
+                        }
+                      }}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      ปฏิเสธ
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card className="border-none shadow-sm rounded-2xl">

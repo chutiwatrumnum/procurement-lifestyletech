@@ -8,7 +8,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string, role: UserRole, department?: string) => Promise<void>;
   // RBAC helpers
   hasRole: (roles: UserRole[]) => boolean;
   isSuperAdmin: () => boolean;
@@ -86,6 +86,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         expand: 'department,manager'
       });
       
+      // เช็ค is_active — ถ้ายังไม่ได้รับอนุมัติ ให้ logout ทันที
+      if (userData.is_active === false) {
+        pb.authStore.clear();
+        throw new Error('ACCOUNT_PENDING_APPROVAL');
+      }
+      
       const enrichedUser: User = {
         id: userData.id,
         email: userData.email,
@@ -115,17 +121,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const register = async (email: string, password: string, name: string) => {
+  const register = async (email: string, password: string, name: string, role: UserRole, department?: string) => {
     try {
       await pb.collection('users').create({
         email,
         password,
         passwordConfirm: password,
         name,
-        role: 'employee',
-        is_active: true,
+        role: role || 'employee',
+        is_active: false,
+        department: department || undefined,
       });
-      await login(email, password);
+      // ไม่ login หลังสมัคร — ต้องรอ admin approve ก่อน
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -159,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canManageUsers = (): boolean => {
-    return hasRole(['superadmin', 'head_of_dept']);
+    return hasRole(['superadmin', 'manager']);
   };
 
   const canViewAllPR = (): boolean => {

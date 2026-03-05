@@ -34,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Package,
+  Layers,
 } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 
@@ -111,7 +112,13 @@ const allNavItems: NavItem[] = [
     title: 'จัดการผู้ใช้',
     href: '/admin/users',
     icon: Users,
-    roles: ['superadmin', 'head_of_dept'],
+    roles: ['superadmin', 'head_of_dept', 'manager'],
+  },
+  {
+    title: 'จัดการแผนก',
+    href: '/admin/departments',
+    icon: Layers,
+    roles: ['superadmin', 'head_of_dept', 'manager'],
   },
 ];
 

@@ -41,6 +41,7 @@ import BudgetReport from '@/pages/Reports/BudgetReport';
 
 // Admin
 import UserManagement from '@/pages/Admin/Users';
+import DepartmentManagement from '@/pages/Admin/Departments';
 
 // Settings
 import ProfileSettings from '@/pages/Settings/Profile';
@@ -116,6 +117,7 @@ function AppRoutes() {
       
       {/* Admin */}
       <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+      <Route path="/admin/departments" element={<ProtectedRoute><DepartmentManagement /></ProtectedRoute>} />
       
       {/* Settings */}
       <Route path="/settings/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
