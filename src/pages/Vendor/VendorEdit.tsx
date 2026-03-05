@@ -21,7 +21,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
-import { useVendor, useUpdateVendor } from '@/hooks/useVendors';
+import { useQueryClient } from '@tanstack/react-query';
+import { useVendor } from '@/hooks/useVendors';
+import { vendorKeys } from '@/hooks/useVendors';
 import { rules, validateForm } from '@/lib/validation';
 
 export default function VendorEdit() {
@@ -33,9 +35,10 @@ export default function VendorEdit() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   const { data: vendor, isLoading: loading, error } = useVendor(id);
-  const updateVendorMutation = useUpdateVendor();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (vendor) {
@@ -133,36 +136,49 @@ export default function VendorEdit() {
     e.preventDefault();
     if (!id) return;
     
-    const formData = new FormData(e.currentTarget);
-    if (!validate(formData)) return;
-    const data = {
-      name: formData.get('company_name'),
-      tax_id: formData.get('tax_id'),
-      category: formData.get('category'),
-      address: formData.get('address'),
-      contact_person: formData.get('contact_name'),
-      email: formData.get('email'),
-      phone: formData.get('phone'),
-      website: formData.get('website'),
-      payment_term: paymentTerm,
-      payment_term_detail: paymentTerm === 'custom' ? paymentTermDetail : '',
-      vendor_type: vendorType,
-      attachments: existingAttachments
-    };
+    const htmlFormData = new FormData(e.currentTarget);
+    if (!validate(htmlFormData)) return;
 
     try {
-      await updateVendorMutation.mutateAsync({ id, data });
-      
-      // Upload new attachments if any
-      if (uploadedFiles.length > 0) {
-        await uploadAttachments(id);
-      }
+      setSaving(true);
+      // Use FormData for PocketBase to handle both text fields and file uploads in one call
+      const pbFormData = new FormData();
+      pbFormData.append('name', htmlFormData.get('company_name') as string || '');
+      pbFormData.append('tax_id', htmlFormData.get('tax_id') as string || '');
+      pbFormData.append('category', htmlFormData.get('category') as string || '');
+      pbFormData.append('address', htmlFormData.get('address') as string || '');
+      pbFormData.append('contact_person', htmlFormData.get('contact_name') as string || '');
+      pbFormData.append('email', htmlFormData.get('email') as string || '');
+      pbFormData.append('phone', htmlFormData.get('phone') as string || '');
+      pbFormData.append('website', htmlFormData.get('website') as string || '');
+      pbFormData.append('payment_term', paymentTerm);
+      pbFormData.append('payment_term_detail', paymentTerm === 'custom' ? paymentTermDetail : '');
+      pbFormData.append('vendor_type', vendorType);
+
+      // Keep existing attachments (PB uses 'attachments-' to remove files not in this list)
+      // Tell PB which existing files to keep
+      existingAttachments.forEach(filename => {
+        pbFormData.append('attachments', filename);
+      });
+
+      // Add new uploaded files
+      uploadedFiles.forEach(file => {
+        pbFormData.append('attachments', file);
+      });
+
+      await pb.collection('vendors').update(id, pbFormData);
+
+      // Invalidate cache so list/detail views show updated data
+      queryClient.invalidateQueries({ queryKey: vendorKeys.all });
+      queryClient.invalidateQueries({ queryKey: vendorKeys.detail(id) });
       
       toast.success('อัพเดตข้อมูลผู้ขายเรียบร้อยแล้ว');
       navigate('/vendors');
     } catch (error) {
       console.error(error);
       toast.error('ไม่สามารถอัพเดตข้อมูลได้');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -435,12 +451,12 @@ export default function VendorEdit() {
                     <Label className="text-sm font-bold text-gray-600">ไฟล์ที่มีอยู่:</Label>
                     {existingAttachments.map((url, index) => (
                       <div key={`existing-${index}`} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl group hover:bg-blue-100 transition-all">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="p-2 bg-blue-100 rounded-lg shrink-0">
                             <File className="w-4 h-4 text-blue-600" />
                           </div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">{url.split('/').pop() || `ไฟล์-${index + 1}`}</p>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-gray-800 truncate">{url.split('/').pop() || `ไฟล์-${index + 1}`}</p>
                             <p className="text-xs text-blue-500">ไฟล์เดิม</p>
                           </div>
                         </div>
@@ -464,12 +480,12 @@ export default function VendorEdit() {
                     <Label className="text-sm font-bold text-gray-600">รายการไฟล์ที่อัพโหลดใหม่:</Label>
                     {uploadedFiles.map((file, index) => (
                       <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-xl group hover:bg-green-100 transition-all">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="p-2 bg-green-100 rounded-lg shrink-0">
                             <File className="w-4 h-4 text-green-600" />
                           </div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">{file.name}</p>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-gray-800 truncate">{file.name}</p>
                             <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
                           </div>
                         </div>
@@ -492,8 +508,8 @@ export default function VendorEdit() {
 
           <div className="space-y-6">
             <div className="flex flex-col gap-3">
-              <Button type="submit" size="lg" className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl h-12 font-bold shadow-lg shadow-blue-500/20" disabled={updateVendorMutation.isPending}>
-                {updateVendorMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              <Button type="submit" size="lg" className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl h-12 font-bold shadow-lg shadow-blue-500/20" disabled={saving}>
+                {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                 บันทึกการแก้ไข
               </Button>
               <Button type="button" variant="outline" size="lg" className="w-full rounded-xl h-12 border-[#E5E7EB] text-gray-600" onClick={() => navigate(-1)}>

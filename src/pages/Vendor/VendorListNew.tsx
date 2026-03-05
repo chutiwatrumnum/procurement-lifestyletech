@@ -182,8 +182,11 @@ export default function VendorListNew() {
                             size="icon" 
                             className="h-9 w-9 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-all"
                             title="ดูข้อมูล"
+                            asChild
                           >
-                            <Eye className="w-4 h-4" />
+                            <Link to={`/vendors/${vendor.id}`}>
+                              <Eye className="w-4 h-4" />
+                            </Link>
                           </Button>
                           <Button 
                             variant="ghost" 

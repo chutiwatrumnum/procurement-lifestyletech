@@ -29,6 +29,7 @@ import PRPrintPO from '@/pages/PurchaseRequest/PRPrintPO';
 import VendorListNew from '@/pages/Vendor/VendorListNew';
 import VendorNew from '@/pages/Vendor/VendorNew';
 import VendorEdit from '@/pages/Vendor/VendorEdit';
+import VendorDetail from '@/pages/Vendor/VendorDetail';
 
 // Purchase Order
 import POCreate from '@/pages/PurchaseOrder/POCreate';
@@ -124,6 +125,7 @@ function AppRoutes() {
       <Route path="/vendors" element={<ProtectedRoute><VendorListNew /></ProtectedRoute>} />
       <Route path="/vendors/new" element={<ProtectedRoute><VendorNew /></ProtectedRoute>} />
       <Route path="/vendors/edit/:id" element={<ProtectedRoute><VendorEdit /></ProtectedRoute>} />
+      <Route path="/vendors/:id" element={<ProtectedRoute><VendorDetail /></ProtectedRoute>} />
 
       {/* Product Catalog */}
       <Route path="/products" element={<ProtectedRoute><ProductCatalog /></ProtectedRoute>} />
