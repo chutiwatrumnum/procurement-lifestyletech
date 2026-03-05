@@ -324,22 +324,16 @@ export const prService = {
         details: comment || details
       });
 
-      // 6. หักลบจากงบประมาณโครงการ (หลังอนุมัติสมบูรณ์)
-      if (pr.project && pr.total_amount) {
+      // 6. Log budget info (งบประมาณคำนวณจาก approved PR Projects แบบ real-time ไม่ต้อง update field)
+      if (pr.project) {
         try {
-          const project = await pb.collection('projects').getOne(pr.project);
-          const currentBudget = project.budget || 0;
-          const prAmount = pr.total_amount || 0;
-
-          // หักลบจากงบประมาณ
-          await pb.collection('projects').update(pr.project, {
-            budget: Math.max(0, currentBudget - prAmount)
+          const approvedPRProjects = await pb.collection('purchase_requests').getFullList({
+            filter: `project = "${pr.project}" && type = "project" && status = "approved"`
           });
-
-          console.log(`Budget deducted: ${prAmount} from project ${project.code || project.name}`);
+          const totalBudget = approvedPRProjects.reduce((sum: number, p: any) => sum + (p.total_amount || 0), 0);
+          console.log(`Project budget (from approved PR Projects): ฿${totalBudget.toLocaleString()}, PR Sub amount: ฿${(pr.total_amount || 0).toLocaleString()}`);
         } catch (budgetErr) {
-          console.error('Budget deduction failed:', budgetErr);
-          // ไม่สำเร็จก็ยังอนุมัติได้
+          console.error('Budget info fetch failed:', budgetErr);
         }
       }
 

@@ -81,7 +81,14 @@ export default function ProjectDetail() {
   const reserveTotal = data?.reserveTotal || 0;
   const prProjects = data?.prProjects || [];
   const prSubs = data?.prSubs || [];
-  const stats = data?.stats || { totalPlanned: 0, totalWithdrawn: 0, remaining: 0, totalReserve: 0 };
+  const stats = data?.stats || { 
+    totalPlanned: 0, 
+    totalWithdrawn: 0, 
+    remaining: 0, 
+    totalBudget: 0, 
+    budgetRemaining: 0, 
+    totalReserve: 0 
+  } as any;
 
   const toggleExpand = (itemId: string) => {
     setExpandedItems(prev => ({
@@ -151,8 +158,11 @@ export default function ProjectDetail() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">งบประมาณแผน</p>
-                <p className="text-2xl font-black text-blue-600">฿{stats.totalPlanned.toLocaleString()}</p>
+                <p className="text-sm text-gray-600">งบประมาณโครงการ</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-black text-blue-600">฿{stats.totalBudget?.toLocaleString() || 0}</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">จาก PR Project ที่อนุมัติ</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-400" />
             </div>
@@ -165,6 +175,7 @@ export default function ProjectDetail() {
               <div>
                 <p className="text-sm text-gray-600">เบิกจ่ายไปแล้ว</p>
                 <p className="text-2xl font-black text-orange-600">฿{stats.totalWithdrawn.toLocaleString()}</p>
+                <p className="text-xs text-gray-500 mt-1">จากอุปกรณ์โครงการ</p>
               </div>
               <TrendingDown className="w-8 h-8 text-orange-400" />
             </div>
@@ -175,8 +186,8 @@ export default function ProjectDetail() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">คงเหลือ</p>
-                <p className="text-2xl font-black text-green-600">฿{stats.remaining.toLocaleString()}</p>
+                <p className="text-sm text-gray-600">งบประมาณคงเหลือ</p>
+                <p className="text-2xl font-black text-green-600">฿{stats.budgetRemaining?.toLocaleString() || 0}</p>
               </div>
               <DollarSign className="w-8 h-8 text-green-400" />
             </div>

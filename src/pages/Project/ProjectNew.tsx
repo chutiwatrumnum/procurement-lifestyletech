@@ -24,7 +24,6 @@ export default function ProjectNew() {
     const data = {
       name: formData.get('name'),
       code: formData.get('code'),
-      budget: Number(formData.get('budget')),
       location: formData.get('location'),
       status: 'active'
     };
@@ -69,10 +68,6 @@ export default function ProjectNew() {
               <div className="space-y-2">
                 <Label className="font-bold text-[#4B5563]">รหัสโครงการ (Project Code)</Label>
                 <Input name="code" placeholder="เช่น SKY-001" className="h-12 rounded-xl bg-gray-50 border-none px-4 font-mono font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="font-bold text-[#4B5563]">งบประมาณโครงการ (Budget)</Label>
-                <Input name="budget" type="number" placeholder="5,000,000" className="h-12 rounded-xl bg-gray-50 border-none px-4 font-black" />
               </div>
             </div>
 

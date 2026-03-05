@@ -123,6 +123,11 @@ export function useProjectDetail(projectId: string | undefined) {
                 return sum + wTotal;
             }, 0);
 
+            // งบประมาณโครงการ = ผลรวม total_amount ของ PR Project ที่อนุมัติแล้ว
+            const totalBudget = prProjects
+                .filter((pr: any) => pr.status === 'approved')
+                .reduce((sum: number, pr: any) => sum + (pr.total_amount || 0), 0);
+
             return {
                 project,
                 prProjects,
@@ -134,6 +139,8 @@ export function useProjectDetail(projectId: string | undefined) {
                     totalPlanned,
                     totalWithdrawn,
                     remaining: totalPlanned - totalWithdrawn,
+                    totalBudget,
+                    budgetRemaining: totalBudget - totalWithdrawn,
                     totalReserve: reserveTotal
                 }
             };

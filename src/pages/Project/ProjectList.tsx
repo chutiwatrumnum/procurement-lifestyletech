@@ -131,10 +131,6 @@ export default function ProjectList() {
               <CardContent className="space-y-4 pt-5">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 text-sm">
-                    <div className="p-1.5 bg-[#F9FAFB] rounded-lg"><DollarSign className="w-3.5 h-3.5 text-[#6B7280]" /></div>
-                    <span className="font-black text-[#1F2937]">฿{Number(project.budget || 0).toLocaleString()}.00</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm">
                     <div className="p-1.5 bg-[#F9FAFB] rounded-lg"><MapPin className="w-3.5 h-3.5 text-[#6B7280]" /></div>
                     <span className="truncate text-gray-500 font-medium">{project.location || 'สำนักงานใหญ่'}</span>
                   </div>

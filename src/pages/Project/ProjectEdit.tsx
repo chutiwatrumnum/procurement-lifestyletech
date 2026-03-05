@@ -14,7 +14,6 @@ export default function ProjectEdit() {
   const [project, setProject] = useState({
     name: '',
     code: '',
-    budget: 0,
     location: '',
     status: 'active'
   });
@@ -25,9 +24,8 @@ export default function ProjectEdit() {
   useEffect(() => {
     if (projectData) {
       setProject({
-        name: projectData.name || '',
+        name: projectData.name,
         code: projectData.code || '',
-        budget: projectData.budget || 0,
         location: projectData.location || '',
         status: projectData.status || 'active'
       });
@@ -87,26 +85,17 @@ export default function ProjectEdit() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>รหัสโครงการ</Label>
-              <Input
-                value={project.code}
-                onChange={(e) => setProject({ ...project, code: e.target.value })}
-                placeholder="ระบุรหัสโครงการ"
-                className="h-11 rounded-xl"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>งบประมาณ</Label>
-              <Input
-                type="number"
-                value={project.budget}
-                onChange={(e) => setProject({ ...project, budget: Number(e.target.value) })}
-                placeholder="ระบุงบประมาณ"
-                className="h-11 rounded-xl"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label className="font-bold text-[#4B5563]">รหัสโครงการ (Project Code)</Label>
+                <Input
+                  value={project.code}
+                  onChange={(e) => setProject({ ...project, code: e.target.value })}
+                  placeholder="เช่น SKY-001"
+                  className="h-12 rounded-xl bg-gray-50 border-none px-4 font-mono font-bold"
+                  required
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
