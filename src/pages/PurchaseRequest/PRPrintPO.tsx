@@ -67,7 +67,9 @@ export default function PRPrintPO() {
 
         // Load existing PO for this PR
         try {
+          console.log('Looking for existing PO for PR:', id);
           const po = await poService.getByPR(id);
+          console.log('Found PO:', po);
           if (po) {
             setExistingPO(po);
             setPONumber(po.po_number || '-');
@@ -78,7 +80,7 @@ export default function PRPrintPO() {
           } else {
             setPONumber('(รอบันทึก)');
           }
-        } catch (e) { console.log('No existing PO'); }
+        } catch (e) { console.error('Error loading PO:', e); }
 
       } catch (err) {
         console.error('Failed to load PR:', err);

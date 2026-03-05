@@ -419,7 +419,16 @@ export const poService = {
         filter: `pr = "${prId}"`,
         sort: '-created'
       });
-      return records.length > 0 ? records[0] : null;
+      console.log('getByPR result:', prId, records.length, 'records');
+      if (records.length > 0) return records[0];
+
+      // Fallback: try with relation syntax
+      const records2 = await pb.collection('purchase_orders').getFullList({
+        filter: `pr.id = "${prId}"`,
+        sort: '-created'
+      });
+      console.log('getByPR fallback result:', records2.length, 'records');
+      return records2.length > 0 ? records2[0] : null;
     } catch (err) {
       console.error('Error fetching PO by PR:', err);
       return null;
