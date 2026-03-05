@@ -45,6 +45,8 @@ export default function ProfileSettings() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [isDraggingSignature, setIsDraggingSignature] = useState(false);
+  const sigDragCounter = useRef(0);
   
   const [profile, setProfile] = useState({
     name: '',
@@ -201,6 +203,51 @@ export default function ProfileSettings() {
       console.error('Delete signature failed:', err);
       toast.error('ลบลายเซ็นไม่สำเร็จ');
     }
+  };
+
+  const processSignatureFile = async (file: File) => {
+    if (!currentUser?.id) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('ไฟล์ต้องมีขนาดไม่เกิน 5MB');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error('รองรับเฉพาะไฟล์รูปภาพ (PNG, JPG)');
+      return;
+    }
+    setUploadingSignature(true);
+    const formData = new FormData();
+    formData.append('signature', file);
+    try {
+      const updated = await pb.collection('users').update(currentUser.id, formData);
+      setProfile({ ...profile, signature: updated.signature });
+      await refreshUserData();
+      toast.success('อัปโหลดลายเซ็นสำเร็จ');
+    } catch (err: any) {
+      console.error('Upload signature failed:', err);
+      toast.error('อัปโหลดลายเซ็นไม่สำเร็จ');
+    } finally {
+      setUploadingSignature(false);
+    }
+  };
+
+  const handleSigDragEnter = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    sigDragCounter.current++;
+    if (e.dataTransfer.items?.length) setIsDraggingSignature(true);
+  };
+  const handleSigDragLeave = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    sigDragCounter.current--;
+    if (sigDragCounter.current === 0) setIsDraggingSignature(false);
+  };
+  const handleSigDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleSigDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setIsDraggingSignature(false);
+    sigDragCounter.current = 0;
+    const file = e.dataTransfer.files[0];
+    if (file) processSignatureFile(file);
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -366,6 +413,34 @@ export default function ProfileSettings() {
                 placeholder="เช่น วิศวกร, นักบัญชี"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-gray-400" />
+                บทบาท (ไม่สามารถแก้ไข)
+              </Label>
+              <div className="h-11 rounded-xl bg-gray-50 flex items-center px-3">
+                {profile.role ? (
+                  <Badge className={`${getRoleColor(profile.role)} border-none`}>
+                    {getRoleLabel(profile.role)}
+                  </Badge>
+                ) : (
+                  <span className="text-sm text-gray-400">ยังไม่ได้กำหนดบทบาท</span>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-gray-400" />
+                แผนก (ไม่สามารถแก้ไข)
+              </Label>
+              <Input
+                value={profile.departmentName || 'ยังไม่ได้กำหนดแผนก'}
+                disabled
+                className="h-11 rounded-xl bg-gray-50"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end">
@@ -507,11 +582,6 @@ export default function ProfileSettings() {
             </p>
           </div>
 
-          {/* Debug Info - แสดงค่า signature ปัจจุบัน */}
-          <div className="p-2 bg-gray-100 rounded text-xs font-mono text-gray-500">
-            Status: {profile.signature ? 'มีลายเซ็น ✓' : 'ไม่มีลายเซ็น ✗'} | 
-            File: {profile.signature || 'none'}
-          </div>
 
           {profile.signature ? (
             <div className="space-y-4">
@@ -520,18 +590,32 @@ export default function ProfileSettings() {
                 <span>มีลายเซ็นแล้ว</span>
               </div>
               <Label>ตัวอย่างลายเซ็น</Label>
-              <div className="p-6 bg-white rounded-xl border-2 border-green-200 flex items-center justify-center min-h-[120px]">
-                <img
-                  src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUser?.id}/${profile.signature}?t=${Date.now()}`}
-                  alt="ลายเซ็น"
-                  className="max-h-24 object-contain"
-                  onError={(e) => {
-                    console.error('Failed to load signature image:', profile.signature);
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-red-500 text-sm">โหลดรูปไม่สำเร็จ</span>';
-                  }}
-                />
+              <div
+                className={`p-6 bg-white rounded-xl border-2 flex items-center justify-center min-h-[120px] transition-all cursor-pointer ${
+                  isDraggingSignature ? 'border-purple-500 bg-purple-50 scale-[1.01] shadow-lg' : 'border-green-200 hover:border-purple-300'
+                }`}
+                onDragEnter={handleSigDragEnter}
+                onDragLeave={handleSigDragLeave}
+                onDragOver={handleSigDragOver}
+                onDrop={handleSigDrop}
+                onClick={() => signatureInputRef.current?.click()}
+              >
+                {isDraggingSignature ? (
+                  <p className="text-purple-600 font-bold">📥 ปล่อยรูปเพื่อเปลี่ยนลายเซ็น</p>
+                ) : (
+                  <img
+                    src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUser?.id}/${profile.signature}?t=${Date.now()}`}
+                    alt="ลายเซ็น"
+                    className="max-h-24 object-contain"
+                    onError={(e) => {
+                      console.error('Failed to load signature image:', profile.signature);
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-red-500 text-sm">โหลดรูปไม่สำเร็จ</span>';
+                    }}
+                  />
+                )}
               </div>
+              <p className="text-xs text-gray-400 text-center">ลากรูปมาวางเพื่อเปลี่ยน หรือคลิกเพื่อเลือกไฟล์</p>
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -559,23 +643,31 @@ export default function ProfileSettings() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="p-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 text-center">
-                <Signature className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 text-sm">ยังไม่มีลายเซ็น</p>
-                <p className="text-gray-400 text-xs mt-1">กรุณาอัปโหลดลายเซ็นเพื่อใช้ในการอนุมัติเอกสาร</p>
-              </div>
-              <Button
+              <div
+                className={`p-8 rounded-xl border-2 border-dashed text-center cursor-pointer transition-all ${
+                  isDraggingSignature
+                    ? 'border-purple-500 bg-purple-50 scale-[1.01] shadow-lg'
+                    : 'border-gray-200 bg-gray-50 hover:border-purple-400 hover:bg-purple-50/30'
+                }`}
+                onDragEnter={handleSigDragEnter}
+                onDragLeave={handleSigDragLeave}
+                onDragOver={handleSigDragOver}
+                onDrop={handleSigDrop}
                 onClick={() => signatureInputRef.current?.click()}
-                disabled={uploadingSignature}
-                className="bg-purple-600 hover:bg-purple-700 rounded-xl w-full"
               >
-                {uploadingSignature ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {isDraggingSignature ? (
+                  <>
+                    <Upload className="w-12 h-12 text-purple-500 mx-auto mb-3" />
+                    <p className="text-purple-600 font-bold">📥 ปล่อยรูปเพื่ออัปโหลดลายเซ็น</p>
+                  </>
                 ) : (
-                  <Upload className="w-4 h-4 mr-2" />
+                  <>
+                    <Signature className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-700 font-bold">ลากรูปมาวาง หรือคลิกเพื่อเลือกไฟล์</p>
+                    <p className="text-gray-400 text-xs mt-1">รองรับ PNG, JPG (สูงสุด 5 MB)</p>
+                  </>
                 )}
-                อัปโหลดลายเซ็น
-              </Button>
+              </div>
             </div>
           )}
           <input

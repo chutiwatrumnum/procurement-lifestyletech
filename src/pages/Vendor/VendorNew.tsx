@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
+import FileUploadManager from '@/components/ui/FileUploadManager';
 import { useCreateVendor } from '@/hooks/useVendors';
 import { rules, validateForm } from '@/lib/validation';
 
@@ -343,53 +344,12 @@ export default function VendorNew() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer">
-                  <input 
-                    type="file" 
-                    id="file-upload" 
-                    className="hidden" 
-                    multiple 
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={handleFileUpload}
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-3">
-                    <div className="p-4 bg-blue-50 rounded-full">
-                      <Upload className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-700">ลากไฟล์มาวาง หรือคลิกเพื่ือเลือกไฟล์</p>
-                      <p className="text-xs text-gray-500 mt-1">รองรับไฟล์ PDF, Word, รูปภาพ (สูงสุด 5 MB ต่อไฟล์)</p>
-                    </div>
-                  </label>
-                </div>
-
-                {uploadedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-600">รายการไฟล์ที่อัพโหลด:</Label>
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl group hover:bg-blue-100 transition-all">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <File className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">{file.name}</p>
-                            <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
-                          </div>
-                        </div>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 rounded-lg hover:bg-red-100 hover:text-red-600"
-                          onClick={() => removeFile(index)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <FileUploadManager
+                  newFiles={uploadedFiles}
+                  onAddFiles={(files) => setUploadedFiles(prev => [...prev, ...files])}
+                  onRemoveNew={(index) => removeFile(index)}
+                  id="vendor-new-files"
+                />
               </CardContent>
             </Card>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { prService, projectService, vendorService } from '@/services/api';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
+import FileUploadManager from '@/components/ui/FileUploadManager';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Select,
@@ -43,7 +44,6 @@ export default function PREdit() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [prData, setPrData] = useState<any>(null);
@@ -238,16 +238,6 @@ export default function PREdit() {
 
   const totalAmount = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setNewAttachments([...newAttachments, ...Array.from(files)]);
-    }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
 
   const removeNewAttachment = (index: number) => {
     setNewAttachments(newAttachments.filter((_, i) => i !== index));
@@ -333,15 +323,6 @@ export default function PREdit() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        multiple
-        accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
-        className="hidden"
-      />
 
       {/* Header with Action Buttons */}
       <div className="flex items-center justify-between">
@@ -603,84 +584,18 @@ export default function PREdit() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Existing files */}
-              {attachments.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">เอกสารเดิม</p>
-                  <div className="space-y-2">
-                    {attachments.map((file, index) => (
-                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group">
-                        <div className="p-2 bg-white rounded-lg shadow-sm">
-                          <FileText className="h-4 w-4 text-red-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">{file}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <a 
-                            href={getFileUrl(id!, file)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                          >
-                            <Download className="w-4 h-4" />
-                          </a>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            className="h-8 w-8 text-gray-400 hover:text-red-500"
-                            onClick={() => removeExistingAttachment(file)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Upload new files */}
-              <div>
-                {attachments.length > 0 && (
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">เพิ่มเอกสารใหม่</p>
-                )}
-                <div 
-                  className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center hover:bg-gray-50 cursor-pointer transition-colors group"
-                  onClick={triggerFileInput}
-                >
-                  <div className="p-2.5 bg-white rounded-xl shadow-sm w-fit mx-auto mb-2 group-hover:scale-110 transition-transform">
-                    <Upload className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <p className="text-sm font-bold text-gray-700">อัปโหลดไฟล์</p>
-                  <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, XLSX, JPG (MAX 10MB)</p>
-                </div>
-              </div>
-
-              {/* Newly selected files */}
-              {newAttachments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest">ไฟล์ใหม่ที่เลือก</p>
-                  {newAttachments.map((file, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2.5 bg-green-50 rounded-xl border border-green-100">
-                      <FileText className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-gray-700 flex-1 truncate font-medium">{file.name}</span>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="h-6 w-6 text-gray-400 hover:text-red-500"
-                        onClick={() => removeNewAttachment(index)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {attachments.length === 0 && newAttachments.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-2">ยังไม่มีเอกสารแนบ</p>
-              )}
+              <FileUploadManager
+                existingFiles={attachments.map(file => ({
+                  name: file,
+                  url: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/pbc_3482049810/${id}/${file}`
+                }))}
+                newFiles={newAttachments}
+                onAddFiles={(files) => setNewAttachments(prev => [...prev, ...files])}
+                onRemoveExisting={(index) => removeExistingAttachment(attachments[index])}
+                onRemoveNew={(index) => removeNewAttachment(index)}
+                id="pr-edit-files"
+                sublabel="PDF, XLSX, JPG (MAX 10MB)"
+              />
             </CardContent>
           </Card>
 

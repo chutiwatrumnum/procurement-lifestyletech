@@ -25,6 +25,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useVendor } from '@/hooks/useVendors';
 import { vendorKeys } from '@/hooks/useVendors';
 import { rules, validateForm } from '@/lib/validation';
+import FileUploadManager from '@/components/ui/FileUploadManager';
 
 export default function VendorEdit() {
   const { id } = useParams();
@@ -425,83 +426,17 @@ export default function VendorEdit() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer">
-                  <input 
-                    type="file" 
-                    id="file-upload" 
-                    className="hidden" 
-                    multiple 
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    onChange={handleFileUpload}
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-3">
-                    <div className="p-4 bg-blue-50 rounded-full">
-                      <Upload className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-700">ลากไฟล์มาวาง หรือคลิกเพื่ือเลือกไฟล์</p>
-                      <p className="text-xs text-gray-500 mt-1">รองรับไฟล์ PDF, Word, รูปภาพ (สูงสุด 5 MB ต่อไฟล์)</p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Existing attachments */}
-                {existingAttachments.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-600">ไฟล์ที่มีอยู่:</Label>
-                    {existingAttachments.map((url, index) => (
-                      <div key={`existing-${index}`} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl group hover:bg-blue-100 transition-all">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="p-2 bg-blue-100 rounded-lg shrink-0">
-                            <File className="w-4 h-4 text-blue-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm text-gray-800 truncate">{url.split('/').pop() || `ไฟล์-${index + 1}`}</p>
-                            <p className="text-xs text-blue-500">ไฟล์เดิม</p>
-                          </div>
-                        </div>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 rounded-lg hover:bg-red-100 hover:text-red-600"
-                          onClick={() => removeFile(index, true)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* New attachments */}
-                {uploadedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-600">รายการไฟล์ที่อัพโหลดใหม่:</Label>
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-xl group hover:bg-green-100 transition-all">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="p-2 bg-green-100 rounded-lg shrink-0">
-                            <File className="w-4 h-4 text-green-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm text-gray-800 truncate">{file.name}</p>
-                            <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
-                          </div>
-                        </div>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 rounded-lg hover:bg-red-100 hover:text-red-600"
-                          onClick={() => removeFile(index)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <FileUploadManager
+                  existingFiles={existingAttachments.map(url => ({
+                    name: url.split('/').pop() || url,
+                    url: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/vendors/${id}/${url}`
+                  }))}
+                  newFiles={uploadedFiles}
+                  onAddFiles={(files) => setUploadedFiles(prev => [...prev, ...files])}
+                  onRemoveExisting={(index) => removeFile(index, true)}
+                  onRemoveNew={(index) => removeFile(index)}
+                  id="vendor-edit-files"
+                />
               </CardContent>
             </Card>
           </div>

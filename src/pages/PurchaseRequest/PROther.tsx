@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import pb from '@/lib/pocketbase';
+import FileUploadManager from '@/components/ui/FileUploadManager';
 
 interface LineItem {
   id: string;
@@ -63,7 +64,6 @@ export default function PROther() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(isEditMode);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [vendors, setVendors] = useState<any[]>([]);
@@ -209,17 +209,6 @@ export default function PROther() {
 
   const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    const newAttachments: Attachment[] = Array.from(files).map(file => ({
-      id: Date.now().toString() + Math.random(),
-      file,
-      name: file.name,
-      size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-    }));
-    setAttachments(prev => [...prev, ...newAttachments]);
-  };
 
   const removeAttachment = (id: string) => {
     setAttachments(attachments.filter(a => a.id !== id));
@@ -350,15 +339,6 @@ export default function PROther() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        multiple
-        accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
-        className="hidden"
-      />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -517,56 +497,37 @@ export default function PROther() {
 
           {/* Attachments */}
           <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between py-5">
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <Paperclip className="w-5 h-5 text-gray-600" /> เอกสารแนบ
               </CardTitle>
-              <Button variant="ghost" onClick={() => fileInputRef.current?.click()} className="text-blue-600 font-bold hover:bg-blue-50">
-                <Upload className="w-4 h-4 mr-1" /> อัพโหลดไฟล์
-              </Button>
             </CardHeader>
             <CardContent>
-              {attachments.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <Paperclip className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">ยังไม่มีเอกสารแนบ</p>
-                  <p className="text-xs mt-1">รองรับ PDF, Excel, Word, รูปภาพ</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {attachments.map((att) => (
-                    <div key={att.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl group">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{att.name}</p>
-                          {att.size && <p className="text-[10px] text-gray-400">{att.size}</p>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {att.isExisting && prData?.id && (
-                          <a
-                            href={getFileUrl(prData.id, att.filename || att.name)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded-full"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeAttachment(att.id)}
-                          className="h-7 w-7 text-gray-300 hover:text-red-500 rounded-full"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <FileUploadManager
+                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
+                  name: a.name,
+                  url: prData?.id ? getFileUrl(prData.id, a.filename || a.name) : undefined
+                }))}
+                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
+                onAddFiles={(files) => {
+                  const newAttachments = files.map(file => ({
+                    id: Date.now().toString() + Math.random(),
+                    file,
+                    name: file.name,
+                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                  }));
+                  setAttachments(prev => [...prev, ...newAttachments]);
+                }}
+                onRemoveExisting={(index) => {
+                  const existing = attachments.filter(a => a.isExisting);
+                  if (existing[index]) removeAttachment(existing[index].id);
+                }}
+                onRemoveNew={(index) => {
+                  const newOnes = attachments.filter(a => !a.isExisting);
+                  if (newOnes[index]) removeAttachment(newOnes[index].id);
+                }}
+                id="pr-other-files"
+              />
             </CardContent>
           </Card>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import pb from '@/lib/pocketbase';
+import FileUploadManager from '@/components/ui/FileUploadManager';
 
 interface LineItem {
   id: string;
@@ -70,8 +71,7 @@ export default function PRProject() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const isEditMode = !!id;
   
   const [loading, setLoading] = useState(true);
@@ -239,20 +239,6 @@ export default function PRProject() {
     }));
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    const newAttachments: Attachment[] = Array.from(files).map(file => ({
-      id: Date.now().toString() + Math.random(),
-      file,
-      name: file.name,
-      size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-      isExisting: false
-    }));
-
-    setAttachments(prev => [...prev, ...newAttachments]);
-  };
 
   const removeAttachment = (id: string) => {
     setAttachments(prev => prev.filter(a => a.id !== id));
@@ -429,15 +415,6 @@ export default function PRProject() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        multiple
-        accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png"
-        className="hidden"
-      />
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -642,58 +619,33 @@ export default function PRProject() {
               <CardTitle className="text-base font-bold">เอกสารแนบ</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div 
-                className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center hover:bg-gray-50 cursor-pointer transition-colors group"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="p-3 bg-white rounded-2xl shadow-sm w-fit mx-auto mb-3 group-hover:scale-110 transition-transform">
-                  <Upload className="h-6 w-6 text-blue-600" />
-                </div>
-                <p className="text-sm font-bold text-gray-700">อัปโหลดไฟล์</p>
-                <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">PDF, XLSX (MAX 10MB)</p>
-              </div>
-              
-              {/* Existing attachments */}
-              {attachments.filter(a => a.isExisting).map((att) => (
-                <div key={att.id} className="p-3 bg-blue-50 rounded-xl flex items-center justify-between group">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg shadow-xs"><FileText className="h-4 w-4 text-blue-500" /></div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-700 truncate w-32">{att.name}</p>
-                      <p className="text-[10px] text-blue-500">ไฟล์เดิม</p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-gray-300 hover:text-red-500 transition-colors"
-                    onClick={() => removeAttachment(att.id)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-              
-              {/* New attachments */}
-              {attachments.filter(a => !a.isExisting).map((att) => (
-                <div key={att.id} className="p-3 bg-gray-50 rounded-xl flex items-center justify-between group">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg shadow-xs"><FileText className="h-4 w-4 text-red-500" /></div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-700 truncate w-32">{att.name}</p>
-                      <p className="text-[10px] text-gray-400">{att.size}</p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-gray-300 hover:text-red-500 transition-colors"
-                    onClick={() => removeAttachment(att.id)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
+              <FileUploadManager
+                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
+                  name: a.name,
+                  url: a.url
+                }))}
+                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
+                onAddFiles={(files) => {
+                  const newAttachments = files.map(file => ({
+                    id: Date.now().toString() + Math.random(),
+                    file,
+                    name: file.name,
+                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                    isExisting: false
+                  }));
+                  setAttachments(prev => [...prev, ...newAttachments]);
+                }}
+                onRemoveExisting={(index) => {
+                  const existing = attachments.filter(a => a.isExisting);
+                  if (existing[index]) removeAttachment(existing[index].id);
+                }}
+                onRemoveNew={(index) => {
+                  const newOnes = attachments.filter(a => !a.isExisting);
+                  if (newOnes[index]) removeAttachment(newOnes[index].id);
+                }}
+                id="pr-project-files"
+                sublabel="PDF, XLSX (MAX 10MB)"
+              />
             </CardContent>
           </Card>
 
