@@ -30,13 +30,13 @@ import { rules, validateForm } from '@/lib/validation';
 import { useProductCatalog, catalogKeys } from '@/hooks/useProductCatalog';
 
 interface ProductForm {
-  code: string;
+  product_code: string;
   name: string;
   unit_price: number;
   category: string;
 }
 
-const emptyForm: ProductForm = { code: '', name: '', unit_price: 0, category: '' };
+const emptyForm: ProductForm = { product_code: '', name: '', unit_price: 0, category: '' };
 
 export default function ProductCatalog() {
   const queryClient = useQueryClient();
@@ -135,7 +135,7 @@ export default function ProductCatalog() {
   const openEditDialog = (product: any) => {
     setEditingId(product.id);
     setForm({
-      code: product.code || '',
+      product_code: product.product_code || '',
       name: product.name || '',
       unit_price: product.unit_price || 0,
       category: product.category || '',
@@ -145,7 +145,7 @@ export default function ProductCatalog() {
 
   const validate = (): boolean => {
     const schema = {
-      code: [rules.required('กรุณาระบุรหัสสินค้า')],
+      product_code: [rules.required('กรุณาระบุรหัสสินค้า')],
       name: [rules.required('กรุณาระบุชื่อสินค้า')],
     };
     
@@ -301,7 +301,7 @@ export default function ProductCatalog() {
                     {items.map((p: any) => (
                       <tr key={p.id} className="group hover:bg-blue-50/30 transition-colors">
                         <td className="py-3 px-6">
-                          <p className="font-bold text-gray-900">{p.code || '-'}</p>
+                          <p className="font-bold text-gray-900">{p.product_code || '-'}</p>
                         </td>
                         <td className="py-3 px-6">
                           <p className="font-bold text-gray-900">{p.name}</p>
@@ -354,15 +354,15 @@ export default function ProductCatalog() {
             <div className="space-y-2">
               <Label className="font-semibold">รหัสสินค้า <span className="text-red-500">*</span></Label>
               <Input
-                value={form.code}
+                value={form.product_code}
                 onChange={(e) => {
-                  setForm({ ...form, code: e.target.value });
-                  setErrors(prev => ({ ...prev, code: '' }));
+                  setForm({ ...form, product_code: e.target.value });
+                  setErrors(prev => ({ ...prev, product_code: '' }));
                 }}
                 placeholder="เช่น PRD-001, ELEC-001"
-                className={`h-11 rounded-xl bg-gray-50 border ${errors.code ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`}
+                className={`h-11 rounded-xl bg-gray-50 border ${errors.product_code ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`}
               />
-              {errors.code && <p className="text-xs text-red-500 font-medium">{errors.code}</p>}
+              {errors.product_code && <p className="text-xs text-red-500 font-medium">{errors.product_code}</p>}
             </div>
             <div className="space-y-2">
               <Label className="font-semibold">ชื่ออุปกรณ์ <span className="text-red-500">*</span></Label>

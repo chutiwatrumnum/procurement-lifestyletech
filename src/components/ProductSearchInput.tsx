@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 interface ProductSearchInputProps {
   value: string;
   onChange: (value: string) => void;
-  onSelectProduct?: (product: { name: string; unit: string; unit_price: number; category: string; code: string; product_code?: string }) => void;
+  onSelectProduct?: (product: { name: string; unit: string; unit_price: number; category: string; product_code: string }) => void;
   placeholder?: string;
   className?: string;
 }
@@ -73,7 +73,7 @@ export default function ProductSearchInput({
     if (!q) return true;
     return p.name?.toLowerCase().includes(q) || 
            p.category?.toLowerCase().includes(q) || 
-           p.code?.toLowerCase().includes(q);
+           p.product_code?.toLowerCase().includes(q);
   });
 
   // Group by category
@@ -102,8 +102,7 @@ export default function ProductSearchInput({
         unit: product.unit || '',
         unit_price: product.unit_price || 0,
         category: product.category || '',
-        code: product.code || '',
-        product_code: product.code || ''
+        product_code: product.product_code || ''
       });
     }
   };
@@ -154,7 +153,7 @@ export default function ProductSearchInput({
                 className="w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors flex items-center justify-between gap-2"
               >
                 <div className="min-w-0">
-                  {p.code && <p className="text-[10px] font-bold text-blue-600">{p.code}</p>}
+                  {p.product_code && <p className="text-[10px] font-bold text-blue-600">{p.product_code}</p>}
                   <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
                   <p className="text-[10px] text-gray-400">{p.unit || '-'}</p>
                 </div>

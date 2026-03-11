@@ -467,7 +467,7 @@ export default function PROther() {
                             onSelectProduct={(product) => {
                               updateItem(item.id, 'name', product.name);
                               updateItem(item.id, 'unit_price', product.unit_price);
-                              updateItem(item.id, 'product_code', product.code);
+                              updateItem(item.id, 'product_code', product.product_code);
                             }}
                             placeholder="ค้นหาหรือระบุชื่อสินค้า..."
                           />

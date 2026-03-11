@@ -634,7 +634,7 @@ export default function PRSubcontractor() {
                                   onChange={(val) => updateItem(item.id, 'name', val)}
                                   onSelectProduct={(product) => {
                                     updateItem(item.id, 'name', product.name);
-                                    updateItem(item.id, 'product_code', product.code || '');
+                                    updateItem(item.id, 'product_code', product.product_code || '');
                                     updateItem(item.id, 'unit', product.unit || 'งาน');
                                     updateItem(item.id, 'unit_price', product.unit_price);
                                   }}

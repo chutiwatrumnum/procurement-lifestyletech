@@ -24,7 +24,7 @@ async function notifyUsers(userIds: string[], data: {
       
       await pb.collection('notifications').create(notificationData);
     } catch (err: any) {
-      // Silent fail
+      console.error(`[NOTIFY] Failed to create notification for user ${userId}:`, err?.message || err?.status || err);
     }
   }
 }
@@ -36,12 +36,17 @@ async function getHeadOfDepts(): Promise<string[]> {
       fields: 'id,role'
     });
     
+    console.log('[NOTIFY] All users fetched:', result.length, 'users');
+    console.log('[NOTIFY] User roles:', result.map((u: any) => ({ id: u.id, role: u.role })));
+    
     const heads = result
       .filter((u: any) => u.role === 'head_of_dept')
       .map((u: any) => u.id);
     
+    console.log('[NOTIFY] Head of dept IDs:', heads);
     return heads;
   } catch (e: any) {
+    console.error('[NOTIFY] Failed to fetch head_of_depts:', e?.message || e?.status || e);
     return [];
   }
 }
@@ -57,8 +62,10 @@ async function getManagers(): Promise<string[]> {
       .filter((u: any) => u.role === 'manager' || u.role === 'superadmin')
       .map((u: any) => u.id);
     
+    console.log('[NOTIFY] Manager/superadmin IDs:', managers);
     return managers;
   } catch (e: any) {
+    console.error('[NOTIFY] Failed to fetch managers:', e?.message || e?.status || e);
     return [];
   }
 }
