@@ -44,6 +44,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePurchaseRequests, useDeletePR } from '@/hooks/usePurchaseRequests';
+import pb from '@/lib/pocketbase';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface PurchaseRequestListProps {
   type?: 'project' | 'sub' | 'other';
@@ -61,6 +63,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
 
   const { data: rawPRs = [], isLoading } = usePurchaseRequests();
   const deletePRMutation = useDeletePR();
+  const queryClient = useQueryClient();
 
   const prs = useMemo(() => rawPRs.map(pr => ({
     id: pr.id,
@@ -69,6 +72,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
     type: (pr.type || 'N/A').toUpperCase(),
     rawType: pr.type,
     rawStatus: pr.status,
+    procurement_status: pr.procurement_status || 'not_purchased',
     requester: pr.requester_name || pr.expand?.requester?.name || 'N/A',
     date: new Date(pr.created).toLocaleDateString('th-TH'),
     amount: pr.total_amount || 0,
@@ -89,6 +93,20 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
     } catch (err) {
       console.error('Delete error:', err);
       toast.error('ไม่สามารถลบคำขอจัดซื้อได้');
+    }
+  };
+
+  // Toggle procurement status (ซื้อแล้ว / ยังไม่ซื้อ)
+  const toggleProcurementStatus = async (e: React.MouseEvent, prId: string, currentStatus: string) => {
+    e.stopPropagation();
+    const newStatus = currentStatus === 'purchased' ? 'not_purchased' : 'purchased';
+    try {
+      await pb.collection('purchase_requests').update(prId, { procurement_status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+      toast.success(newStatus === 'purchased' ? 'อัปเดตเป็น "ซื้อแล้ว"' : 'อัปเดตเป็น "ยังไม่ซื้อ"');
+    } catch (err) {
+      console.error('Update procurement status error:', err);
+      toast.error('อัปเดตสถานะไม่สำเร็จ');
     }
   };
 
@@ -237,6 +255,14 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
               >
                 อนุมัติแล้ว
               </Button>
+              <Button
+                variant={statusFilter === 'rejected' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleStatusFilter('rejected')}
+                className={statusFilter === 'rejected' ? 'bg-red-600 hover:bg-red-700' : ''}
+              >
+                ปฏิเสธ
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -264,6 +290,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                   <TableHead>วันที่</TableHead>
                   <TableHead className="text-right">จำนวนเงิน</TableHead>
                   <TableHead>สถานะ</TableHead>
+                  <TableHead>การจัดซื้อ</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -290,6 +317,28 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                       <Badge className={pr.color === 'warning' ? 'bg-yellow-100 text-yellow-700' : pr.color === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                         {pr.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {pr.rawStatus === 'approved' && (pr.rawType === 'sub' || pr.rawType === 'other') ? (
+                        <button
+                          onClick={(e) => toggleProcurementStatus(e, pr.id, pr.procurement_status)}
+                          className="group transition-all duration-200"
+                        >
+                          {pr.procurement_status === 'purchased' ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 group-hover:bg-emerald-100 group-hover:shadow-sm transition-all">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                              ซื้อแล้ว
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 group-hover:bg-amber-100 group-hover:shadow-sm transition-all">
+                              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                              รอจัดซื้อ
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>

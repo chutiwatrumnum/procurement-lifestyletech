@@ -281,16 +281,30 @@ export default function PROther() {
         await prService.updateStatus(id, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);
         toast.success('อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
       } else {
+        // ถ้า manager/superadmin ส่ง PR → อนุมัติเลยทันที
+        const isManagerRole = user?.role === 'manager' || user?.role === 'superadmin';
+        const finalStatus = (status === 'pending' && isManagerRole) ? 'approved' : status;
+
         // Create new PR
-        const prData = {
+        const prData: any = {
           type: 'other',
           category: otherType,
           vendor: vendorId,
           requester: user?.id,
-          status: status,
+          status: finalStatus,
           total_amount: totalAmount,
           requester_name: user?.name || user?.email || 'ไม่ระบุ'
         };
+
+        // Manager auto-approve fields
+        if (status === 'pending' && isManagerRole) {
+          prData.approved_by = user?.id;
+          prData.approved_at = new Date().toISOString();
+          prData.manager_approved_by = user?.id;
+          prData.manager_approved_at = new Date().toISOString();
+          prData.manager_approved_by_name = user?.name || user?.email;
+          prData.approval_level = 2;
+        }
 
         const prItems = items.map(({ name, product_code, unit, quantity, unit_price, total_price }) => ({
           name, product_code: product_code || '', unit, quantity, unit_price, total_price
@@ -308,7 +322,24 @@ export default function PROther() {
           await pb.collection('purchase_requests').update(pr.id, formData);
         }
 
-        if (status === 'pending') {
+        // Manager: copy signature
+        if (status === 'pending' && isManagerRole) {
+          try {
+            const currentUserData = await pb.collection('users').getOne(user?.id || '');
+            if (currentUserData.signature) {
+              const sigUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+              const response = await fetch(sigUrl);
+              const blob = await response.blob();
+              const sigFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+              const sigFormData = new FormData();
+              sigFormData.append('manager_signature', sigFile);
+              await pb.collection('purchase_requests').update(pr.id, sigFormData);
+            }
+          } catch (err) { console.error('Failed to copy manager signature:', err); }
+        }
+
+        // ส่ง notification (ไม่ส่งถ้า manager อนุมัติเองแล้ว)
+        if (status === 'pending' && !isManagerRole) {
           try {
             await notificationService.notifyNewPR(pr, user?.id || '');
           } catch (err) {
@@ -316,7 +347,7 @@ export default function PROther() {
           }
         }
         
-        toast.success('บันทึกใบขอซื้อเรียบร้อยแล้ว');
+        toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : (isManagerRole && status === 'pending' ? 'อนุมัติใบขอซื้อเรียบร้อยแล้ว' : 'บันทึกใบขอซื้อเรียบร้อยแล้ว'));
       }
       
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));

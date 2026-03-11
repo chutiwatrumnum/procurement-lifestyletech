@@ -386,15 +386,47 @@ export default function PRSubcontractor() {
         item_type: item_type || 'regular'
       }));
 
+      // ถ้า manager/superadmin ส่ง PR → อนุมัติเลยทันที
+      const isManagerRole = user?.role === 'manager' || user?.role === 'superadmin';
+      const finalStatus = (status === 'pending' && isManagerRole) ? 'approved' : status;
+
       if (isEditMode && id) {
         // Update existing PR
-        await prService.update(id, {
+        const updateData: any = {
           project: projectId,
           vendor: vendorIds[0] || '',
-          status: status,
+          status: finalStatus,
           total_amount: totalAmount,
           requester_name: user?.name || user?.email || 'Unknown'
-        });
+        };
+
+        // Manager auto-approve
+        if (status === 'pending' && isManagerRole) {
+          updateData.approved_by = user?.id;
+          updateData.approved_at = new Date().toISOString();
+          updateData.manager_approved_by = user?.id;
+          updateData.manager_approved_at = new Date().toISOString();
+          updateData.manager_approved_by_name = user?.name || user?.email;
+          updateData.approval_level = 2;
+        }
+
+        await prService.update(id, updateData);
+
+        // Manager: copy signature
+        if (status === 'pending' && isManagerRole) {
+          try {
+            const currentUserData = await pb.collection('users').getOne(user?.id || '');
+            if (currentUserData.signature) {
+              const sigUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+              const response = await fetch(sigUrl);
+              const blob = await response.blob();
+              const sigFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+              const formData = new FormData();
+              formData.append('manager_signature', sigFile);
+              await pb.collection('purchase_requests').update(id, formData);
+            }
+          } catch (err) { console.error('Failed to copy manager signature:', err); }
+        }
 
         // Delete old items and create new
         await prService.deleteItems(id);
@@ -405,23 +437,48 @@ export default function PRSubcontractor() {
         // Upload new attachments
         await uploadAttachments(id);
 
-        toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : 'ส่งใบขอซื้อย่อยเรียบร้อยแล้ว');
+        toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : (isManagerRole && status === 'pending' ? 'อนุมัติใบขอซื้อย่อยเรียบร้อยแล้ว' : 'ส่งใบขอซื้อย่อยเรียบร้อยแล้ว'));
       } else {
-        // Create new PR
         const prData: any = {
           type: 'sub',
           project: projectId,
           vendor: vendorIds[0] || '',
-          status: status,
+          status: finalStatus,
           total_amount: totalAmount,
           requester_name: user?.name || user?.email || 'ไม่ระบุ',
           requester: user?.id || ''
         };
 
+        // Manager auto-approve fields
+        if (status === 'pending' && isManagerRole) {
+          prData.approved_by = user?.id;
+          prData.approved_at = new Date().toISOString();
+          prData.manager_approved_by = user?.id;
+          prData.manager_approved_at = new Date().toISOString();
+          prData.manager_approved_by_name = user?.name || user?.email;
+          prData.approval_level = 2;
+        }
+
         const pr = await prService.create(prData, prItems);
+
+        // Manager: copy signature
+        if (status === 'pending' && isManagerRole) {
+          try {
+            const currentUserData = await pb.collection('users').getOne(user?.id || '');
+            if (currentUserData.signature) {
+              const sigUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+              const response = await fetch(sigUrl);
+              const blob = await response.blob();
+              const sigFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+              const formData = new FormData();
+              formData.append('manager_signature', sigFile);
+              await pb.collection('purchase_requests').update(pr.id, formData);
+            }
+          } catch (err) { console.error('Failed to copy manager signature:', err); }
+        }
         
-        // ส่ง notification เมื่อส่ง PR ใหม่
-        if (status === 'pending') {
+        // ส่ง notification (ไม่ส่งถ้า manager อนุมัติเองแล้ว)
+        if (status === 'pending' && !isManagerRole) {
           try {
             await notificationService.notifyNewPR(pr, user?.id);
           } catch (err) {
@@ -433,7 +490,7 @@ export default function PRSubcontractor() {
           await uploadAttachments(pr.id);
         }
 
-        toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : 'ส่งใบขอซื้อย่อยเรียบร้อยแล้ว');
+        toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : (isManagerRole && status === 'pending' ? 'อนุมัติใบขอซื้อย่อยเรียบร้อยแล้ว' : 'ส่งใบขอซื้อย่อยเรียบร้อยแล้ว'));
       }
       
       if (status === 'pending') {

@@ -43,7 +43,7 @@ export const prService = {
       filter,
       expand: allExpand,
       sort: '-created',
-      fields: 'id,pr_number,type,po_ref,delivery_location,status,total_amount,attachments,project,vendor,requester,requester_name,rejection_reason,approved_by,approved_at,approval_level,head_of_dept_approved_by,head_of_dept_approved_at,head_of_dept_comment,manager_approved_by,manager_approved_at,head_of_dept_signature,manager_signature,head_of_dept_approved_by_name,manager_approved_by_name,manager_comment,created,updated,expand.project,expand.vendor'
+      fields: 'id,pr_number,type,po_ref,delivery_location,status,procurement_status,total_amount,attachments,project,vendor,requester,requester_name,rejection_reason,approved_by,approved_at,approval_level,head_of_dept_approved_by,head_of_dept_approved_at,head_of_dept_comment,manager_approved_by,manager_approved_at,head_of_dept_signature,manager_signature,head_of_dept_approved_by_name,manager_approved_by_name,manager_comment,created,updated,expand.project,expand.vendor'
     });
 
     const prs = result.items;
