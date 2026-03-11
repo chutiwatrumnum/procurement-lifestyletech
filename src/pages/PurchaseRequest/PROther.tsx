@@ -43,6 +43,7 @@ import FileUploadManager from '@/components/ui/FileUploadManager';
 interface LineItem {
   id: string;
   name: string;
+  product_code?: string;
   unit: string;
   quantity: number;
   unit_price: number;
@@ -291,8 +292,8 @@ export default function PROther() {
           requester_name: user?.name || user?.email || 'ไม่ระบุ'
         };
 
-        const prItems = items.map(({ name, unit, quantity, unit_price, total_price }) => ({
-          name, unit, quantity, unit_price, total_price
+        const prItems = items.map(({ name, product_code, unit, quantity, unit_price, total_price }) => ({
+          name, product_code: product_code || '', unit, quantity, unit_price, total_price
         }));
 
         const pr = await prService.create(prData, prItems);
@@ -445,6 +446,7 @@ export default function PROther() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-gray-400 font-bold border-b border-gray-100">
+                      <th className="pb-4 text-left font-bold uppercase text-[10px] tracking-wider">รหัส</th>
                       <th className="pb-4 text-left font-bold uppercase text-[10px] tracking-wider">รายการ</th>
                       <th className="pb-4 text-right font-bold uppercase text-[10px] tracking-wider w-20">จำนวน</th>
                       <th className="pb-4 text-right font-bold uppercase text-[10px] tracking-wider w-32">ราคา/หน่วย</th>
@@ -456,12 +458,16 @@ export default function PROther() {
                     {items.map((item) => (
                       <tr key={item.id}>
                         <td className="py-4 pr-4">
+                          <p className="text-sm font-medium text-gray-900">{item.product_code || '-'}</p>
+                        </td>
+                        <td className="py-4 pr-4">
                           <ProductSearchInput
                             value={item.name}
                             onChange={(val) => updateItem(item.id, 'name', val)}
                             onSelectProduct={(product) => {
                               updateItem(item.id, 'name', product.name);
                               updateItem(item.id, 'unit_price', product.unit_price);
+                              updateItem(item.id, 'product_code', product.code);
                             }}
                             placeholder="ค้นหาหรือระบุชื่อสินค้า..."
                           />

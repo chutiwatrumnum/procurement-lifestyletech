@@ -43,6 +43,7 @@ import FileUploadManager from '@/components/ui/FileUploadManager';
 interface LineItem {
   id: string;
   name: string;
+  product_code?: string;
   unit: string;
   quantity: number;
   unit_price: number;
@@ -175,6 +176,7 @@ export default function PRSubcontractor() {
         setItems(prItems.map((item: any) => ({
           id: item.id,
           name: item.name,
+          product_code: item.product_code || '',
           unit: item.unit || 'งาน',
           quantity: item.quantity || 0,
           unit_price: item.unit_price || 0,
@@ -242,6 +244,7 @@ export default function PRSubcontractor() {
                 id: item.id || Date.now().toString() + Math.random(),
                 project_item_id: item.id,
                 name: item.name || '',
+                product_code: item.product_code || '',
                 unit: item.unit || 'งาน',
                 quantity: remaining,
                 reference_price: item.unit_price || 0,
@@ -377,8 +380,8 @@ export default function PRSubcontractor() {
 
     setIsSubmitting(true);
     try {
-      const prItems = validItems.map(({ name, unit, quantity, unit_price, total_price, project_item_id, item_type }) => ({
-        name, unit, quantity, unit_price, total_price,
+      const prItems = validItems.map(({ name, product_code, unit, quantity, unit_price, total_price, project_item_id, item_type }) => ({
+        name, product_code, unit, quantity, unit_price, total_price,
         project_item: project_item_id,
         item_type: item_type || 'regular'
       }));
@@ -603,6 +606,7 @@ export default function PRSubcontractor() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
+                          <th className="py-4 text-left">รหัส</th>
                           <th className="py-4 text-left">รายละเอียด</th>
                           <th className="py-4 text-center w-24">ประเภท</th>
                           <th className="py-4 text-right w-20">จำนวน</th>
@@ -616,10 +620,13 @@ export default function PRSubcontractor() {
                         {items.map((item) => (
                           <tr key={item.id} className="group">
                             <td className="py-4 pr-4">
-                              {item.isExisting && !isEditMode ? (
+                              <p className="font-bold text-gray-900">{item.product_code || '-'}</p>
+                            </td>
+                            <td className="py-4 pr-4">
+                              {item.isExisting ? (
                                 <div>
                                   <p className="font-bold text-gray-900">{item.name}</p>
-                                  <p className="text-xs text-purple-500">อุปกรณ์เดิมในโครงการ</p>
+                                  {!isEditMode && <p className="text-xs text-purple-500">อุปกรณ์เดิมในโครงการ</p>}
                                 </div>
                               ) : (
                                 <ProductSearchInput
@@ -627,6 +634,7 @@ export default function PRSubcontractor() {
                                   onChange={(val) => updateItem(item.id, 'name', val)}
                                   onSelectProduct={(product) => {
                                     updateItem(item.id, 'name', product.name);
+                                    updateItem(item.id, 'product_code', product.code || '');
                                     updateItem(item.id, 'unit', product.unit || 'งาน');
                                     updateItem(item.id, 'unit_price', product.unit_price);
                                   }}

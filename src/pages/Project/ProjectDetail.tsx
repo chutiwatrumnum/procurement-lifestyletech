@@ -42,6 +42,7 @@ interface ReserveItem {
 interface ProjectItem {
   id: string;
   name: string;
+  product_code?: string;
   unit: string;
   quantity: number;
   initial_quantity?: number;
@@ -280,6 +281,7 @@ export default function ProjectDetail() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 text-gray-600">
+                        <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รหัส</th>
                         <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รายการ</th>
                         <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider">แผน (จำนวน)</th>
                         <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider">เบิกจริง</th>
@@ -300,6 +302,7 @@ export default function ProjectDetail() {
                                     <ChevronDown className="w-4 h-4 text-gray-400" />
                                 )}
                                 <div>
+                                  <p className="font-mono text-xs text-gray-500">{item.product_code || '-'}</p>
                                   <p className="font-bold text-gray-900">{item.name}</p>
                                 </div>
                               </div>
@@ -332,7 +335,7 @@ export default function ProjectDetail() {
                           {/* Expanded details of withdrawals */}
                           {expandedItems[item.id] && item.withdrawnDetails.length > 0 && (
                             <tr className="bg-orange-50/50">
-                              <td colSpan={6} className="px-6 py-4">
+                              <td colSpan={7} className="px-6 py-4">
                                 <div className="space-y-2">
                                   <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-3">รายละเอียดการเบิก ({item.withdrawnDetails.length} รายการ)</p>
                                   <div className="grid grid-cols-4 gap-4 text-xs font-bold text-gray-500 uppercase mb-2">

@@ -116,6 +116,7 @@ export default function PRDetail() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+                      <th className="py-3 px-4 text-left">รหัส</th>
                       <th className="py-3 px-4 text-left">รายการ</th>
                       <th className="py-3 px-4 text-right">จำนวน</th>
                       <th className="py-3 px-4 text-right">ราคา/หน่วย</th>
@@ -125,6 +126,7 @@ export default function PRDetail() {
                   <tbody className="divide-y divide-gray-50">
                     {items.map((item, idx) => (
                       <tr key={item.id}>
+                        <td className="py-4 px-4 font-bold text-gray-900">{item.product_code || '-'}</td>
                         <td className="py-4 px-4 font-medium">{item.name}</td>
                         <td className="py-4 px-4 text-right">{item.quantity} {item.unit}</td>
                         <td className="py-4 px-4 text-right">{item.unit_price?.toLocaleString()}</td>

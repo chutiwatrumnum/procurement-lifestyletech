@@ -30,12 +30,13 @@ import { rules, validateForm } from '@/lib/validation';
 import { useProductCatalog, catalogKeys } from '@/hooks/useProductCatalog';
 
 interface ProductForm {
+  code: string;
   name: string;
   unit_price: number;
   category: string;
 }
 
-const emptyForm: ProductForm = { name: '', unit_price: 0, category: '' };
+const emptyForm: ProductForm = { code: '', name: '', unit_price: 0, category: '' };
 
 export default function ProductCatalog() {
   const queryClient = useQueryClient();
@@ -134,6 +135,7 @@ export default function ProductCatalog() {
   const openEditDialog = (product: any) => {
     setEditingId(product.id);
     setForm({
+      code: product.code || '',
       name: product.name || '',
       unit_price: product.unit_price || 0,
       category: product.category || '',
@@ -143,6 +145,7 @@ export default function ProductCatalog() {
 
   const validate = (): boolean => {
     const schema = {
+      code: [rules.required('กรุณาระบุรหัสสินค้า')],
       name: [rules.required('กรุณาระบุชื่อสินค้า')],
     };
     
@@ -288,6 +291,7 @@ export default function ProductCatalog() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
+                      <th className="py-3 px-6 text-left">รหัสสินค้า</th>
                       <th className="py-3 px-6 text-left">ชื่ออุปกรณ์</th>
                       <th className="py-3 px-4 text-right w-32">ราคา</th>
                       <th className="py-3 px-4 text-right w-24">จัดการ</th>
@@ -296,6 +300,9 @@ export default function ProductCatalog() {
                   <tbody className="divide-y divide-gray-50">
                     {items.map((p: any) => (
                       <tr key={p.id} className="group hover:bg-blue-50/30 transition-colors">
+                        <td className="py-3 px-6">
+                          <p className="font-bold text-gray-900">{p.code || '-'}</p>
+                        </td>
                         <td className="py-3 px-6">
                           <p className="font-bold text-gray-900">{p.name}</p>
                         </td>
@@ -344,6 +351,19 @@ export default function ProductCatalog() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="font-semibold">รหัสสินค้า <span className="text-red-500">*</span></Label>
+              <Input
+                value={form.code}
+                onChange={(e) => {
+                  setForm({ ...form, code: e.target.value });
+                  setErrors(prev => ({ ...prev, code: '' }));
+                }}
+                placeholder="เช่น PRD-001, ELEC-001"
+                className={`h-11 rounded-xl bg-gray-50 border ${errors.code ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`}
+              />
+              {errors.code && <p className="text-xs text-red-500 font-medium">{errors.code}</p>}
+            </div>
             <div className="space-y-2">
               <Label className="font-semibold">ชื่ออุปกรณ์ <span className="text-red-500">*</span></Label>
               <Input

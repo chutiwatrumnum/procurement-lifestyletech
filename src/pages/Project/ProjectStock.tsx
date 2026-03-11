@@ -19,6 +19,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 interface ProjectItem {
   id: string;
   name: string;
+  product_code?: string;
   unit: string;
   quantity: number;
   unit_price: number;
@@ -201,6 +202,7 @@ export default function ProjectStock() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-gray-600">
+                    <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รหัส</th>
                     <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รายการ</th>
                     <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider w-32">จำนวนคงเหลือ</th>
                     <th className="py-4 px-6 text-right font-bold uppercase text-[10px] tracking-wider w-32">ราคาต่อหน่วย</th>
@@ -211,6 +213,9 @@ export default function ProjectStock() {
                 <tbody className="divide-y divide-gray-100">
                   {filteredItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="py-4 px-6">
+                        <p className="font-mono text-xs text-gray-500">{item.product_code || '-'}</p>
+                      </td>
                       <td className="py-4 px-6">
                         <p className="font-bold text-gray-900">{item.name}</p>
                       </td>

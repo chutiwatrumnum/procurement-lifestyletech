@@ -366,34 +366,25 @@ export default function PRPrintPO() {
           <table className="w-full text-[12px] border-collapse mb-1">
             <thead>
               <tr className="bg-gray-900 text-white">
-                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '40px' }}>ลำดับ</th>
+                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '36px' }}>ลำดับ</th>
+                <th className="py-2 px-2 text-left font-bold border border-gray-900" style={{ width: '80px' }}>รหัส</th>
                 <th className="py-2 px-3 text-left font-bold border border-gray-900">รายการสินค้า / บริการ</th>
-                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '70px' }}>จำนวน</th>
-                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '50px' }}>หน่วย</th>
-                <th className="py-2 px-3 text-right font-bold border border-gray-900" style={{ width: '100px' }}>ราคา/หน่วย</th>
-                <th className="py-2 px-3 text-right font-bold border border-gray-900" style={{ width: '110px' }}>จำนวนเงิน (บาท)</th>
+                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '55px' }}>จำนวน</th>
+                <th className="py-2 px-2 text-center font-bold border border-gray-900" style={{ width: '45px' }}>หน่วย</th>
+                <th className="py-2 px-3 text-right font-bold border border-gray-900" style={{ width: '90px' }}>ราคา/หน่วย</th>
+                <th className="py-2 px-3 text-right font-bold border border-gray-900" style={{ width: '100px' }}>จำนวนเงิน (บาท)</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.id}>
                   <td className="py-2 px-2 text-center border border-gray-200">{idx + 1}</td>
+                  <td className="py-2 px-2 border border-gray-200 text-gray-700">{item.product_code || '-'}</td>
                   <td className="py-2 px-3 border border-gray-200 font-medium text-gray-800">{item.name}</td>
                   <td className="py-2 px-2 text-center border border-gray-200">{item.quantity}</td>
                   <td className="py-2 px-2 text-center border border-gray-200 text-gray-600">{item.unit || '-'}</td>
                   <td className="py-2 px-3 text-right border border-gray-200">{formatCurrency(item.unit_price || 0)}</td>
                   <td className="py-2 px-3 text-right border border-gray-200 font-bold">{formatCurrency(item.total_price || 0)}</td>
-                </tr>
-              ))}
-              {/* Empty rows to fill at least 5 rows */}
-              {items.length < 5 && Array.from({ length: 5 - items.length }).map((_, i) => (
-                <tr key={`empty-${i}`}>
-                  <td className="py-2 px-2 text-center border border-gray-200 text-gray-300">{items.length + i + 1}</td>
-                  <td className="py-2 px-3 border border-gray-200">&nbsp;</td>
-                  <td className="py-2 px-2 border border-gray-200">&nbsp;</td>
-                  <td className="py-2 px-2 border border-gray-200">&nbsp;</td>
-                  <td className="py-2 px-3 border border-gray-200">&nbsp;</td>
-                  <td className="py-2 px-3 border border-gray-200">&nbsp;</td>
                 </tr>
               ))}
             </tbody>

@@ -39,6 +39,7 @@ import FileUploadManager from '@/components/ui/FileUploadManager';
 interface LineItem {
   id: string;
   name: string;
+  product_code?: string;
   unit: string;
   quantity: number;
   remaining: number;
@@ -160,6 +161,7 @@ export default function PRProject() {
         setItems(prItems.map((item: any) => ({
           id: item.id,
           name: item.name,
+          product_code: item.product_code || '',
           unit: item.unit || '',
           quantity: item.quantity || 0,
           remaining: 0,
@@ -194,6 +196,7 @@ export default function PRProject() {
             id: item.id,
             existingId: item.id,
             name: item.name,
+            product_code: item.product_code || '',
             unit: item.unit || '',
             quantity: item.quantity || 0,
             remaining: item.quantity || 0,
@@ -288,6 +291,7 @@ export default function PRProject() {
           const addedQty = Number(item.addedQuantity) || 0;
           return {
             name: item.name,
+            product_code: item.product_code || '',
             unit: item.unit,
             quantity: addedQty,
             unit_price: item.unit_price,
@@ -297,6 +301,7 @@ export default function PRProject() {
         } else {
           return {
             name: item.name,
+            product_code: item.product_code || '',
             unit: item.unit,
             quantity: item.quantity,
             unit_price: item.unit_price,
@@ -370,6 +375,7 @@ export default function PRProject() {
               await pb.collection('project_items').create({
                 project: projectId,
                 name: item.name,
+                product_code: item.product_code || '',
                 unit: item.unit,
                 initial_quantity: item.quantity,
                 quantity: item.quantity,
@@ -510,6 +516,7 @@ export default function PRProject() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-[#9CA3AF] font-bold border-b border-gray-50 uppercase text-[10px] tracking-widest">
+                      <th className="py-4 text-left">รหัส</th>
                       <th className="py-4 text-left">รายละเอียดสินค้า</th>
                       {isEditMode && <th className="py-4 text-center w-20">จำนวน</th>}
                       {!isEditMode && <th className="py-4 text-center w-24">คงเหลือ</th>}
@@ -522,6 +529,9 @@ export default function PRProject() {
                   <tbody className="divide-y divide-gray-50">
                     {items.map((item) => (
                       <tr key={item.id} className={`group ${item.isExisting ? 'bg-blue-50/30' : ''}`}>
+                        <td className="py-4 pr-4">
+                          <p className="font-bold text-gray-900">{item.product_code || '-'}</p>
+                        </td>
                         <td className="py-4 pr-4">
                           {item.isExisting && !isEditMode ? (
                             <div>
@@ -536,6 +546,7 @@ export default function PRProject() {
                                 updateItem(item.id, 'name', product.name);
                                 updateItem(item.id, 'unit', product.unit);
                                 updateItem(item.id, 'unit_price', product.unit_price);
+                                updateItem(item.id, 'product_code', product.code);
                               }}
                               placeholder="ค้นหาหรือระบุชื่อสินค้า..."
                             />

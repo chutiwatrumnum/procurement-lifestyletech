@@ -62,6 +62,7 @@ export interface Product {
   code: string;
   name: string;
   nameLocal?: string;
+  unit_price?: number;
   category: string;
   unit: string;
   description?: string;
@@ -102,6 +103,7 @@ export interface PRItem {
   id: string;
   product: string;
   productName: string;
+  productCode?: string;
   description?: string;
   quantity: number;
   unit: string;

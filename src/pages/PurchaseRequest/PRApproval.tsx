@@ -836,6 +836,7 @@ export default function PRApproval() {
                       <thead>
                         <tr className="bg-[#F9FAFB] text-[#6B7280]">
                           <th className="py-3 px-4 text-left font-bold uppercase text-[9px] tracking-wider">ลำดับ</th>
+                          <th className="py-3 px-4 text-left font-bold uppercase text-[9px] tracking-wider">รหัส</th>
                           <th className="py-3 px-4 text-left font-bold uppercase text-[9px] tracking-wider">รายการ</th>
                           <th className="py-3 px-4 text-center font-bold uppercase text-[9px] tracking-wider">ประเภท</th>
                           <th className="py-3 px-4 text-right font-bold uppercase text-[9px] tracking-wider">จำนวน</th>
@@ -847,6 +848,7 @@ export default function PRApproval() {
                         {items.map((item, idx) => (
                           <tr key={item.id} className={item.item_type === 'reserve' ? 'bg-purple-50/30' : ''}>
                             <td className="py-4 px-4 text-gray-400">{idx + 1}</td>
+                            <td className="py-4 px-4 font-bold text-gray-900">{item.product_code || '-'}</td>
                             <td className="py-4 px-4 font-medium text-gray-900">{item.name}</td>
                             <td className="py-4 px-4 text-center">
                               {item.item_type === 'reserve' ? (

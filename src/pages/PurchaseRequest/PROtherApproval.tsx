@@ -763,6 +763,7 @@ export default function PROtherApproval() {
                       <thead>
                         <tr className="bg-gray-50 text-gray-600 text-xs uppercase">
                           <th className="py-3 px-4 text-center w-16">ลำดับ</th>
+                          <th className="py-3 px-4 text-left font-bold">รหัส</th>
                           <th className="py-3 px-4 text-left font-bold">รายการ</th>
                           <th className="py-3 px-4 text-center w-24">จำนวน</th>
                           <th className="py-3 px-4 text-right w-28">ราคา/หน่วย</th>
@@ -773,6 +774,7 @@ export default function PROtherApproval() {
                         {items.map((item: any, idx: number) => (
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="py-4 px-4 text-center text-gray-500">{idx + 1}</td>
+                            <td className="py-4 px-4 font-bold text-gray-900">{item.product_code || '-'}</td>
                             <td className="py-4 px-4">
                               <p className="font-bold text-gray-900">{item.name}</p>
                             </td>
