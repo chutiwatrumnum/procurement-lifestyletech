@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 interface ProductSearchInputProps {
   value: string;
   onChange: (value: string) => void;
-  onSelectProduct?: (product: { name: string; unit: string; unit_price: number; category: string; product_code: string }) => void;
+  onSelectProduct?: (product: { name: string; unit: string; unit_price: number; category: string; product_code: string; factory_code: string; factory_name: string; brand: string }) => void;
   placeholder?: string;
   className?: string;
 }
@@ -67,13 +67,16 @@ export default function ProductSearchInput({
     };
   }, [isOpen, updatePosition]);
 
-  // Filter catalog by search query
+  // Filter catalog by search query - include new fields
   const filtered = catalog.filter((p: any) => {
     const q = (search || value).toLowerCase();
     if (!q) return true;
     return p.name?.toLowerCase().includes(q) || 
            p.category?.toLowerCase().includes(q) || 
-           p.product_code?.toLowerCase().includes(q);
+           p.product_code?.toLowerCase().includes(q) ||
+           p.factory_code?.toLowerCase().includes(q) ||
+           p.factory_name?.toLowerCase().includes(q) ||
+           p.brand?.toLowerCase().includes(q);
   });
 
   // Group by category
@@ -102,7 +105,10 @@ export default function ProductSearchInput({
         unit: product.unit || '',
         unit_price: product.unit_price || 0,
         category: product.category || '',
-        product_code: product.product_code || ''
+        product_code: product.product_code || '',
+        factory_code: product.factory_code || '',
+        factory_name: product.factory_name || '',
+        brand: product.brand || ''
       });
     }
   };
