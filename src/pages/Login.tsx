@@ -12,10 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Building2, Loader2, Lock, Mail, User, Shield, CheckCircle2, Clock, Layers } from 'lucide-react';
 import type { UserRole } from '@/types';
 import pb from '@/lib/pocketbase';
+import { useCompanyLogo } from '@/hooks/useCompanyLogo';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login, register } = useAuth();
+  const { logoUrl, loading: logoLoading } = useCompanyLogo();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -102,14 +104,12 @@ export default function Login() {
       <div className="w-full max-w-[440px]">
         {/* Branding */}
         <div className="flex flex-col items-center mb-10 text-center">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2.5 bg-[#2563EB] rounded-2xl shadow-lg shadow-blue-500/20">
-              <Building2 className="h-8 w-8 text-white" />
-            </div>
-            <div className="text-left">
-              <h1 className="text-3xl font-black text-[#1F2937] tracking-tighter">ProcureReal</h1>
-              <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] leading-none mt-1">REAL ESTATE ERP</p>
-            </div>
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-center mb-2 min-h-[130px] min-w-[130px]">
+            {logoLoading ? (
+              <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+            ) : (
+              <img src={logoUrl || "/logo.png"} alt="Company Logo" className="h-24 w-auto object-contain animate-in fade-in duration-500" />
+            )}
           </div>
         </div>
 

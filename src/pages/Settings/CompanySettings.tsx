@@ -225,8 +225,8 @@ export default function CompanySettings() {
                     )}
                   </div>
                 ) : (
-                  <div className="w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center bg-gray-50">
-                    <ImageIcon className="w-8 h-8 text-gray-300" />
+                  <div className="relative">
+                    <img src="/logo.png" alt="Default Logo" className="w-32 h-32 object-contain border border-gray-200 rounded-xl p-2 bg-white/50 opacity-50 grayscale" />
                   </div>
                 )}
                 <div className="flex-1">

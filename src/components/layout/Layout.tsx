@@ -37,6 +37,7 @@ import {
   Layers,
 } from 'lucide-react';
 import pb from '@/lib/pocketbase';
+import { useCompanyLogo } from '@/hooks/useCompanyLogo';
 
 interface NavItem {
   title: string;
@@ -189,7 +190,9 @@ function Sidebar({
   user,
   onLogout,
   onToggleCollapse,
-  isSidebarCollapsed
+  isSidebarCollapsed,
+  logoUrl,
+  logoLoading
 }: { 
   mobile?: boolean; 
   collapsed?: boolean; 
@@ -202,6 +205,8 @@ function Sidebar({
   onLogout: () => void;
   onToggleCollapse: () => void;
   isSidebarCollapsed: boolean;
+  logoUrl: string;
+  logoLoading: boolean;
 }) {
   const location = useLocation();
   
@@ -228,16 +233,16 @@ function Sidebar({
 
   return (
     <div className="flex h-full flex-col gap-2 bg-[#1F2937] text-white relative">
-      <div className={cn("flex items-center mb-4", collapsed ? "h-16 px-4 justify-center" : "h-20 px-6")}>
-        <Link to="/" className="flex items-center gap-3">
-          <div className="p-1.5 bg-[#2563EB] rounded-lg flex-shrink-0">
-            <Building2 className="h-6 w-6 text-white" />
-          </div>
-          {!collapsed && (
-            <div>
-              <h2 className="text-lg font-bold tracking-tight">ProcureReal</h2>
-              <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest leading-none">REAL ESTATE ERP</p>
-            </div>
+      <div className={cn("flex items-center mb-6 mt-2 transition-all duration-300", collapsed ? "h-16 px-4 justify-center" : "px-6")}>
+        <Link to="/" className="flex items-center justify-center w-full min-h-[64px]">
+          {logoLoading ? (
+            <div className={cn("animate-pulse bg-gray-700/50 rounded-xl", collapsed ? "h-10 w-10" : "h-16 w-32")} />
+          ) : (
+            <img 
+              src={logoUrl || "/logo.png"} 
+              alt="Company Logo" 
+              className={cn("object-contain transition-all duration-300 bg-white rounded-xl p-2 animate-in fade-in duration-500", collapsed ? "h-10 w-10" : "h-16 w-auto max-w-[180px]")} 
+            />
           )}
         </Link>
       </div>
@@ -339,6 +344,7 @@ export default function Layout({ children }: LayoutProps) {
   const [pendingPROther, setPendingPROther] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { logoUrl, loading: logoLoading } = useCompanyLogo();
 
   // ดึง notifications
   const fetchNotifications = async () => {
@@ -446,6 +452,8 @@ export default function Layout({ children }: LayoutProps) {
           onLogout={handleLogout}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           isSidebarCollapsed={isSidebarCollapsed}
+          logoUrl={logoUrl}
+          logoLoading={logoLoading}
         />
       </div>
 
@@ -472,6 +480,8 @@ export default function Layout({ children }: LayoutProps) {
                 onClose={() => setIsMobileMenuOpen(false)}
                 onToggleCollapse={() => {}}
                 isSidebarCollapsed={false}
+                logoUrl={logoUrl}
+                logoLoading={logoLoading}
               />
             </SheetContent>
           </Sheet>
