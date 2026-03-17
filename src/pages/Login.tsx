@@ -107,8 +107,13 @@ export default function Login() {
           <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-center mb-2 min-h-[130px] min-w-[130px]">
             {logoLoading ? (
               <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+            ) : logoUrl ? (
+              <img src={logoUrl} alt="Company Logo" className="h-24 w-auto object-contain animate-in fade-in duration-500" />
             ) : (
-              <img src={logoUrl || "/logo.png"} alt="Company Logo" className="h-24 w-auto object-contain animate-in fade-in duration-500" />
+              <div className="flex flex-col items-center justify-center">
+                <h2 className="text-2xl font-bold tracking-tight text-gray-900">ProcureReal</h2>
+                <p className="text-xs font-bold text-[#9CA3AF] uppercase tracking-widest leading-none mt-1">REAL ESTATE ERP</p>
+              </div>
             )}
           </div>
         </div>

@@ -237,12 +237,23 @@ function Sidebar({
         <Link to="/" className="flex items-center justify-center w-full min-h-[64px]">
           {logoLoading ? (
             <div className={cn("animate-pulse bg-gray-700/50 rounded-xl", collapsed ? "h-10 w-10" : "h-16 w-32")} />
-          ) : (
+          ) : logoUrl ? (
             <img 
-              src={logoUrl || "/logo.png"} 
+              src={logoUrl} 
               alt="Company Logo" 
               className={cn("object-contain transition-all duration-300 bg-white rounded-xl p-2 animate-in fade-in duration-500", collapsed ? "h-10 w-10" : "h-16 w-auto max-w-[180px]")} 
             />
+          ) : (
+            <div className={cn("flex flex-col justify-center", collapsed ? "items-center" : "items-start")}>
+              {collapsed ? (
+                 <span className="font-bold text-xl tracking-tight text-[#2563EB]">P</span>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold tracking-tight">ProcureReal</h2>
+                  <p className="text-[9px] font-bold text-[#9CA3AF] uppercase tracking-widest leading-none">REAL ESTATE ERP</p>
+                </>
+              )}
+            </div>
           )}
         </Link>
       </div>

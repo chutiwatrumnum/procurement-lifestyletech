@@ -5,11 +5,11 @@ export function useCompanyLogo() {
   const [logoUrl, setLogoUrl] = useState<string>(() => {
     // Attempt to load from localStorage first for immediate display
     const cached = localStorage.getItem('companyLogoUrl');
-    return cached || '/logo.png';
+    return cached !== null ? cached : '';
   });
   const [loading, setLoading] = useState(() => {
-    // If we have a cached logo, we don't need to show a loading screen initially
-    return !localStorage.getItem('companyLogoUrl');
+    // If we have a cached logo (even empty string), we don't need to show a loading screen initially
+    return localStorage.getItem('companyLogoUrl') === null;
   });
 
   useEffect(() => {
@@ -25,6 +25,12 @@ export function useCompanyLogo() {
           if (fetchedUrl !== cachedUrl) {
             setLogoUrl(fetchedUrl);
             localStorage.setItem('companyLogoUrl', fetchedUrl);
+          }
+        } else {
+          const cachedUrl = localStorage.getItem('companyLogoUrl');
+          if (cachedUrl !== '') {
+            setLogoUrl('');
+            localStorage.setItem('companyLogoUrl', '');
           }
         }
       } catch (err) {
