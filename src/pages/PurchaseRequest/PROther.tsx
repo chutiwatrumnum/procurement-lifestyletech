@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
+import VendorSearchInput from '@/components/VendorSearchInput';
 import { prService, vendorService } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
@@ -71,6 +72,7 @@ export default function PROther() {
   const [prData, setPrData] = useState<any>(null);
   
   const [vendorId, setVendorId] = useState('');
+  const [vendorSearch, setVendorSearch] = useState('');
   const [otherType, setOtherType] = useState('office');
   const [items, setItems] = useState<LineItem[]>([
     { id: '1', name: '', unit: '', quantity: 1, unit_price: 0, total_price: 0 },
@@ -579,14 +581,25 @@ export default function PROther() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>เลือกผู้ขาย *</Label>
-                <Select onValueChange={setVendorId} value={vendorId}>
-                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
-                    <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <VendorSearchInput
+                  value={vendorSearch}
+                  onChange={setVendorSearch}
+                  onSelectVendor={(vendor) => {
+                    setVendorId(vendor.id);
+                    setVendorSearch('');
+                  }}
+                  placeholder="ค้นหาบริษัทผู้ขาย..."
+                />
+                {vendorId && (
+                  <div className="mt-2 p-3 bg-blue-50 rounded-xl">
+                    <p className="text-sm font-bold text-blue-900">
+                      {vendors.find(v => v.id === vendorId)?.name}
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      {vendors.find(v => v.id === vendorId)?.contact_person}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
+import VendorSearchInput from '@/components/VendorSearchInput';
 import { prService, projectService, vendorService } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
@@ -91,6 +92,7 @@ export default function PRSubcontractor() {
   // Form state
   const [projectId, setProjectId] = useState('');
   const [vendorIds, setVendorIds] = useState<string[]>([]);
+  const [vendorSearch, setVendorSearch] = useState('');
   const [items, setItems] = useState<LineItem[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [editHistory, setEditHistory] = useState<EditHistory[]>([]);
@@ -773,22 +775,19 @@ export default function PRSubcontractor() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้รับเหมา *</Label>
-                <Select 
-                  onValueChange={(value) => {
-                    if (!vendorIds.includes(value)) {
-                      setVendorIds([...vendorIds, value]);
+                
+                {/* Search Input */}
+                <VendorSearchInput
+                  value={vendorSearch}
+                  onChange={setVendorSearch}
+                  onSelectVendor={(vendor) => {
+                    if (!vendorIds.includes(vendor.id)) {
+                      setVendorIds([...vendorIds, vendor.id]);
+                      setVendorSearch('');
                     }
                   }}
-                >
-                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
-                    <SelectValue placeholder="เลือกบริษัทผู้รับเหมา" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.filter(v => !vendorIds.includes(v.id)).map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="ค้นหาบริษัทผู้รับเหมา..."
+                />
                 
                 {vendorIds.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">

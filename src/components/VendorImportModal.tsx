@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,8 @@ export default function VendorImportModal({
   const [results, setResults] = useState<ImportResult[]>([]);
   const [duplicates, setDuplicates] = useState<Map<number, string>>(new Map());
   const [importProgress, setImportProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -169,6 +171,122 @@ export default function VendorImportModal({
     }
   }, [checkDuplicates]);
 
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const processFile = useCallback(async (file: File) => {
+    setFile(file);
+    setParsedData([]);
+    setResults([]);
+    setDuplicates(new Map());
+    setIsParsing(true);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const rawData = await new Promise<any[]>((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+          try {
+            const data = event.target?.result;
+            if (!data) {
+              reject(new Error('No data in file'));
+              return;
+            }
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            resolve(jsonData);
+          } catch (err: any) {
+            reject(new Error('Cannot read Excel file: ' + (err.message || 'Unknown error')));
+          }
+        };
+        
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsArrayBuffer(file);
+      });
+
+      const processedData = processVendorData(rawData);
+      const dupMap = checkDuplicates(processedData);
+      setDuplicates(dupMap);
+      
+      const dataWithDuplicates = processedData.map((vendor, index) => {
+        if (dupMap.has(index)) {
+          return {
+            ...vendor,
+            _isValid: false,
+            _errors: [...vendor._errors, dupMap.get(index) || '']
+          };
+        }
+        return vendor;
+      });
+      
+      setParsedData(dataWithDuplicates);
+      
+      if (dataWithDuplicates.length === 0) {
+        toast.warning('ไม่พบข้อมูลในไฟล์ กรุณาตรวจสอบ format ของไฟล์');
+      } else {
+        const validCount = dataWithDuplicates.filter(v => v._isValid).length;
+        const dupCount = dupMap.size;
+        
+        if (dupCount > 0) {
+          toast.info(`พบข้อมูล ${dataWithDuplicates.length} รายการ (${validCount} รายการที่จะนำเข้าได้, ${dupCount} รายการซ้ำ)`);
+        } else {
+          toast.success(`พบข้อมูล ${validCount} รายการที่พร้อมนำเข้า`);
+        }
+        
+        setCurrentStep('preview');
+      }
+    } catch (error: any) {
+      console.error('Parse error:', error);
+      toast.error(error.message || 'เกิดข้อผิดพลาดในการอ่านไฟล์ กรุณาลองใหม่');
+      setFile(null);
+    } finally {
+      setIsParsing(false);
+    }
+  }, [checkDuplicates]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    const files = Array.from(e.dataTransfer.files);
+    const excelFile = files.find(f => 
+      f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv')
+    );
+    
+    if (excelFile) {
+      processFile(excelFile);
+    } else {
+      toast.error('กรุณาเลือกไฟล์ Excel หรือ CSV');
+    }
+  }, [processFile]);
+
   const handleImport = async () => {
     const validVendors = parsedData.filter(v => v._isValid);
     if (validVendors.length === 0) return;
@@ -275,7 +393,18 @@ export default function VendorImportModal({
           {/* Step 1: Upload */}
           {currentStep === 'upload' && (
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-orange-300 transition-colors">
+              {/* Drag and drop zone */}
+              <div 
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                  isDragging
+                    ? 'border-orange-500 bg-orange-50 scale-[1.01] shadow-lg shadow-orange-500/10'
+                    : 'border-gray-200 hover:border-orange-300'
+                }`}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
                 <input
                   type="file"
                   accept=".xlsx,.xls,.csv"
@@ -286,7 +415,13 @@ export default function VendorImportModal({
                 />
                 <label htmlFor="vendor-import-file" className="cursor-pointer">
                   <div className="flex flex-col items-center gap-3">
-                    {file ? (
+                    {isDragging ? (
+                      <>
+                        <FileSpreadsheet className="w-16 h-16 text-orange-500 animate-bounce" />
+                        <p className="font-bold text-orange-600 text-lg">📥 ปล่อยไฟล์เพื่ออัพโหลด</p>
+                        <p className="text-sm text-orange-500">กำลังเพิ่มไฟล์ Excel/CSV ของคุณ</p>
+                      </>
+                    ) : file ? (
                       <>
                         <FileSpreadsheet className="w-16 h-16 text-green-500" />
                         <p className="font-bold text-gray-700 text-lg">{file.name}</p>
@@ -294,13 +429,13 @@ export default function VendorImportModal({
                           {(file.size / 1024).toFixed(2)} KB
                         </p>
                         <p className="text-sm text-blue-600 mt-2">
-                          คลิกเพื่อเปลี่ยนไฟล์
+                          คลิกเพื่อเปลี่ยนไฟล์ หรือลากไฟล์มาวาง
                         </p>
                       </>
                     ) : (
                       <>
                         <Upload className="w-16 h-16 text-gray-300" />
-                        <p className="font-bold text-gray-600 text-lg">คลิกเพื่อเลือกไฟล์</p>
+                        <p className="font-bold text-gray-600 text-lg">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวาง</p>
                         <p className="text-sm text-gray-400">รองรับไฟล์ .xlsx, .xls, .csv</p>
                       </>
                     )}
