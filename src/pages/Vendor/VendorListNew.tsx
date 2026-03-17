@@ -27,6 +27,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useVendors, useDeleteVendor, useImportVendors } from '@/hooks/useVendors';
 import VendorImportModal from '@/components/VendorImportModal';
+import VendorDeleteModal from '@/components/VendorDeleteModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -35,6 +36,9 @@ export default function VendorListNew() {
   const [filter, setFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [vendorToDelete, setVendorToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: vendors = [], isLoading } = useVendors();
   const deleteVendorMutation = useDeleteVendor();
@@ -58,15 +62,25 @@ export default function VendorListNew() {
     setCurrentPage(1);
   }, [search, filter]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบผู้ขายรายนี้?')) return;
+  const handleDeleteClick = (id: string, name: string) => {
+    setVendorToDelete({ id, name });
+    setDeleteModalOpen(true);
+  };
+
+  const performDelete = async () => {
+    if (!vendorToDelete) return;
     
     try {
-      await deleteVendorMutation.mutateAsync(id);
+      setIsDeleting(true);
+      await deleteVendorMutation.mutateAsync(vendorToDelete.id);
       toast.success('ลบผู้ขายเรียบร้อยแล้ว');
+      setDeleteModalOpen(false);
+      setVendorToDelete(null);
     } catch (err) {
       console.error('Delete error:', err);
       toast.error('ไม่สามารถลบผู้ขายได้');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -226,7 +240,7 @@ export default function VendorListNew() {
                             size="icon" 
                             className="h-9 w-9 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all"
                             title="ลบ"
-                            onClick={() => handleDelete(vendor.id)}
+                            onClick={() => handleDeleteClick(vendor.id, vendor.name)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -291,28 +305,6 @@ export default function VendorListNew() {
         </CardContent>
       </Card>
 
-      <Card className="bg-orange-50 border-orange-100 rounded-3xl border-2">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-orange-100 rounded-2xl">
-              <Building2 className="w-6 h-6 text-orange-600" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-black text-orange-900 mb-2">ต้องการเพิ่มผู้ขายเข้าสู่ระบบหรือไม่?</h4>
-              <p className="text-sm text-orange-800 font-medium leading-relaxed">
-                คุณสามารถเพิ่มผู้ขายรายใหม่และบริหารจัดการสัญญาผู้ขายเพื่อใช้ในแดชบอร์ดจัดซื้อได้ทันที
-              </p>
-            </div>
-            <Link to="/vendors/new">
-              <Button className="bg-white border-2 border-orange-200 text-orange-700 hover:bg-orange-100 font-bold rounded-xl px-6 transition-all">
-                สร้างใบเพิ่มผู้ขายทันที
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Import Modal */}
       <VendorImportModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
@@ -320,6 +312,18 @@ export default function VendorListNew() {
           await importVendorsMutation.mutateAsync(vendors);
         }}
         existingVendors={vendors.map(v => ({ name: v.name, tax_id: v.tax_id || '' }))}
+      />
+
+      {/* Delete Modal */}
+      <VendorDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setVendorToDelete(null);
+        }}
+        onConfirm={performDelete}
+        vendorName={vendorToDelete?.name || ''}
+        isDeleting={isDeleting}
       />
     </div>
   );
