@@ -97,6 +97,7 @@ export default function VendorNew() {
     if (!validate(formData)) return;
     const data = {
       name: formData.get('company_name'),
+      vendor_code: formData.get('vendor_code'),
       tax_id: formData.get('tax_id'),
       category: formData.get('category'),
       address: formData.get('address'),
@@ -153,16 +154,27 @@ export default function VendorNew() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">ชื่อบริษัท <span className="text-red-500">*</span></Label>
-                  <Input 
-                    name="company_name" 
-                    id="company_name" 
-                    placeholder="เช่น ABC Construction Ltd." 
-                    className={`rounded-xl h-11 bg-gray-50 border ${errors.company_name ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
-                    onChange={() => setErrors(prev => ({ ...prev, company_name: '' }))}
-                  />
-                  {errors.company_name && <p className="text-xs text-red-500 font-medium">{errors.company_name}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="vendor_code">รหัสผู้ขาย (Supplier Code)</Label>
+                    <Input 
+                      name="vendor_code" 
+                      id="vendor_code" 
+                      placeholder="เช่น AP0001" 
+                      className="rounded-xl h-11 bg-gray-50 border-none" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company_name">ชื่อบริษัท <span className="text-red-500">*</span></Label>
+                    <Input 
+                      name="company_name" 
+                      id="company_name" 
+                      placeholder="เช่น ABC Construction Ltd." 
+                      className={`rounded-xl h-11 bg-gray-50 border ${errors.company_name ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                      onChange={() => setErrors(prev => ({ ...prev, company_name: '' }))}
+                    />
+                    {errors.company_name && <p className="text-xs text-red-500 font-medium">{errors.company_name}</p>}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -266,7 +278,7 @@ export default function VendorNew() {
                     <Input 
                       name="phone" 
                       id="phone" 
-                      placeholder="02-XXX-XXXX" 
+                      placeholder="02-XXX-XXXX, 08X-XXX-XXXX" 
                       className={`rounded-xl h-11 bg-gray-50 border ${errors.phone ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`}
                       onChange={() => setErrors(prev => ({ ...prev, phone: '' }))}
                     />

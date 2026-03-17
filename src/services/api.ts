@@ -23,6 +23,20 @@ export const vendorService = {
   async create(data: any) {
     return await pb.collection('vendors').create(data);
   },
+  async createMany(dataArray: any[]) {
+    // Bulk create vendors one by one (PocketBase doesn't have bulk insert)
+    const results = [];
+    for (const data of dataArray) {
+      try {
+        const record = await pb.collection('vendors').create(data);
+        results.push({ success: true, data: record });
+      } catch (error: any) {
+        console.error('Error creating vendor:', data.name, error.message);
+        results.push({ success: false, data, error: error.message });
+      }
+    }
+    return results;
+  },
   async update(id: string, data: any) {
     return await pb.collection('vendors').update(id, data);
   },

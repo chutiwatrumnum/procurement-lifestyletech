@@ -145,6 +145,7 @@ export default function VendorEdit() {
       // Use FormData for PocketBase to handle both text fields and file uploads in one call
       const pbFormData = new FormData();
       pbFormData.append('name', htmlFormData.get('company_name') as string || '');
+      pbFormData.append('vendor_code', htmlFormData.get('vendor_code') as string || '');
       pbFormData.append('tax_id', htmlFormData.get('tax_id') as string || '');
       pbFormData.append('category', htmlFormData.get('category') as string || '');
       pbFormData.append('address', htmlFormData.get('address') as string || '');
@@ -214,17 +215,29 @@ export default function VendorEdit() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">ชื่อบริษัท <span className="text-red-500">*</span></Label>
-                  <Input 
-                    name="company_name" 
-                    id="company_name" 
-                    defaultValue={vendor?.name}
-                    placeholder="เช่น ABC Construction Ltd." 
-                    className={`rounded-xl h-11 bg-gray-50 border ${errors.company_name ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
-                    onChange={() => setErrors(prev => ({ ...prev, company_name: '' }))}
-                  />
-                  {errors.company_name && <p className="text-xs text-red-500 font-medium">{errors.company_name}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="vendor_code">รหัสผู้ขาย (Supplier Code)</Label>
+                    <Input 
+                      name="vendor_code" 
+                      id="vendor_code" 
+                      defaultValue={vendor?.vendor_code}
+                      placeholder="เช่น AP0001" 
+                      className="rounded-xl h-11 bg-gray-50 border-none" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company_name">ชื่อบริษัท <span className="text-red-500">*</span></Label>
+                    <Input 
+                      name="company_name" 
+                      id="company_name" 
+                      defaultValue={vendor?.name}
+                      placeholder="เช่น ABC Construction Ltd." 
+                      className={`rounded-xl h-11 bg-gray-50 border ${errors.company_name ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
+                      onChange={() => setErrors(prev => ({ ...prev, company_name: '' }))}
+                    />
+                    {errors.company_name && <p className="text-xs text-red-500 font-medium">{errors.company_name}</p>}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -346,7 +359,7 @@ export default function VendorEdit() {
                       name="phone" 
                       id="phone" 
                       defaultValue={vendor?.phone}
-                      placeholder="02-XXX-XXXX" 
+                      placeholder="02-XXX-XXXX, 08X-XXX-XXXX" 
                       className={`rounded-xl h-11 bg-gray-50 border ${errors.phone ? 'border-red-400 bg-red-50/30' : 'border-transparent'}`} 
                       onChange={() => setErrors(prev => ({ ...prev, phone: '' }))}
                     />

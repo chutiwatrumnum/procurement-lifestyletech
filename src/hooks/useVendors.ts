@@ -51,3 +51,13 @@ export function useDeleteVendor() {
         },
     });
 }
+
+export function useImportVendors() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (vendors: any[]) => vendorService.createMany(vendors),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: vendorKeys.all });
+        },
+    });
+}

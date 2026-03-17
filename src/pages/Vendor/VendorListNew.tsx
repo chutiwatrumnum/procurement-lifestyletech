@@ -20,11 +20,13 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useVendors, useDeleteVendor } from '@/hooks/useVendors';
+import { useVendors, useDeleteVendor, useImportVendors } from '@/hooks/useVendors';
+import VendorImportModal from '@/components/VendorImportModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -32,9 +34,11 @@ export default function VendorListNew() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const { data: vendors = [], isLoading } = useVendors();
   const deleteVendorMutation = useDeleteVendor();
+  const importVendorsMutation = useImportVendors();
 
   const filteredVendors = vendors.filter(v => {
     const matchSearch = v.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -75,12 +79,22 @@ export default function VendorListNew() {
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">รายชื่อผู้ขาย (Vendors)</h1>
           <p className="text-gray-500 text-sm mt-1 font-medium">จัดการข้อมูลผู้ขายและแกะสร้างความร่วมมือทางธุรกิจทั้งหมด</p>
         </div>
-        <Link to="/vendors/new">
-          <Button className="bg-[#FF6B35] hover:bg-[#E55A2B] text-white px-8 h-12 rounded-2xl font-bold shadow-lg shadow-orange-500/20 transition-all active:scale-[0.98]">
-            <Plus className="w-4 h-4 mr-2" />
-            เพิ่มผู้ขายใหม่
+        <div className="flex gap-3">
+          <Button 
+            variant="outline"
+            className="border-2 border-gray-200 hover:bg-gray-50 text-gray-700 px-6 h-12 rounded-2xl font-bold"
+            onClick={() => setImportModalOpen(true)}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            นำเข้าข้อมูล
           </Button>
-        </Link>
+          <Link to="/vendors/new">
+            <Button className="bg-[#FF6B35] hover:bg-[#E55A2B] text-white px-8 h-12 rounded-2xl font-bold shadow-lg shadow-orange-500/20 transition-all active:scale-[0.98]">
+              <Plus className="w-4 h-4 mr-2" />
+              เพิ่มผู้ขายใหม่
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
@@ -126,9 +140,10 @@ export default function VendorListNew() {
           ) : (
             <>
               <Table>
-                <TableHeader>
+                  <TableHeader>
                   <TableRow className="bg-gray-50/50 border-b border-gray-100">
-                    <TableHead className="font-black text-gray-700 text-xs uppercase tracking-wider py-5 pl-8">ข้อมูล / รหัส</TableHead>
+                    <TableHead className="font-black text-gray-700 text-xs uppercase tracking-wider py-5 pl-8">รหัส</TableHead>
+                    <TableHead className="font-black text-gray-700 text-xs uppercase tracking-wider">ชื่อผู้ขาย</TableHead>
                     <TableHead className="font-black text-gray-700 text-xs uppercase tracking-wider">ประเภท</TableHead>
                     <TableHead className="font-black text-gray-700 text-xs uppercase tracking-wider">ผู้ติดต่อ</TableHead>
                     <TableHead className="font-black text-gray-700 text-xs uppercase tracking-wider">เบอร์โทร</TableHead>
@@ -140,6 +155,11 @@ export default function VendorListNew() {
                   {currentVendors.map((vendor, index) => (
                     <TableRow key={vendor.id} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
                       <TableCell className="pl-8 py-5">
+                        <p className="font-black text-gray-900 text-sm">
+                          {vendor.vendor_code || '-'}
+                        </p>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white text-sm ${
                             index % 4 === 0 ? 'bg-blue-500' :
@@ -149,8 +169,10 @@ export default function VendorListNew() {
                             {vendor.name.substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-black text-gray-900 text-sm leading-tight">{vendor.name}</p>
-                            <p className="text-xs text-gray-500 font-medium mt-0.5">VD-{String(vendor.id).padStart(5, '0')}</p>
+                            <p className="font-bold text-gray-900 text-sm leading-tight">{vendor.name}</p>
+                            <p className="text-xs text-gray-500 font-medium mt-0.5">
+                              {vendor.tax_id || '-'}
+                            </p>
                           </div>
                         </div>
                       </TableCell>
@@ -289,6 +311,16 @@ export default function VendorListNew() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Import Modal */}
+      <VendorImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImport={async (vendors) => {
+          await importVendorsMutation.mutateAsync(vendors);
+        }}
+        existingVendors={vendors.map(v => ({ name: v.name, tax_id: v.tax_id || '' }))}
+      />
     </div>
   );
 }

@@ -21,7 +21,12 @@ export const rules = {
         message,
     }),
     phone: (message = 'รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง'): ValidationRule<string> => ({
-        validate: (val) => !val || /^[\d\s\-+().]{6,20}$/.test(val),
+        validate: (val) => {
+            if (!val) return true;
+            // Support multiple phone numbers separated by , or /
+            const phones = val.split(/[,\/]/).map(p => p.trim()).filter(Boolean);
+            return phones.every(p => /^[\d\s\-+().]{4,20}$/.test(p));
+        },
         message,
     }),
     taxId: (message = 'เลขผู้เสียภาษีต้องมี 13 หลัก'): ValidationRule<string> => ({
