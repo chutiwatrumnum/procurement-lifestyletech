@@ -346,7 +346,7 @@ export default function PROtherApproval() {
           toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้จัดการอนุมัติต่อ)');
           
         } else if (currentLevel === 1 && (isManager() || isSuperAdmin())) {
-          // ผู้จัดการอนุมัติ → อนุมัติสมบูรณ์ (ไม่ตัด stock สำหรับ PR Other)
+          // ผู้จัดการอนุมัติ → อนุมัติสมบูรณ์
           const updateData: any = {
             status: 'approved',
             approved_by: user?.id,
@@ -378,6 +378,30 @@ export default function PROtherApproval() {
             }
           } else {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
+          }
+
+          // เพิ่มอุปกรณ์เข้าโครงการ (ถ้ามีการเลือกโครงการ)
+          if (selectedItem.project) {
+            try {
+              const prItems = await prService.getItems(selectedItem.id);
+              for (const item of prItems) {
+                if (item.name?.trim()) {
+                  await pb.collection('project_items').create({
+                    project: selectedItem.project,
+                    name: item.name,
+                    product_code: item.product_code || '',
+                    unit: item.unit || 'ชิ้น',
+                    initial_quantity: item.quantity,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    total_price: item.total_price
+                  });
+                }
+              }
+              console.log('Added equipment to project from PR Other approval');
+            } catch (err) {
+              console.error('Failed to add equipment to project:', err);
+            }
           }
           
           await notificationService.notifyByManager(selectedItem, user?.name || 'ผู้จัดการ', true, selectedItem.requester);

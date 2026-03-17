@@ -15,5 +15,7 @@ export function useDashboardData() {
             ]);
             return { allPRs, projects };
         },
+        refetchInterval: 30000, // รีเฟสทุก 30 วินาที
+        refetchOnWindowFocus: true, // รีเฟสเมื่อกลับมาที่หน้าจอ
     });
 }

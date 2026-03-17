@@ -88,6 +88,8 @@ export default function ProjectList() {
       return map;
     },
     enabled: projects.length > 0,
+    refetchInterval: 30000, // รีเฟสทุก 30 วินาที
+    refetchOnWindowFocus: true, // รีเฟสเมื่อกลับมาที่หน้าจอ
   }) as { data: Record<string, { budget: number; spent: number }> };
 
   const handleDelete = async () => {

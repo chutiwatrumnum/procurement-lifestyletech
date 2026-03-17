@@ -13,6 +13,8 @@ export function useProjects() {
     return useQuery({
         queryKey: projectKeys.all,
         queryFn: () => projectService.getAll(),
+        refetchInterval: 30000, // รีเฟสทุก 30 วินาที
+        refetchOnWindowFocus: true, // รีเฟสเมื่อกลับมาที่หน้าจอ
     });
 }
 

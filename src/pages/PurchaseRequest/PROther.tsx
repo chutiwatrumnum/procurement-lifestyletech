@@ -365,6 +365,27 @@ export default function PROther() {
           } catch (err) { console.error('Failed to copy manager signature:', err); }
         }
 
+        // เพิ่มอุปกรณ์เข้าโครงการ (ถ้าเลือกโครงการและส่งอนุมัติ)
+        if (status === 'pending' && isProjectPR && projectId && !isManagerRole) {
+          // สำหรับพนักงานทั่วไป จะเพิ่มอุปกรณ์เมื่อ PR ถูกอนุมัติ
+        } else if (status === 'pending' && isProjectPR && projectId) {
+          // Manager อนุมัติเอง เพิ่มอุปกรณ์ทันที
+          for (const item of items) {
+            if (item.name?.trim()) {
+              await pb.collection('project_items').create({
+                project: projectId,
+                name: item.name,
+                product_code: item.product_code || '',
+                unit: item.unit || 'ชิ้น',
+                initial_quantity: item.quantity,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                total_price: item.total_price
+              });
+            }
+          }
+        }
+
         // ส่ง notification (ไม่ส่งถ้า manager อนุมัติเองแล้ว)
         if (status === 'pending' && !isManagerRole) {
           try {
