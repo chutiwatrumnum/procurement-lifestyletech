@@ -56,10 +56,18 @@ export function useProjectDetail(projectId: string | undefined) {
                 sort: '-created'
             });
 
+            // ดึง PR Other ที่มีการเลือกโครงการ
+            const prOthers = await pb.collection('purchase_requests').getFullList({
+                filter: `project = "${projectId}" && type = "other"`,
+                sort: '-created'
+            });
+
             const prSubsApproved = await pb.collection('purchase_requests').getFullList({
                 filter: `project = "${projectId}" && type = "sub" && status = "approved"`,
                 expand: 'pr_items'
             });
+
+            // คำนวณ spent จาก PR Sub ที่อนุมัติ
 
             const withdrawnMap: Record<string, number> = {};
             const withdrawnDetailsMap: Record<string, any[]> = {};
@@ -128,19 +136,28 @@ export function useProjectDetail(projectId: string | undefined) {
                 .filter((pr: any) => pr.status === 'approved')
                 .reduce((sum: number, pr: any) => sum + (pr.total_amount || 0), 0);
 
+            // คำนวณ spent จาก PR Sub + PR Other ที่อนุมัติแล้ว
+            const prOthersApproved = prOthers.filter((pr: any) => pr.status === 'approved');
+            const totalSpentFromPROthers = prOthersApproved.reduce((sum: number, pr: any) => sum + (pr.total_amount || 0), 0);
+            
+            // รวม spent จาก PR Sub + PR Other
+            const totalSpent = totalWithdrawn + totalSpentFromPROthers;
+
             return {
                 project,
                 prProjects,
                 prSubs,
+                prOthers,
                 projectItems,
                 reserveItems,
                 reserveTotal,
                 stats: {
                     totalPlanned,
                     totalWithdrawn,
-                    remaining: totalPlanned - totalWithdrawn,
+                    totalSpentFromPROthers,
+                    remaining: totalPlanned - totalSpent,
                     totalBudget,
-                    budgetRemaining: totalBudget - totalWithdrawn,
+                    budgetRemaining: totalBudget - totalSpent,
                     totalReserve: reserveTotal
                 }
             };

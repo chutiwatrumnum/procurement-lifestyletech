@@ -20,22 +20,39 @@ export default function BudgetReport() {
     const { allPRs, projects: projList } = data;
 
     return projList.map(p => {
+      // แยกประเภท PR ตามที่ควรจะ: PR Project = เพิ่มงบ, PR Sub + Other = ใช้จ่าย
       const prsForProject = allPRs.filter(pr => pr.project === p.id);
-      const used = prsForProject.reduce((sum, pr) => sum + pr.total_amount, 0);
-      const percentage = p.budget > 0 ? Math.min(100, Math.round((used / p.budget) * 100)) : 0;
+      
+      // PR Project = เพิ่มงบ (งบจริงควรมาจาก PR Projects ที่อนุมัติ)
+      const prProjects = prsForProject.filter(pr => pr.type === 'project' && pr.status === 'approved');
+      const budgetFromPRs = prProjects.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
+      
+      // PR Sub + PR Other = ใช้จ่าย (เฉพาะที่อนุมัติแล้ว)
+      const prSubs = prsForProject.filter(pr => pr.type === 'sub' && pr.status === 'approved');
+      const prOthers = prsForProject.filter(pr => pr.type === 'other' && pr.status === 'approved');
+      const used = [...prSubs, ...prOthers].reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
+      
+      // ใช้งบจาก PR Projects ถ้ามี ถ้าไม่มีใช้งบจาก project field
+      const effectiveBudget = budgetFromPRs > 0 ? budgetFromPRs : p.budget;
+      const percentage = effectiveBudget > 0 ? Math.min(100, Math.round((used / effectiveBudget) * 100)) : 0;
       
       return {
         ...p,
         used,
-        remaining: p.budget - used,
+        remaining: effectiveBudget - used,
         percentage,
         prCount: prsForProject.length,
-        status: percentage >= 90 ? 'critical' : percentage >= 75 ? 'warning' : 'good'
+        status: percentage >= 90 ? 'critical' : percentage >= 75 ? 'warning' : 'good',
+        _budgetSource: budgetFromPRs > 0 ? 'pr_projects' : 'project_field'
       };
     });
   }, [data]);
 
-  const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
+  // ใช้ effectiveBudget (จาก PR Projects หรือ project field)
+  const totalBudget = projects.reduce((sum, p) => {
+    const effectiveBudget = p._budgetSource === 'pr_projects' ? p.used + p.remaining : p.budget;
+    return sum + effectiveBudget;
+  }, 0);
   const totalUsed = projects.reduce((sum, p) => sum + (p.used || 0), 0);
   const totalRemaining = totalBudget - totalUsed;
   const averageUsage = totalBudget > 0 ? (totalUsed / totalBudget) * 100 : 0;
@@ -113,7 +130,13 @@ export default function BudgetReport() {
                   <tr key={p.id} className="hover:bg-[#F9FAFB] transition-colors">
                     <td className="py-5 px-6 font-mono font-bold text-blue-600">{p.code}</td>
                     <td className="py-5 px-6 font-bold text-[#1F2937]">{p.name}</td>
-                    <td className="py-5 px-6 text-right text-gray-500 font-medium">฿{p.budget?.toLocaleString()}</td>
+                    <td className="py-5 px-6 text-right text-gray-500 font-medium">
+                      {p._budgetSource === 'pr_projects' ? (
+                        <span className="text-blue-600" title="งบจาก PR Project ที่อนุมัติ">฿{((p.used || 0) + p.remaining)?.toLocaleString()}</span>
+                      ) : (
+                        <span>฿{p.budget?.toLocaleString()}</span>
+                      )}
+                    </td>
                     <td className="py-5 px-6 text-right text-orange-600 font-bold">฿{p.used?.toLocaleString()}</td>
                     <td className="py-5 px-6">
                       <div className="flex flex-col items-center gap-1.5 w-32 mx-auto">

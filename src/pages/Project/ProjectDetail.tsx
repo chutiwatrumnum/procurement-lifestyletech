@@ -82,14 +82,19 @@ export default function ProjectDetail() {
   const reserveTotal = data?.reserveTotal || 0;
   const prProjects = data?.prProjects || [];
   const prSubs = data?.prSubs || [];
+  const prOthers = data?.prOthers || [];
   const stats = data?.stats || { 
     totalPlanned: 0, 
-    totalWithdrawn: 0, 
+    totalWithdrawn: 0,
+    totalSpentFromPROthers: 0,
     remaining: 0, 
     totalBudget: 0, 
     budgetRemaining: 0, 
     totalReserve: 0 
   } as any;
+  
+  // ใช้ totalSpent ที่รวม PR Sub + PR Other
+  const totalSpent = stats.totalWithdrawn + (stats.totalSpentFromPROthers || 0);
 
   const toggleExpand = (itemId: string) => {
     setExpandedItems(prev => ({
@@ -156,8 +161,8 @@ export default function ProjectDetail() {
       {/* Stats Cards */}
       {(() => {
         const budget = stats.totalBudget || 0;
-        const spent = stats.totalWithdrawn || 0;
-        const remaining = stats.budgetRemaining || 0;
+        const spent = totalSpent; // รวม PR Sub + PR Other
+        const remaining = budget - spent;
         const isOverBudget = budget > 0 && spent > budget;
         const usagePercent = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
 
@@ -254,6 +259,10 @@ export default function ProjectDetail() {
           <TabsTrigger value="prsub" className="rounded-lg">
             <FileText className="w-4 h-4 mr-2" />
             เอกสาร PR Sub ({prSubs.length})
+          </TabsTrigger>
+          <TabsTrigger value="prother" className="rounded-lg">
+            <FileText className="w-4 h-4 mr-2" />
+            เอกสาร PR Other ({prOthers.length})
           </TabsTrigger>
           <TabsTrigger value="reserve" className="rounded-lg">
             <Package className="w-4 h-4 mr-2" />
@@ -467,6 +476,67 @@ export default function ProjectDetail() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-orange-400 hover:text-orange-600 transition-colors text-sm"
+                              >
+                                <FileText className="w-4 h-4" />
+                                <span className="max-w-[200px] truncate">{file}</span>
+                                <Download className="w-3 h-3 ml-1" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400">ไม่มีไฟล์แนบ</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="prother" className="mt-6">
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-purple-600" />
+                เอกสารใบขอซื้ออื่นๆ (PR Other)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {prOthers.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>ยังไม่มีเอกสาร PR Other</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {prOthers.map((pr) => (
+                    <div key={pr.id} className="p-4 border border-gray-100 rounded-xl bg-purple-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="font-bold text-purple-600">{pr.pr_number}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(pr.created).toLocaleDateString('th-TH')} · 
+                            ฿{pr.total_amount?.toLocaleString() || 0}
+                          </p>
+                        </div>
+                        <Badge className={pr.status === 'approved' ? 'bg-green-50 text-green-700' : pr.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-yellow-50 text-yellow-700'}>
+                          {pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ไม่อนุมัติ' : 'รออนุมัติ'}
+                        </Badge>
+                      </div>
+                      
+                      {pr.attachments && pr.attachments.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-xs font-bold text-gray-500 uppercase">ไฟล์แนบ ({pr.attachments.length})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {pr.attachments.map((file: string, idx: number) => (
+                              <a
+                                key={idx}
+                                href={getFileUrl(pr.id, file)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-purple-400 hover:text-purple-600 transition-colors text-sm"
                               >
                                 <FileText className="w-4 h-4" />
                                 <span className="max-w-[200px] truncate">{file}</span>

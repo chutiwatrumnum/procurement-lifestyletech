@@ -43,11 +43,11 @@ export default function ProjectList() {
   const { data: projects = [], isLoading, error } = useProjects();
   const deleteProjectMutation = useDeleteProject();
 
-  // Fetch budget data for all projects (approved PR Projects & approved PR Subs)
+  // Fetch budget data for all projects (approved PR Projects, PR Subs, & PR Other)
   const { data: budgetMap = {} } = useQuery({
     queryKey: ['project-budgets'],
     queryFn: async () => {
-      const [approvedPRProjects, approvedPRSubs] = await Promise.all([
+      const [approvedPRProjects, approvedPRSubs, approvedPROthers] = await Promise.all([
         pb.collection('purchase_requests').getFullList({
           filter: `type = "project" && status = "approved"`,
           fields: 'id,project,total_amount'
@@ -55,18 +55,31 @@ export default function ProjectList() {
         pb.collection('purchase_requests').getFullList({
           filter: `type = "sub" && status = "approved"`,
           fields: 'id,project,total_amount'
+        }),
+        pb.collection('purchase_requests').getFullList({
+          filter: `type = "other" && status = "approved"`,
+          fields: 'id,project,total_amount'
         })
       ]);
 
       const map: Record<string, { budget: number; spent: number }> = {};
 
+      // PR Project = เพิ่มงบ
       for (const pr of approvedPRProjects) {
         if (!pr.project) continue;
         if (!map[pr.project]) map[pr.project] = { budget: 0, spent: 0 };
         map[pr.project].budget += pr.total_amount || 0;
       }
 
+      // PR Sub = ใช้จ่าย
       for (const pr of approvedPRSubs) {
+        if (!pr.project) continue;
+        if (!map[pr.project]) map[pr.project] = { budget: 0, spent: 0 };
+        map[pr.project].spent += pr.total_amount || 0;
+      }
+
+      // PR Other = ใช้จ่าย (รวมเข้ากับงบโครงการถ้าเลือกโครงการ)
+      for (const pr of approvedPROthers) {
         if (!pr.project) continue;
         if (!map[pr.project]) map[pr.project] = { budget: 0, spent: 0 };
         map[pr.project].spent += pr.total_amount || 0;

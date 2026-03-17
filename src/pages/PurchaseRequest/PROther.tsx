@@ -29,12 +29,13 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
-  Paperclip
+  Paperclip,
+  Building2
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
 import VendorSearchInput from '@/components/VendorSearchInput';
-import { prService, vendorService } from '@/services/api';
+import { prService, vendorService, projectService } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,11 +82,29 @@ export default function PROther() {
   const [editHistory, setEditHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [pbCategories, setPbCategories] = useState<any[]>([]);
+  
+  // Project selection state
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectId, setProjectId] = useState('');
+  const [isProjectPR, setIsProjectPR] = useState(false);
 
   useEffect(() => {
     pb.collection('product_categories').getFullList({ sort: 'category' })
       .then(result => setPbCategories(result))
       .catch(err => console.error('Failed to fetch categories:', err));
+  }, []);
+
+  // Load projects list
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        const projList = await projectService.getAll();
+        setProjects(projList);
+      } catch (err) {
+        console.error('Failed to load projects:', err);
+      }
+    }
+    loadProjects();
   }, []);
 
   useEffect(() => {
@@ -267,6 +286,7 @@ export default function PROther() {
           vendor: vendorId,
           total_amount: totalAmount,
           category: otherType,
+          project: isProjectPR && projectId ? projectId : null,
           approval_level: 0,
           head_of_dept_approved_by: '',
           head_of_dept_approved_at: '',
@@ -297,6 +317,11 @@ export default function PROther() {
           total_amount: totalAmount,
           requester_name: user?.name || user?.email || 'ไม่ระบุ'
         };
+
+        // Add project reference if selected
+        if (isProjectPR && projectId) {
+          prData.project = projectId;
+        }
 
         // Manager auto-approve fields
         if (status === 'pending' && isManagerRole) {
@@ -446,6 +471,50 @@ export default function PROther() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Project Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isProjectPR"
+                    checked={isProjectPR}
+                    onChange={(e) => {
+                      setIsProjectPR(e.target.checked);
+                      if (!e.target.checked) {
+                        setProjectId('');
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  <Label htmlFor="isProjectPR" className="text-sm font-medium text-gray-700 cursor-pointer">
+                    เชื่อมโยงกับโครงการ
+                  </Label>
+                </div>
+                
+                {isProjectPR && (
+                  <Select value={projectId} onValueChange={setProjectId}>
+                    <SelectTrigger className="h-11 rounded-xl bg-blue-50 border-none">
+                      <SelectValue placeholder="เลือกโครงการ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                      {projects.length === 0 && (
+                        <SelectItem value="none" disabled>ไม่มีโครงการ</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+                
+                {isProjectPR && projectId && (
+                  <p className="text-xs text-blue-600 flex items-center gap-1">
+                    <Building2 className="w-3 h-3" />
+                    ค่าใช้จ่ายจะรวมเข้ากับงบประมาณของโครงการที่เลือก
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label>หมวดหมู่สินค้า *</Label>
                 <Select onValueChange={setOtherType} value={otherType}>
