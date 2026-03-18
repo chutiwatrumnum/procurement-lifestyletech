@@ -27,7 +27,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function validateAuth() {
+    let mounted = true;
+    let isRefreshing = false;
+
+    async function loadUserData() {
       if (isAuthenticated()) {
         const currentUser = getCurrentUser();
         if (currentUser?.id) {
@@ -36,6 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const userData = await pb.collection('users').getOne(currentUser.id, {
               expand: 'department,manager'
             });
+            
+            if (!mounted) return;
             
             const enrichedUser: User = {
               id: userData.id,
@@ -56,25 +61,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(enrichedUser);
           } catch (error) {
-            console.log('User not found in database, logging out');
-            logout();
+            console.log('Session expired or user not found in database, logging out');
+            if (mounted) logout();
           }
         }
+      } else {
+        if (mounted) setUser(null);
       }
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
     }
     
-    validateAuth();
+    async function initAuth() {
+      if (isAuthenticated()) {
+        isRefreshing = true;
+        try {
+          // ดึง Refresh Token ใหม่เพื่อขยายเวลาเซสชันตอนเปิดเว็บ
+          await pb.collection('users').authRefresh();
+        } catch (e) {
+          console.log('Token refresh failed:', e);
+        } finally {
+          isRefreshing = false;
+        }
+      }
+      loadUserData();
+    }
 
-    pb.authStore.onChange(() => {
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        // Re-fetch user data on auth change
-        validateAuth();
-      } else {
-        setUser(null);
+    initAuth();
+
+    const unsubscribe = pb.authStore.onChange(() => {
+      // ป้องกันการโหลดซ้ำซ้อนตอนกำลัง Refresh Token
+      if (mounted && !isRefreshing) {
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+          loadUserData();
+        } else {
+          setUser(null);
+          setIsLoading(false);
+        }
       }
     });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
