@@ -56,6 +56,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; pr: any | null }>({ open: false, pr: null });
+  const [confirmStatusDialog, setConfirmStatusDialog] = useState<{ open: boolean; prId: string; currentStatus: string; prNumber: string }>({ open: false, prId: '', currentStatus: '', prNumber: '' });
   const ITEMS_PER_PAGE = 15;
   const navigate = useNavigate();
   
@@ -97,16 +98,24 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
   };
 
   // Toggle procurement status (ซื้อแล้ว / ยังไม่ซื้อ)
-  const toggleProcurementStatus = async (e: React.MouseEvent, prId: string, currentStatus: string) => {
+  const handleToggleStatusClick = (e: React.MouseEvent, pr: any) => {
     e.stopPropagation();
-    const newStatus = currentStatus === 'purchased' ? 'not_purchased' : 'purchased';
+    setConfirmStatusDialog({ open: true, prId: pr.id, currentStatus: pr.procurement_status, prNumber: pr.pr_number });
+  };
+
+  const confirmToggleStatus = async () => {
+    if (!confirmStatusDialog.prId) return;
+
+    const newStatus = confirmStatusDialog.currentStatus === 'purchased' ? 'not_purchased' : 'purchased';
     try {
-      await pb.collection('purchase_requests').update(prId, { procurement_status: newStatus });
+      await pb.collection('purchase_requests').update(confirmStatusDialog.prId, { procurement_status: newStatus });
       queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
       toast.success(newStatus === 'purchased' ? 'อัปเดตเป็น "ซื้อแล้ว"' : 'อัปเดตเป็น "ยังไม่ซื้อ"');
+      setConfirmStatusDialog({ open: false, prId: '', currentStatus: '', prNumber: '' });
     } catch (err) {
       console.error('Update procurement status error:', err);
       toast.error('อัปเดตสถานะไม่สำเร็จ');
+      setConfirmStatusDialog(prev => ({ ...prev, open: false }));
     }
   };
 
@@ -321,7 +330,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                     <TableCell>
                       {pr.rawStatus === 'approved' && (pr.rawType === 'sub' || pr.rawType === 'other') ? (
                         <button
-                          onClick={(e) => toggleProcurementStatus(e, pr.id, pr.procurement_status)}
+                          onClick={(e) => handleToggleStatusClick(e, pr)}
                           className="group transition-all duration-200"
                         >
                           {pr.procurement_status === 'purchased' ? (
@@ -465,6 +474,34 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
               disabled={deletePRMutation.isPending}
             >
               {deletePRMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> กำลังลบ...</> : 'ลบใบขอซื้อ'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmStatusDialog.open} onOpenChange={(open) => setConfirmStatusDialog(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ยืนยันการเปลี่ยนแปลงสถานะจัดซื้อ</DialogTitle>
+            <DialogDescription className="mt-2 text-base">
+              คุณต้องการเปลี่ยนสถานะของใบขอซื้อ <strong>{confirmStatusDialog.prNumber}</strong> เป็น
+              <br/>
+              {confirmStatusDialog.currentStatus === 'purchased' ? (
+                <span className="inline-block mt-2 font-bold text-amber-600">"รอจัดซื้อ"</span>
+              ) : (
+                <span className="inline-block mt-2 font-bold text-emerald-600">"ซื้อแล้ว"</span>
+              )} ใช่หรือไม่?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmStatusDialog(prev => ({ ...prev, open: false }))}>
+              ยกเลิก
+            </Button>
+            <Button 
+              className={confirmStatusDialog.currentStatus === 'purchased' ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"} 
+              onClick={confirmToggleStatus}
+            >
+              ยืนยันเปลี่ยนสถานะ
             </Button>
           </DialogFooter>
         </DialogContent>

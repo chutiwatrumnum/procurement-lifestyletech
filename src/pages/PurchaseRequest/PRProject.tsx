@@ -119,9 +119,9 @@ export default function PRProject() {
         prService.getHistory(prId).catch(() => [])
       ]);
       
-      // Check สิทธิ์แก้ไข (เฉพาะ draft)
-      if (pr.status !== 'draft') {
-        toast.error('สามารถแก้ไขได้เฉพาะรายการที่ยังเป็น Draft เท่านั้น');
+      // Check สิทธิ์แก้ไข (เฉพาะ draft และ rejected)
+      if (pr.status !== 'draft' && pr.status !== 'rejected') {
+        toast.error('สามารถแก้ไขได้เฉพาะรายการที่ยังเป็น Draft หรือถูกตีกลับเท่านั้น');
         navigate('/purchase-requests');
         return;
       }

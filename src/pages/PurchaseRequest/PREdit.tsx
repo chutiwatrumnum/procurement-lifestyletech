@@ -30,6 +30,8 @@ import { prService, projectService, vendorService } from '@/services/api';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
 import FileUploadManager from '@/components/ui/FileUploadManager';
+import VendorSearchInput from '@/components/VendorSearchInput';
+import ProductSearchInput from '@/components/ProductSearchInput';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Select,
@@ -51,6 +53,7 @@ export default function PREdit() {
   const [projects, setProjects] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [vendorIds, setVendorIds] = useState<string[]>([]);
+  const [vendorSearch, setVendorSearch] = useState('');
   const [budgetInfo, setBudgetInfo] = useState<{ budget: number; spent: number; percentage: number } | null>(null);
   const [editHistory, setEditHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -206,7 +209,7 @@ export default function PREdit() {
   }, [id]);
 
   const updateItem = (itemId: string, field: string, value: any) => {
-    setItems(items.map(item => {
+    setItems(prev => prev.map(item => {
       if (item.id === itemId) {
         const updated = { ...item, [field]: value };
         if (field === 'quantity' || field === 'unit_price') {
@@ -460,11 +463,16 @@ export default function PREdit() {
                     {items.map((item) => (
                       <tr key={item.id} className="group">
                         <td className="py-4 pr-4">
-                          <Input 
-                            value={item.name} 
-                            onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                            placeholder="ระบุชื่อสินค้า..."
-                            className="h-10 border-none bg-gray-50 rounded-xl font-bold" 
+                          <ProductSearchInput
+                            value={item.name}
+                            onChange={(val) => updateItem(item.id, 'name', val)}
+                            onSelectProduct={(product) => {
+                              updateItem(item.id, 'name', product.name);
+                              updateItem(item.id, 'unit_price', product.unit_price);
+                              if (product.product_code) updateItem(item.id, 'product_code', product.product_code);
+                              if (product.unit) updateItem(item.id, 'unit', product.unit);
+                            }}
+                            placeholder="ค้นหาหรือระบุชื่อสินค้า..."
                           />
                         </td>
                         <td className="py-4 px-1">
@@ -523,22 +531,17 @@ export default function PREdit() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขาย *</Label>
-                <Select 
-                  onValueChange={(value) => {
-                    if (!vendorIds.includes(value)) {
-                      setVendorIds([...vendorIds, value]);
+                <VendorSearchInput
+                  value={vendorSearch}
+                  onChange={setVendorSearch}
+                  onSelectVendor={(vendor) => {
+                    if (!vendorIds.includes(vendor.id)) {
+                      setVendorIds([...vendorIds, vendor.id]);
+                      setVendorSearch('');
                     }
                   }}
-                >
-                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
-                    <SelectValue placeholder="เลือกบริษัทผู้ขาย" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.filter(v => !vendorIds.includes(v.id)).map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="ค้นหาบริษัทผู้ขาย..."
+                />
                 
                 {vendorIds.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
