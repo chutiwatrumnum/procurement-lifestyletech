@@ -639,7 +639,7 @@ export default function PRSubcontractor() {
                     <SelectValue placeholder="เลือกโครงการที่ต้องการ" />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.code} - {p.name}</SelectItem>)}
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.code ? `${p.code} - ` : ''}{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {isEditMode && <p className="text-xs text-gray-400">* ไม่สามารถเปลี่ยนโครงการได้</p>}
