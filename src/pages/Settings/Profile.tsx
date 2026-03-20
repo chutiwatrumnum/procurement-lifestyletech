@@ -105,8 +105,7 @@ export default function ProfileSettings() {
     try {
       await pb.collection('users').update(currentUser.id, {
         name: profile.name,
-        phone: profile.phone || undefined,
-        position: profile.position || undefined
+        phone: profile.phone || undefined
       });
       
       toast.success('อัปเดตโปรไฟล์สำเร็จ');
@@ -391,33 +390,22 @@ export default function ProfileSettings() {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-gray-400" />
-                เบอร์โทรศัพท์
+                เบอร์โทรศัพท์ (ตัวเลขเท่านั้น)
               </Label>
               <Input
                 value={profile.phone}
-                onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                onChange={(e) => setProfile({ ...profile, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 className="h-11 rounded-xl"
-                placeholder="0xx-xxx-xxxx"
+                placeholder="0xxxxxxxxx"
+                maxLength={10}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-gray-400" />
-                ตำแหน่ง
-              </Label>
-              <Input
-                value={profile.position}
-                onChange={(e) => setProfile({ ...profile, position: e.target.value })}
-                className="h-11 rounded-xl"
-                placeholder="เช่น วิศวกร, นักบัญชี"
-              />
-            </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-gray-400" />
-                บทบาท (ไม่สามารถแก้ไข)
+                ตำแหน่ง (ไม่สามารถแก้ไข)
               </Label>
               <div className="h-11 rounded-xl bg-gray-50 flex items-center px-3">
                 {profile.role ? (
@@ -425,7 +413,7 @@ export default function ProfileSettings() {
                     {getRoleLabel(profile.role)}
                   </Badge>
                 ) : (
-                  <span className="text-sm text-gray-400">ยังไม่ได้กำหนดบทบาท</span>
+                  <span className="text-sm text-gray-400">ยังไม่ได้กำหนดตำแหน่ง</span>
                 )}
               </div>
             </div>

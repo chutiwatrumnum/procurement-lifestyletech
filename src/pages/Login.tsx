@@ -92,8 +92,43 @@ export default function Login() {
       setPendingApproval(true);
       toast.success('สมัครสำเร็จ! กรุณารอการอนุมัติจาก Admin');
     } catch (err: any) {
-      setError(err.data?.message || 'ไม่สามารถสมัครสมาชิกได้');
-      toast.error('การสมัครสมาชิกขัดข้อง');
+      // Parse PocketBase field-level validation errors
+      const fieldErrors: Record<string, string> = {
+        password: 'รหัสผ่าน',
+        email: 'อีเมล',
+        name: 'ชื่อ',
+      };
+      
+      if (err?.data?.data) {
+        const messages: string[] = [];
+        for (const [field, detail] of Object.entries(err.data.data as Record<string, any>)) {
+          const fieldName = fieldErrors[field] || field;
+          if (detail?.message) {
+            // Map common PocketBase error codes to Thai
+            let msg = detail.message;
+            if (detail.code === 'validation_min_text_constraint') {
+              msg = 'ต้องมีอย่างน้อย 8 ตัวอักษร';
+            } else if (detail.code === 'validation_invalid_email') {
+              msg = 'รูปแบบอีเมลไม่ถูกต้อง';
+            } else if (detail.code === 'validation_not_unique') {
+              msg = 'มีในระบบแล้ว กรุณาใช้ค่าอื่น';
+            } else if (detail.code === 'validation_required') {
+              msg = 'จำเป็นต้องกรอก';
+            }
+            messages.push(`${fieldName}: ${msg}`);
+          }
+        }
+        if (messages.length > 0) {
+          setError(messages.join('\n'));
+          toast.error(messages[0]);
+        } else {
+          setError(err.data?.message || 'ไม่สามารถสมัครสมาชิกได้');
+          toast.error('การสมัครสมาชิกขัดข้อง');
+        }
+      } else {
+        setError(err.data?.message || 'ไม่สามารถสมัครสมาชิกได้');
+        toast.error('การสมัครสมาชิกขัดข้อง');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -327,7 +362,7 @@ export default function Login() {
                       </div>
 
                       {error && (
-                        <div className="p-4 text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-2xl animate-in fade-in slide-in-from-top-1">
+                        <div className="p-4 text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-2xl animate-in fade-in slide-in-from-top-1 whitespace-pre-line">
                           {error}
                         </div>
                       )}

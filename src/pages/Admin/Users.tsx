@@ -95,7 +95,6 @@ export default function UserManagement() {
     department: 'none',
     manager: 'none',
     phone: '',
-    position: '',
     is_active: true
   });
 
@@ -117,7 +116,6 @@ export default function UserManagement() {
     managerName: u.expand?.manager?.name,
     is_active: u.is_active ?? true,
     phone: u.phone,
-    position: u.position,
     created: u.created
   })), [rawUsers]);
 
@@ -149,7 +147,6 @@ export default function UserManagement() {
         department: formData.department === 'none' ? undefined : formData.department,
         manager: formData.manager === 'none' ? undefined : formData.manager,
         phone: formData.phone || undefined,
-        position: formData.position || undefined,
         is_active: true
       });
       toast.success(`สร้างผู้ใช้สำเร็จ (รหัสผ่านชั่วคราว: ${tempPassword})`);
@@ -183,7 +180,6 @@ export default function UserManagement() {
           department: formData.department === 'none' ? undefined : formData.department,
           manager: formData.manager === 'none' ? undefined : formData.manager,
           phone: formData.phone || undefined,
-          position: formData.position || undefined,
           is_active: formData.is_active
         }
       });
@@ -243,8 +239,7 @@ export default function UserManagement() {
         role: user.role || 'employee',
         department: user.department || 'none',
         manager: user.manager || 'none',
-        phone: user.phone || '',
-        position: user.position || '',
+        phone: user.phone ? user.phone.toString() : '',
         is_active: user.is_active ?? true
       });
       setIsEditDialogOpen(true);
@@ -271,7 +266,6 @@ export default function UserManagement() {
       department: 'none',
       manager: 'none',
       phone: '',
-      position: '',
       is_active: true
     });
   };
@@ -280,8 +274,7 @@ export default function UserManagement() {
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.position && user.position.toLowerCase().includes(searchTerm.toLowerCase()));
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     const matchesStatus = statusFilter === 'all' || 
@@ -463,10 +456,10 @@ export default function UserManagement() {
             <div className="flex gap-3">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="w-40 h-11 rounded-xl bg-gray-50 border-none">
-                  <SelectValue placeholder="ทุกบทบาท" />
+                  <SelectValue placeholder="ทุกตำแหน่ง" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">ทุกบทบาท</SelectItem>
+                  <SelectItem value="all">ทุกตำแหน่ง</SelectItem>
                   <SelectItem value="superadmin">ผู้ดูแลระบบ</SelectItem>
                   <SelectItem value="head_of_dept">ผู้จัดการแผนก</SelectItem>
                   <SelectItem value="manager">ผู้บริหาร</SelectItem>
@@ -503,9 +496,8 @@ export default function UserManagement() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">ผู้ใช้</th>
-                    <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">บทบาท</th>
-                    <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">แผนก</th>
                     <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">ตำแหน่ง</th>
+                    <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">แผนก</th>
                     <th className="py-4 px-6 text-center font-bold text-gray-600 uppercase text-[10px] tracking-wider">สถานะ</th>
                     <th className="py-4 px-6 text-right font-bold text-gray-600 uppercase text-[10px] tracking-wider">จัดการ</th>
                   </tr>
@@ -531,9 +523,6 @@ export default function UserManagement() {
                       </td>
                       <td className="py-4 px-6">
                         <p className="text-sm text-gray-600">{user.departmentName || '-'}</p>
-                      </td>
-                      <td className="py-4 px-6">
-                        <p className="text-sm text-gray-600">{user.position || '-'}</p>
                       </td>
                       <td className="py-4 px-6 text-center">
                         {user.is_active ? (
@@ -616,7 +605,7 @@ export default function UserManagement() {
             </div>
             
             <div className="space-y-2">
-              <Label>บทบาท *</Label>
+              <Label>ตำแหน่ง *</Label>
               <Select 
                 value={formData.role} 
                 onValueChange={(v: any) => setFormData({ ...formData, role: v })}
@@ -654,22 +643,13 @@ export default function UserManagement() {
             </div>
             
             <div className="space-y-2">
-              <Label>ตำแหน่ง</Label>
-              <Input
-                value={formData.position}
-                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                placeholder="เช่น วิศวกร, นักบัญชี"
-                className="rounded-xl"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>เบอร์โทร</Label>
+              <Label>เบอร์โทร (ตัวเลขเท่านั้น)</Label>
               <Input
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="0xx-xxx-xxxx"
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                placeholder="0xxxxxxxxx"
                 className="rounded-xl"
+                maxLength={10}
               />
             </div>
           </div>
@@ -721,7 +701,7 @@ export default function UserManagement() {
             </div>
             
             <div className="space-y-2">
-              <Label>บทบาท</Label>
+              <Label>ตำแหน่ง</Label>
               <Select 
                 value={formData.role} 
                 onValueChange={(v: any) => setFormData({ ...formData, role: v })}
@@ -759,20 +739,13 @@ export default function UserManagement() {
             </div>
             
             <div className="space-y-2">
-              <Label>ตำแหน่ง</Label>
-              <Input
-                value={formData.position}
-                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                className="rounded-xl"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>เบอร์โทร</Label>
+              <Label>เบอร์โทร (ตัวเลขเท่านั้น)</Label>
               <Input
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 className="rounded-xl"
+                placeholder="0xxxxxxxxx"
+                maxLength={10}
               />
             </div>
             

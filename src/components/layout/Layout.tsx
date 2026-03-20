@@ -187,6 +187,7 @@ function Sidebar({
   pendingPRProject,
   pendingPRSub,
   pendingPROther,
+  pendingUsers,
   user,
   onLogout,
   onToggleCollapse,
@@ -201,6 +202,7 @@ function Sidebar({
   pendingPRProject: number;
   pendingPRSub: number;
   pendingPROther: number;
+  pendingUsers: number;
   user: any;
   onLogout: () => void;
   onToggleCollapse: () => void;
@@ -227,6 +229,9 @@ function Sidebar({
     }
     if (item.href === '/purchase-requests/approval-other') {
       return pendingPROther;
+    }
+    if (item.href === '/admin/users') {
+      return pendingUsers;
     }
     return item.badge || 0;
   };
@@ -353,6 +358,7 @@ export default function Layout({ children }: LayoutProps) {
   const [pendingPRProject, setPendingPRProject] = useState(0);
   const [pendingPRSub, setPendingPRSub] = useState(0);
   const [pendingPROther, setPendingPROther] = useState(0);
+  const [pendingUsers, setPendingUsers] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const { logoUrl, loading: logoLoading } = useCompanyLogo();
@@ -418,6 +424,12 @@ export default function Layout({ children }: LayoutProps) {
         filter: 'status = "pending" && type = "other"',
       });
       setPendingPROther(prOtherResult.totalItems);
+      
+      // นับ Users ที่รออนุมัติ (is_active = false)
+      const pendingUsersResult = await pb.collection('users').getList(1, 1, {
+        filter: 'is_active = false',
+      });
+      setPendingUsers(pendingUsersResult.totalItems);
     } catch (err) {
       console.error('Failed to fetch pending counts:', err);
     }
@@ -459,6 +471,7 @@ export default function Layout({ children }: LayoutProps) {
           pendingPRProject={pendingPRProject}
           pendingPRSub={pendingPRSub}
           pendingPROther={pendingPROther}
+          pendingUsers={pendingUsers}
           user={user}
           onLogout={handleLogout}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -486,6 +499,7 @@ export default function Layout({ children }: LayoutProps) {
                 pendingPRProject={pendingPRProject}
                 pendingPRSub={pendingPRSub}
                 pendingPROther={pendingPROther}
+                pendingUsers={pendingUsers}
                 user={user}
                 onLogout={handleLogout}
                 onClose={() => setIsMobileMenuOpen(false)}
@@ -521,9 +535,9 @@ export default function Layout({ children }: LayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative text-[#6B7280]">
                   <Bell className="h-5 w-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 w-5 rounded-full bg-red-500 text-white text-xs items-center justify-center font-bold">
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                  {(unreadCount + pendingUsers) > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 rounded-full bg-red-500 text-white text-xs items-center justify-center font-bold animate-pulse">
+                      {(unreadCount + pendingUsers) > 9 ? '9+' : (unreadCount + pendingUsers)}
                     </span>
                   )}
                 </Button>
@@ -540,7 +554,21 @@ export default function Layout({ children }: LayoutProps) {
                     </button>
                   )}
                 </div>
-                {notifications.length === 0 ? (
+                {pendingUsers > 0 && (
+                  <DropdownMenuItem 
+                    className="px-3 py-3 cursor-pointer bg-orange-50 border-b border-orange-100"
+                    onClick={() => navigate('/admin/users')}
+                  >
+                    <div className="flex-1">
+                      <p className="font-bold text-sm text-orange-600">👤 ผู้ใช้รออนุมัติ</p>
+                      <p className="text-xs text-orange-500 mt-0.5">มีผู้ใช้ใหม่รออนุมัติ {pendingUsers} คน</p>
+                    </div>
+                    <span className="flex h-6 min-w-[24px] px-1.5 items-center justify-center rounded-full bg-orange-500 text-white text-xs font-bold">
+                      {pendingUsers}
+                    </span>
+                  </DropdownMenuItem>
+                )}
+                {notifications.length === 0 && pendingUsers === 0 ? (
                   <div className="px-3 py-8 text-center text-gray-400 text-sm">
                     ไม่มีการแจ้งเตือน
                   </div>

@@ -8,7 +8,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  register: (email: string, password: string, name: string, role: UserRole, department?: string) => Promise<void>;
+  register: (email: string, password: string, name: string, role: UserRole, department?: string, position?: string) => Promise<void>;
   // RBAC helpers
   hasRole: (roles: UserRole[]) => boolean;
   isSuperAdmin: () => boolean;
@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const register = async (email: string, password: string, name: string, role: UserRole, department?: string) => {
+  const register = async (email: string, password: string, name: string, role: UserRole, department?: string, position?: string) => {
     try {
       await pb.collection('users').create({
         email,
@@ -161,6 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: role || 'employee',
         is_active: false,
         department: department || undefined,
+        position: position || undefined,
+        emailVisibility: true,
       });
       // ไม่ login หลังสมัคร — ต้องรอ admin approve ก่อน
     } catch (error) {

@@ -12,6 +12,7 @@ export function useUsers() {
         queryFn: async () => {
             const users = await pb.collection('users').getFullList({
                 sort: '-created',
+                expand: 'department,manager'
             });
             return users;
         },
