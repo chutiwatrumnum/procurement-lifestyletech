@@ -439,6 +439,15 @@ export default function PRSubcontractor() {
         // Upload new attachments
         await uploadAttachments(id);
 
+        // Manager auto-approve: Deduct stock by calling approveSub
+        if (status === 'pending' && isManagerRole) {
+          try {
+            await prService.approveSub(id, user?.id, 'อนุมัติอัตโนมัติตอนแก้ไข (ผู้บริหาร)');
+          } catch (err) {
+            console.error('Failed to deduct stock during manager auto-approve:', err);
+          }
+        }
+
         toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : (isManagerRole && status === 'pending' ? 'อนุมัติใบขอซื้อย่อยเรียบร้อยแล้ว' : 'ส่งใบขอซื้อย่อยเรียบร้อยแล้ว'));
       } else {
         const prData: any = {
@@ -477,6 +486,13 @@ export default function PRSubcontractor() {
               await pb.collection('purchase_requests').update(pr.id, formData);
             }
           } catch (err) { console.error('Failed to copy manager signature:', err); }
+
+          // Manager auto-approve: Deduct stock by calling approveSub
+          try {
+            await prService.approveSub(pr.id, user?.id, 'อนุมัติอัตโนมัติตอนสร้าง (ผู้บริหาร)');
+          } catch (err) {
+            console.error('Failed to deduct stock during manager auto-approve:', err);
+          }
         }
         
         // ส่ง notification (ไม่ส่งถ้า manager อนุมัติเองแล้ว)
