@@ -416,6 +416,7 @@ export default function PROtherApproval() {
       await loadData();
       queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
     } catch (err) {
       toast.error('ดำเนินการไม่สำเร็จ');

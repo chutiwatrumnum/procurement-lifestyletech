@@ -428,6 +428,7 @@ export default function POApproval() {
       // Invalidate React Query caches
       queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
       // Refresh badge counts in sidebar
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
     } catch (err) {

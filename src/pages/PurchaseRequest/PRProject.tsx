@@ -455,12 +455,14 @@ export default function PRProject() {
         window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
         queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
         navigate('/purchase-requests/approval');
       } else if (status === 'pending' && isManagerRole) {
         // Manager อนุมัติเอง → กลับหน้ารายการ
         window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
         queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
         navigate('/purchase-requests');
       } else {
         queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });

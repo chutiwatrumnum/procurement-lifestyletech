@@ -310,6 +310,7 @@ export default function PREdit() {
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
       queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
       navigate('/purchase-requests');
     } catch (err: any) {
       console.error('Update error:', err);

@@ -500,9 +500,11 @@ export default function PRSubcontractor() {
         window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
         queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
         navigate('/purchase-orders/approval');
       } else {
         queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+        queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
         navigate('/purchase-requests');
       }
     } catch (error) {
