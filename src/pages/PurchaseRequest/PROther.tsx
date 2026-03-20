@@ -375,6 +375,28 @@ export default function PROther() {
                 await pb.collection('purchase_requests').update(id, sigFormData);
               }
             } catch (err) { console.error('Failed to copy manager signature:', err); }
+
+            // Manager auto-approve: Create project_items if it's a project PR
+            if (isProjectPR && projectId) {
+              for (const item of items) {
+                if (item.name?.trim()) {
+                  try {
+                    await pb.collection('project_items').create({
+                      project: projectId,
+                      name: item.name,
+                      product_code: item.product_code || '',
+                      unit: item.unit || 'ชิ้น',
+                      initial_quantity: Number(item.quantity) || 0,
+                      quantity: Number(item.quantity) || 0,
+                      unit_price: Number(item.unit_price) || 0,
+                      total_price: Number(item.total_price) || 0
+                    });
+                  } catch (err) {
+                    console.error('Failed to create project item during manager auto-approve:', err);
+                  }
+                }
+              }
+            }
           }
 
           // ส่ง notification (ไม่ส่งถ้า manager อนุมัติเองแล้ว)

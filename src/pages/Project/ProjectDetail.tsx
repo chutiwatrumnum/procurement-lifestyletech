@@ -290,8 +290,7 @@ export default function ProjectDetail() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 text-gray-600">
-                        <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รหัส</th>
-                        <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รายการ</th>
+                        <th className="py-4 px-6 text-left font-bold uppercase text-[10px] tracking-wider">รหัส / รายการสินค้า</th>
                         <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider">แผน (จำนวน)</th>
                         <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider">เบิกจริง</th>
                         <th className="py-4 px-6 text-center font-bold uppercase text-[10px] tracking-wider">คงเหลือ</th>

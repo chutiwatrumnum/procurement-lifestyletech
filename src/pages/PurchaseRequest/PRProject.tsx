@@ -352,10 +352,83 @@ export default function PRProject() {
           } catch (err) { console.error('Failed to copy manager signature:', err); }
         }
 
+        // Load old PR items to calculate stock difference
+        let oldPrItems: any[] = [];
+        try {
+          oldPrItems = await pb.collection('pr_items').getFullList({
+            filter: `pr = "${id}"`
+          });
+        } catch (e) {
+          console.error("Could not fetch old items for stock adjustment");
+        }
+
         // Delete old items and create new
         await prService.deleteItems(id);
         for (const item of prItems) {
           await prService.createItem({ ...item, pr: id });
+        }
+
+        // Update project_items (stock) for EDIT mode if it's pending/approved
+        if ((status === 'pending' || finalStatus === 'approved') && projectId) {
+          try {
+            // Get all current project items for this project
+            const existingProjItems = await pb.collection('project_items').getFullList({
+              filter: `project = "${projectId}"`
+            });
+
+            // 1. Subtract the old items' quantities from project_items
+            for (const oldItem of oldPrItems) {
+              const projItem = existingProjItems.find(pi => pi.name === oldItem.name);
+              if (projItem) {
+                projItem.initial_quantity = Math.max(0, (projItem.initial_quantity || 0) - (oldItem.quantity || 0));
+                projItem.quantity = Math.max(0, (projItem.quantity || 0) - (oldItem.quantity || 0));
+                projItem.total_price = projItem.quantity * (projItem.unit_price || 0);
+              }
+            }
+
+            // 2. Add the new items' quantities to project_items
+            for (const newItem of prItems) {
+              let projItem = existingProjItems.find(pi => pi.name === newItem.name);
+              if (projItem) {
+                projItem.initial_quantity = (projItem.initial_quantity || 0) + (newItem.quantity || 0);
+                projItem.quantity = (projItem.quantity || 0) + (newItem.quantity || 0);
+                projItem.total_price = projItem.quantity * (projItem.unit_price || 0);
+                projItem._isUpdated = true;
+              } else {
+                // Completely new item added during edit
+                existingProjItems.push({
+                  id: 'NEW_' + Math.random(),
+                  project: projectId,
+                  name: newItem.name,
+                  product_code: newItem.product_code || '',
+                  unit: newItem.unit,
+                  initial_quantity: newItem.quantity,
+                  quantity: newItem.quantity,
+                  unit_price: newItem.unit_price,
+                  total_price: newItem.total_price,
+                  _isNew: true
+                } as any);
+              }
+            }
+
+            // Apply all changes to database
+            for (const projItem of existingProjItems) {
+              if ((projItem as any)._isNew) {
+                const { id, _isNew, _isUpdated, ...data } = projItem as any;
+                await pb.collection('project_items').create(data);
+              } else if ((projItem as any)._isUpdated || oldPrItems.some(old => old.name === projItem.name)) {
+                // If it was updated by adding, or it was modified by subtracting old items
+                const { _isUpdated, ...data } = projItem as any;
+                await pb.collection('project_items').update(projItem.id, {
+                  initial_quantity: projItem.initial_quantity,
+                  quantity: projItem.quantity,
+                  total_price: projItem.total_price
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Failed to update project items during edit", e);
+          }
         }
 
         // Upload new attachments
