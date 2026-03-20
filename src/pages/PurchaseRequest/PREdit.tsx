@@ -13,6 +13,7 @@ import {
   Trash2,
   FileText,
   Send,
+  Save,
   AlertCircle,
   ArrowLeft,
   Loader2,
@@ -376,21 +377,47 @@ export default function PREdit() {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button 
-            variant="outline" 
-            className="rounded-xl px-6 border-gray-200 font-bold"
-            onClick={() => navigate(-1)}
-          >
-            ยกเลิก
-          </Button>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700 rounded-xl px-8 font-bold shadow-lg shadow-blue-500/20"
-            onClick={handleUpdate}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-            ส่งกลับเพื่อขออนุมัติใหม่
-          </Button>
+          {prData?.status === 'draft' ? (
+            <>
+              <Button 
+                variant="outline" 
+                className="rounded-xl px-6 border-[#E5E7EB] font-bold"
+                onClick={() => {
+                  // Save as draft — just update items + data, no status change
+                  handleUpdate();
+                }}
+                disabled={isSubmitting}
+              >
+                <Save className="w-4 h-4 mr-2" /> บันทึกร่าง
+              </Button>
+              <Button 
+                className="bg-[#4B5563] hover:bg-[#1F2937] rounded-xl px-8 font-bold shadow-lg"
+                onClick={handleUpdate}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                ส่งคำขอจัดซื้อ
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                className="rounded-xl px-6 border-gray-200 font-bold"
+                onClick={() => navigate(-1)}
+              >
+                ยกเลิก
+              </Button>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700 rounded-xl px-8 font-bold shadow-lg shadow-blue-500/20"
+                onClick={handleUpdate}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                ส่งกลับเพื่อขออนุมัติใหม่
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -556,63 +583,65 @@ export default function PREdit() {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Vendor Card */}
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <CardHeader className="bg-white pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-bold">
-                <User className="w-5 h-5 text-blue-600" /> ข้อมูลผู้ขาย
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขาย *</Label>
-                <VendorSearchInput
-                  value={vendorSearch}
-                  onChange={setVendorSearch}
-                  onSelectVendor={(vendor) => {
-                    if (!vendorIds.includes(vendor.id)) {
-                      setVendorIds([...vendorIds, vendor.id]);
-                      setVendorSearch('');
-                    }
-                  }}
-                  placeholder="ค้นหาบริษัทผู้ขาย..."
-                />
-                
-                {vendorIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedVendors.map(vendor => (
-                      <span 
-                        key={vendor.id} 
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                      >
-                        {vendor.name}
-                        <button 
-                          type="button"
-                          onClick={() => setVendorIds(vendorIds.filter(vid => vid !== vendor.id))}
-                          className="hover:text-blue-900 ml-1"
+          {/* Vendor Card — hide for project type */}
+          {prData?.type !== 'project' && (
+            <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
+              <CardHeader className="bg-white pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-bold">
+                  <User className="w-5 h-5 text-blue-600" /> ข้อมูลผู้ขาย
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้ขาย *</Label>
+                  <VendorSearchInput
+                    value={vendorSearch}
+                    onChange={setVendorSearch}
+                    onSelectVendor={(vendor) => {
+                      if (!vendorIds.includes(vendor.id)) {
+                        setVendorIds([...vendorIds, vendor.id]);
+                        setVendorSearch('');
+                      }
+                    }}
+                    placeholder="ค้นหาบริษัทผู้ขาย..."
+                  />
+                  
+                  {vendorIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {selectedVendors.map(vendor => (
+                        <span 
+                          key={vendor.id} 
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
                         >
-                          ×
-                        </button>
-                      </span>
+                          {vendor.name}
+                          <button 
+                            type="button"
+                            onClick={() => setVendorIds(vendorIds.filter(vid => vid !== vendor.id))}
+                            className="hover:text-blue-900 ml-1"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedVendors.length > 0 && (
+                  <div className="space-y-3">
+                    {selectedVendors.map(vendor => (
+                      <div key={vendor.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
+                        <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{vendor.name}</p>
+                        <p className="font-bold text-blue-900">{vendor.contact_person}</p>
+                        <p className="text-sm text-blue-700">{vendor.email}</p>
+                        <p className="text-sm text-blue-700">{vendor.phone}</p>
+                      </div>
                     ))}
                   </div>
                 )}
-              </div>
-
-              {selectedVendors.length > 0 && (
-                <div className="space-y-3">
-                  {selectedVendors.map(vendor => (
-                    <div key={vendor.id} className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
-                      <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{vendor.name}</p>
-                      <p className="font-bold text-blue-900">{vendor.contact_person}</p>
-                      <p className="text-sm text-blue-700">{vendor.email}</p>
-                      <p className="text-sm text-blue-700">{vendor.phone}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Combined Attachments Card */}
           <Card className="border-none shadow-sm rounded-2xl">

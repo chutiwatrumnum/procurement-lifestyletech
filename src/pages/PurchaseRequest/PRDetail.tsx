@@ -148,26 +148,28 @@ export default function PRDetail() {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Vendor Info */}
-          <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-bold">
-                <User className="w-5 h-5 text-blue-600" /> ผู้ขาย
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {pr.expand?.vendor ? (
-                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
-                  <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{pr.expand.vendor.name}</p>
-                  <p className="font-bold text-blue-900">{pr.expand.vendor.contact_person}</p>
-                  <p className="text-sm text-blue-700">{pr.expand.vendor.email}</p>
-                  <p className="text-sm text-blue-700">{pr.expand.vendor.phone}</p>
-                </div>
-              ) : (
-                <p className="text-gray-400">ไม่ระบุผู้ขาย</p>
-              )}
-            </CardContent>
-          </Card>
+          {/* Vendor Info — only show if vendor exists */}
+          {pr.vendor && (
+            <Card className="border-none shadow-sm rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-bold">
+                  <User className="w-5 h-5 text-blue-600" /> ผู้ขาย
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pr.expand?.vendor ? (
+                  <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 space-y-2">
+                    <p className="text-xs font-bold text-blue-400 uppercase tracking-widest">{pr.expand.vendor.name}</p>
+                    <p className="font-bold text-blue-900">{pr.expand.vendor.contact_person}</p>
+                    <p className="text-sm text-blue-700">{pr.expand.vendor.email}</p>
+                    <p className="text-sm text-blue-700">{pr.expand.vendor.phone}</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-400">ไม่ระบุผู้ขาย</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Requester Info */}
           <Card className="border-none shadow-sm rounded-2xl">
@@ -208,7 +210,7 @@ export default function PRDetail() {
 
           {/* Actions */}
           <div className="flex flex-col gap-3">
-            {pr.status === 'approved' && (
+            {pr.status === 'approved' && pr.type !== 'project' && (
               <Button 
                 className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl"
                 onClick={() => navigate(`/purchase-requests/${pr.id}/print-po`)}
@@ -218,7 +220,17 @@ export default function PRDetail() {
             )}
             <Button 
               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl"
-              onClick={() => navigate(`/purchase-requests/edit/${pr.id}`)}
+              onClick={() => {
+                if (pr.type === 'project') {
+                  navigate(`/purchase-requests/edit/project/${pr.id}`);
+                } else if (pr.type === 'sub') {
+                  navigate(`/purchase-requests/edit/sub/${pr.id}`);
+                } else if (pr.type === 'other') {
+                  navigate(`/purchase-requests/edit/other/${pr.id}`);
+                } else {
+                  navigate(`/purchase-requests/edit/${pr.id}`);
+                }
+              }}
             >
               แก้ไขใบขอซื้อ
             </Button>
