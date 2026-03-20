@@ -614,10 +614,9 @@ export default function PRProject() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-1">
           {/* Project Info */}
-          <Card className="border-none shadow-sm rounded-2xl">
+          <Card className="border-none shadow-sm rounded-2xl h-full">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <Building2 className="w-5 h-5 text-blue-600" /> ข้อมูลโครงการ
@@ -635,13 +634,71 @@ export default function PRProject() {
                   </SelectContent>
                 </Select>
                 {isEditMode && <p className="text-xs text-gray-400">* ไม่สามารถเปลี่ยนโครงการได้</p>}
+                
+                {projectId && (
+                  <div className="mt-4 p-4 bg-blue-50/50 rounded-xl space-y-3 border border-blue-100/50">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500 font-medium">รหัสโครงการ</span>
+                      <span className="font-bold text-blue-700">{projects.find(p => p.id === projectId)?.code || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500 font-medium">สถานที่ก่อสร้าง</span>
+                      <span className="font-bold text-gray-900 truncate max-w-[150px] text-right" title={projects.find(p => p.id === projectId)?.location || 'สำนักงานใหญ่'}>
+                        {projects.find(p => p.id === projectId)?.location || 'สำนักงานใหญ่'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Items Table */}
-          <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between py-5 px-6">
+
+        </div>
+
+        {/* Right Column (Attachments) */}
+        <div className="lg:col-span-2">
+          <Card className="border-none shadow-sm rounded-2xl h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-bold">เอกสารแนบ</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FileUploadManager
+                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
+                  name: a.name,
+                  url: a.url
+                }))}
+                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
+                onAddFiles={(files) => {
+                  const newAttachments = files.map(file => ({
+                    id: Date.now().toString() + Math.random(),
+                    file,
+                    name: file.name,
+                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                    isExisting: false
+                  }));
+                  setAttachments(prev => [...prev, ...newAttachments]);
+                }}
+                onRemoveExisting={(index) => {
+                  const existing = attachments.filter(a => a.isExisting);
+                  if (existing[index]) removeAttachment(existing[index].id);
+                }}
+                onRemoveNew={(index) => {
+                  const newOnes = attachments.filter(a => !a.isExisting);
+                  if (newOnes[index]) removeAttachment(newOnes[index].id);
+                }}
+                id="pr-project-files"
+                sublabel="PDF, XLSX (MAX 10MB)"
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Items Table (Full Width) */}
+      <div className="w-full">
+        <Card className="border-none shadow-sm rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between py-5 px-6">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <FileText className="w-5 h-5 text-blue-600" /> รายการวัสดุอุปกรณ์
               </CardTitle>
@@ -760,65 +817,6 @@ export default function PRProject() {
           </Card>
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Attachments Card */}
-          <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-bold">เอกสารแนบ</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FileUploadManager
-                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
-                  name: a.name,
-                  url: a.url
-                }))}
-                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
-                onAddFiles={(files) => {
-                  const newAttachments = files.map(file => ({
-                    id: Date.now().toString() + Math.random(),
-                    file,
-                    name: file.name,
-                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-                    isExisting: false
-                  }));
-                  setAttachments(prev => [...prev, ...newAttachments]);
-                }}
-                onRemoveExisting={(index) => {
-                  const existing = attachments.filter(a => a.isExisting);
-                  if (existing[index]) removeAttachment(existing[index].id);
-                }}
-                onRemoveNew={(index) => {
-                  const newOnes = attachments.filter(a => !a.isExisting);
-                  if (newOnes[index]) removeAttachment(newOnes[index].id);
-                }}
-                id="pr-project-files"
-                sublabel="PDF, XLSX (MAX 10MB)"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Status Card */}
-          <Card className="bg-[#1F2937] text-white border-none rounded-2xl p-6 relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <FileText className="h-32 w-32" />
-            </div>
-            <div className="relative z-10">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">สถานะปัจจุบัน</p>
-              <div className="flex items-center gap-2 text-yellow-400 mb-4">
-                <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></div>
-                <p className="font-black">{isEditMode ? 'แก้ไขแบบร่าง (Draft)' : 'โดยแบบร่าง (Draft)'}</p>
-              </div>
-              <p className="text-[11px] text-gray-400 leading-relaxed">
-                {isEditMode 
-                  ? 'คุณกำลังแก้ไขใบขอซื้อที่ยังเป็นแบบร่าง สามารถบันทึกหรือส่งอนุมัติได้'
-                  : 'เมื่อกรอกข้อมูลเสร็จสิ้น ระบบจะส่งเรื่องไปยัง ผู้จัดการโครงการ (Project Manager) เพื่อทำการตรวจสอบและอนุมัติต่อไปค่ะ'
-                }
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
     </div>
   );
 }

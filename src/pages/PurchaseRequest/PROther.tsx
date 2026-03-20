@@ -657,22 +657,7 @@ export default function PROther() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label>หมวดหมู่สินค้า *</Label>
-                <Select onValueChange={setOtherType} value={otherType}>
-                  <SelectTrigger className="h-11 rounded-xl bg-gray-50 border-none">
-                    <SelectValue placeholder="เลือกหมวดหมู่" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pbCategories.map(cat => (
-                      <SelectItem key={cat.id} value={cat.category}>{cat.category}</SelectItem>
-                    ))}
-                    {pbCategories.length === 0 && (
-                      <SelectItem value="other" disabled>กำลังโหลดหมวดหมู่...</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+
             </CardContent>
           </Card>
 

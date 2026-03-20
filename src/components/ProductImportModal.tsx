@@ -116,7 +116,7 @@ export default function ProductImportModal({
             
             for (const rk of rowKeys) {
                 const cleanRk = rk.toLowerCase().replace(/[\s\(\).]/g, '');
-                if (cleanRk === cleanTarget || (cleanTarget.length > 5 && cleanRk.includes(cleanTarget))) {
+                if (cleanRk === cleanTarget) {
                     if (row[rk] !== undefined && row[rk] !== null) {
                         return String(row[rk]);
                     }
