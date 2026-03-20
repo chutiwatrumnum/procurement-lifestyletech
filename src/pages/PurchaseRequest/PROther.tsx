@@ -605,7 +605,7 @@ export default function PROther() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-1">
           <Card className="border-none shadow-sm rounded-2xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg font-bold text-[#1F2937]">
@@ -650,20 +650,148 @@ export default function PROther() {
                 )}
                 
                 {isProjectPR && projectId && (
-                  <p className="text-xs text-blue-600 flex items-center gap-1">
-                    <Building2 className="w-3 h-3" />
-                    ค่าใช้จ่ายจะรวมเข้ากับงบประมาณของโครงการที่เลือก
-                  </p>
+                  <div className="mt-4 p-4 bg-blue-50/50 rounded-xl space-y-3 border border-blue-100/50">
+                    <p className="text-xs text-blue-600 flex items-center gap-1 pb-2 border-b border-blue-100">
+                      <Building2 className="w-3 h-3" />
+                      ค่าใช้จ่ายจะรวมเข้ากับงบประมาณของโครงการที่เลือก
+                    </p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500 font-medium">รหัสโครงการ</span>
+                      <span className="font-bold text-blue-700">{projects.find(p => p.id === projectId)?.code || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500 font-medium">สถานที่ก่อสร้าง</span>
+                      <span className="font-bold text-gray-900 truncate max-w-[150px] text-right" title={projects.find(p => p.id === projectId)?.location || 'สำนักงานใหญ่'}>
+                        {projects.find(p => p.id === projectId)?.location || 'สำนักงานใหญ่'}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
-
-
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between py-5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base font-bold text-[#1F2937]">
+                <User className="w-5 h-5 text-gray-600" /> ข้อมูลผู้ขาย
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>เลือกผู้ขาย *</Label>
+                <VendorSearchInput
+                  value={vendorSearch}
+                  onChange={setVendorSearch}
+                  onSelectVendor={(vendor) => {
+                    setVendorId(vendor.id);
+                    setVendorSearch('');
+                  }}
+                  placeholder="ค้นหาบริษัทผู้ขาย..."
+                />
+                {vendorId && (
+                  <div className="mt-2 p-3 bg-blue-50 rounded-xl">
+                    <p className="text-sm font-bold text-blue-900">
+                      {vendors.find(v => v.id === vendorId)?.name}
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      {vendors.find(v => v.id === vendorId)?.contact_person}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {isEditMode && editHistory.length > 0 && (
+            <Card className="border-none shadow-sm rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle 
+                  className="flex items-center justify-between gap-2 text-base font-bold text-[#1F2937] cursor-pointer"
+                  onClick={() => setHistoryExpanded(!historyExpanded)}
+                >
+                  <span className="flex items-center gap-2">
+                    <History className="w-5 h-5 text-gray-600" /> ประวัติการดำเนินการ
+                    <Badge variant="secondary" className="text-[10px]">{editHistory.length}</Badge>
+                  </span>
+                  {historyExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                </CardTitle>
+              </CardHeader>
+              {historyExpanded && (
+                <CardContent className="pt-2">
+                  <div className="space-y-3">
+                    {editHistory.map((h, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${
+                            h.action.includes('ตีกลับ') || h.action.includes('ปฏิเสธ') ? 'bg-red-400' :
+                            h.action.includes('อนุมัติ') ? 'bg-green-400' :
+                            h.action.includes('สร้าง') ? 'bg-blue-400' :
+                            'bg-gray-300'
+                          }`} />
+                          {i < editHistory.length - 1 && <div className="w-px flex-1 bg-gray-100 mt-1" />}
+                        </div>
+                        <div className="pb-3">
+                          <p className="text-sm font-bold text-gray-900">{h.action}</p>
+                          <p className="text-xs text-gray-500">{h.by}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {new Date(h.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} 
+                            {' '}
+                            {new Date(h.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )}
+
+        </div>
+
+        <div className="lg:col-span-2">
+          <Card className="border-none shadow-sm rounded-2xl h-full">
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                <Paperclip className="w-5 h-5 text-gray-600" /> เอกสารแนบ
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FileUploadManager
+                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
+                  name: a.name,
+                  url: prData?.id ? getFileUrl(prData.id, a.filename || a.name) : undefined
+                }))}
+                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
+                onAddFiles={(files) => {
+                  const newAttachments = files.map(file => ({
+                    id: Date.now().toString() + Math.random(),
+                    file,
+                    name: file.name,
+                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                  }));
+                  setAttachments(prev => [...prev, ...newAttachments]);
+                }}
+                onRemoveExisting={(index) => {
+                  const existing = attachments.filter(a => a.isExisting);
+                  if (existing[index]) removeAttachment(existing[index].id);
+                }}
+                onRemoveNew={(index) => {
+                  const newOnes = attachments.filter(a => !a.isExisting);
+                  if (newOnes[index]) removeAttachment(newOnes[index].id);
+                }}
+                id="pr-other-files"
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="w-full mt-6">
+        <Card className="border-none shadow-sm rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between py-5">
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <FileText className="w-5 h-5 text-gray-600" /> รายการสินค้า / บริการ
               </CardTitle>
               <Button variant="ghost" onClick={addItem} className="text-[#4B5563] font-bold hover:bg-gray-50">
@@ -729,123 +857,6 @@ export default function PROther() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Attachments */}
-          <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                <Paperclip className="w-5 h-5 text-gray-600" /> เอกสารแนบ
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FileUploadManager
-                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
-                  name: a.name,
-                  url: prData?.id ? getFileUrl(prData.id, a.filename || a.name) : undefined
-                }))}
-                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
-                onAddFiles={(files) => {
-                  const newAttachments = files.map(file => ({
-                    id: Date.now().toString() + Math.random(),
-                    file,
-                    name: file.name,
-                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-                  }));
-                  setAttachments(prev => [...prev, ...newAttachments]);
-                }}
-                onRemoveExisting={(index) => {
-                  const existing = attachments.filter(a => a.isExisting);
-                  if (existing[index]) removeAttachment(existing[index].id);
-                }}
-                onRemoveNew={(index) => {
-                  const newOnes = attachments.filter(a => !a.isExisting);
-                  if (newOnes[index]) removeAttachment(newOnes[index].id);
-                }}
-                id="pr-other-files"
-              />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base font-bold text-[#1F2937]">
-                <User className="w-5 h-5 text-gray-600" /> ข้อมูลผู้ขาย
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>เลือกผู้ขาย *</Label>
-                <VendorSearchInput
-                  value={vendorSearch}
-                  onChange={setVendorSearch}
-                  onSelectVendor={(vendor) => {
-                    setVendorId(vendor.id);
-                    setVendorSearch('');
-                  }}
-                  placeholder="ค้นหาบริษัทผู้ขาย..."
-                />
-                {vendorId && (
-                  <div className="mt-2 p-3 bg-blue-50 rounded-xl">
-                    <p className="text-sm font-bold text-blue-900">
-                      {vendors.find(v => v.id === vendorId)?.name}
-                    </p>
-                    <p className="text-xs text-blue-700">
-                      {vendors.find(v => v.id === vendorId)?.contact_person}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Edit History */}
-          {isEditMode && editHistory.length > 0 && (
-            <Card className="border-none shadow-sm rounded-2xl">
-              <CardHeader className="pb-2">
-                <CardTitle 
-                  className="flex items-center justify-between gap-2 text-base font-bold text-[#1F2937] cursor-pointer"
-                  onClick={() => setHistoryExpanded(!historyExpanded)}
-                >
-                  <span className="flex items-center gap-2">
-                    <History className="w-5 h-5 text-gray-600" /> ประวัติการดำเนินการ
-                    <Badge variant="secondary" className="text-[10px]">{editHistory.length}</Badge>
-                  </span>
-                  {historyExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-                </CardTitle>
-              </CardHeader>
-              {historyExpanded && (
-                <CardContent className="pt-2">
-                  <div className="space-y-3">
-                    {editHistory.map((h, i) => (
-                      <div key={i} className="flex gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${
-                            h.action.includes('ตีกลับ') || h.action.includes('ปฏิเสธ') ? 'bg-red-400' :
-                            h.action.includes('อนุมัติ') ? 'bg-green-400' :
-                            h.action.includes('สร้าง') ? 'bg-blue-400' :
-                            'bg-gray-300'
-                          }`} />
-                          {i < editHistory.length - 1 && <div className="w-px flex-1 bg-gray-100 mt-1" />}
-                        </div>
-                        <div className="pb-3">
-                          <p className="text-sm font-bold text-gray-900">{h.action}</p>
-                          <p className="text-xs text-gray-500">{h.by}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">
-                            {new Date(h.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} 
-                            {' '}
-                            {new Date(h.date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-          )}
-        </div>
       </div>
     </div>
   );

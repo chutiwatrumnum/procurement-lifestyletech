@@ -607,9 +607,9 @@ export default function PRSubcontractor() {
         </Card>
       )}
 
+      {/* Top Section (Project Info, Vendor & Attachments) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-1">
           {/* Project Info */}
           <Card className="border-none shadow-sm rounded-2xl">
             <CardHeader className="pb-4">
@@ -643,12 +643,129 @@ export default function PRSubcontractor() {
                   </SelectContent>
                 </Select>
                 {isEditMode && <p className="text-xs text-gray-400">* ไม่สามารถเปลี่ยนโครงการได้</p>}
+                
+                {projectId && (
+                  <div className="mt-4 p-4 bg-purple-50/50 rounded-xl space-y-3 border border-purple-100/50">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500 font-medium">รหัสโครงการ</span>
+                      <span className="font-bold text-purple-700">{projects.find(p => p.id === projectId)?.code || '-'}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500 font-medium">สถานที่ก่อสร้าง</span>
+                      <span className="font-bold text-gray-900 truncate max-w-[150px] text-right" title={projects.find(p => p.id === projectId)?.location || 'สำนักงานใหญ่'}>
+                        {projects.find(p => p.id === projectId)?.location || 'สำนักงานใหญ่'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Items Table */}
-          <Card className="border-none shadow-sm rounded-2xl">
+          {/* Vendor Card */}
+          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="bg-white pb-2">
+              <CardTitle className="flex items-center gap-2 text-base font-bold">
+                <User className="w-5 h-5 text-purple-600" /> ข้อมูลผู้รับเหมา
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้รับเหมา *</Label>
+                
+                {/* Search Input */}
+                <VendorSearchInput
+                  value={vendorSearch}
+                  onChange={setVendorSearch}
+                  onSelectVendor={(vendor) => {
+                    if (!vendorIds.includes(vendor.id)) {
+                      setVendorIds([...vendorIds, vendor.id]);
+                      setVendorSearch('');
+                    }
+                  }}
+                  placeholder="ค้นหาบริษัทผู้รับเหมา..."
+                />
+                
+                {vendorIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedVendors.map(vendor => (
+                      <span 
+                        key={vendor.id} 
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                      >
+                        {vendor.name}
+                        <button 
+                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
+                          className="hover:text-purple-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedVendors.length > 0 && (
+                <div className="space-y-3">
+                  {selectedVendors.map(vendor => (
+                    <div key={vendor.id} className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-2">
+                      <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">{vendor.name}</p>
+                      <p className="font-bold text-purple-900">{vendor.contact_person}</p>
+                      <p className="text-sm text-purple-700">{vendor.email}</p>
+                      <p className="text-sm text-purple-700">{vendor.phone}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column (Attachments) */}
+        <div className="lg:col-span-2">
+          {/* Attachments Card */}
+          <Card className="border-none shadow-sm rounded-2xl h-full">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-bold">เอกสารแนบ</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FileUploadManager
+                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
+                  name: a.name,
+                  url: a.url
+                }))}
+                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
+                onAddFiles={(files) => {
+                  const newAttachments = files.map(file => ({
+                    id: Date.now().toString() + Math.random(),
+                    file,
+                    name: file.name,
+                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                    isExisting: false
+                  }));
+                  setAttachments(prev => [...prev, ...newAttachments]);
+                }}
+                onRemoveExisting={(index) => {
+                  const existing = attachments.filter(a => a.isExisting);
+                  if (existing[index]) removeAttachment(existing[index].id);
+                }}
+                onRemoveNew={(index) => {
+                  const newOnes = attachments.filter(a => !a.isExisting);
+                  if (newOnes[index]) removeAttachment(newOnes[index].id);
+                }}
+                accent="purple"
+                id="pr-sub-files"
+                sublabel="PDF, XLSX (MAX 10MB)"
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Items Table (Full Width) */}
+      <div className="w-full mt-6">
+        <Card className="border-none shadow-sm rounded-2xl">
             <CardHeader className="flex flex-row items-center justify-between py-5 px-6">
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <FileText className="w-5 h-5 text-purple-600" /> รายละเอียดงานจ้างเหมา
@@ -779,126 +896,6 @@ export default function PRSubcontractor() {
               )}
             </CardContent>
           </Card>
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Vendor Card */}
-          <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-            <CardHeader className="bg-white pb-2">
-              <CardTitle className="flex items-center gap-2 text-base font-bold">
-                <User className="w-5 h-5 text-purple-600" /> ข้อมูลผู้รับเหมา
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider">ผู้รับเหมา *</Label>
-                
-                {/* Search Input */}
-                <VendorSearchInput
-                  value={vendorSearch}
-                  onChange={setVendorSearch}
-                  onSelectVendor={(vendor) => {
-                    if (!vendorIds.includes(vendor.id)) {
-                      setVendorIds([...vendorIds, vendor.id]);
-                      setVendorSearch('');
-                    }
-                  }}
-                  placeholder="ค้นหาบริษัทผู้รับเหมา..."
-                />
-                
-                {vendorIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedVendors.map(vendor => (
-                      <span 
-                        key={vendor.id} 
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
-                      >
-                        {vendor.name}
-                        <button 
-                          onClick={() => setVendorIds(vendorIds.filter(id => id !== vendor.id))}
-                          className="hover:text-purple-900"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {selectedVendors.length > 0 && (
-                <div className="space-y-3">
-                  {selectedVendors.map(vendor => (
-                    <div key={vendor.id} className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-2">
-                      <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">{vendor.name}</p>
-                      <p className="font-bold text-purple-900">{vendor.contact_person}</p>
-                      <p className="text-sm text-purple-700">{vendor.email}</p>
-                      <p className="text-sm text-purple-700">{vendor.phone}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Attachments Card */}
-          <Card className="border-none shadow-sm rounded-2xl">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base font-bold">เอกสารแนบ</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FileUploadManager
-                existingFiles={attachments.filter(a => a.isExisting).map(a => ({
-                  name: a.name,
-                  url: a.url
-                }))}
-                newFiles={attachments.filter(a => !a.isExisting && a.file).map(a => a.file!)}
-                onAddFiles={(files) => {
-                  const newAttachments = files.map(file => ({
-                    id: Date.now().toString() + Math.random(),
-                    file,
-                    name: file.name,
-                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-                    isExisting: false
-                  }));
-                  setAttachments(prev => [...prev, ...newAttachments]);
-                }}
-                onRemoveExisting={(index) => {
-                  const existing = attachments.filter(a => a.isExisting);
-                  if (existing[index]) removeAttachment(existing[index].id);
-                }}
-                onRemoveNew={(index) => {
-                  const newOnes = attachments.filter(a => !a.isExisting);
-                  if (newOnes[index]) removeAttachment(newOnes[index].id);
-                }}
-                accent="purple"
-                id="pr-sub-files"
-                sublabel="PDF, XLSX (MAX 10MB)"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Status Card */}
-          <Card className="bg-[#1F2937] text-white border-none rounded-2xl p-6 relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 p-8 opacity-5">
-              <FileText className="h-32 w-32" />
-            </div>
-            <div className="relative z-10">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">สถานะปัจจุบัน</p>
-              <div className="flex items-center gap-2 text-purple-400 mb-4">
-                <div className="h-2 w-2 rounded-full bg-purple-400 animate-pulse"></div>
-                <p className="font-black">{isEditMode ? 'แก้ไขแบบร่าง (Draft)' : 'ฉบับร่าง (Draft)'}</p>
-              </div>
-              <p className="text-[11px] text-gray-400 leading-relaxed">
-                {isEditMode 
-                  ? 'คุณกำลังแก้ไขใบขอซื้องานย่อยที่ยังเป็นแบบร่าง สามารถบันทึกหรือส่งอนุมัติได้'
-                  : 'เมื่อกรอกข้อมูลเสร็จสิ้น ระบบจะส่งเรื่องไปยังผู้จัดการโครงการเพื่อทำการตรวจสอบและอนุมัติต่อไปค่ะ'
-                }
-              </p>
-            </div>
-          </Card>
-        </div>
       </div>
     </div>
   );

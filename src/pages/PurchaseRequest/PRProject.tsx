@@ -265,6 +265,10 @@ export default function PRProject() {
   };
 
   const totalAmount = items.reduce((sum, item) => {
+    if (isEditMode) {
+      return sum + (Number(item.quantity || 0) * Number(item.unit_price || 0));
+    }
+    
     if (item.isExisting) {
       const addedQty = Number(item.addedQuantity) || 0;
       return sum + (addedQty * Number(item.unit_price || 0));
