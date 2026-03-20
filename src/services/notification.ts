@@ -29,7 +29,7 @@ async function notifyUsers(userIds: string[], data: {
   }
 }
 
-// ดึงรายชื่อหัวหน้าแผนก (head_of_dept)
+// ดึงรายชื่อผู้จัดการแผนก (head_of_dept)
 async function getHeadOfDepts(): Promise<string[]> {
   try {
     const result = await pb.collection('users').getFullList({
@@ -51,7 +51,7 @@ async function getHeadOfDepts(): Promise<string[]> {
   }
 }
 
-// ดึงรายชื่อผู้จัดการ (manager + superadmin)
+// ดึงรายชื่อผู้บริหาร (manager + superadmin)
 async function getManagers(): Promise<string[]> {
   try {
     const result = await pb.collection('users').getFullList({
@@ -85,15 +85,15 @@ async function getProjectManager(projectId: string): Promise<string | null> {
 
 export const notificationService = {
   // ==================== พนักงานสร้าง PR ใหม่ ====================
-  // แจ้ง → หัวหน้าแผนก + ผู้จัดการ
+  // แจ้ง → ผู้จัดการแผนก + ผู้บริหาร
   async notifyNewPR(pr: any, requesterId: string) {
     const recipients: string[] = [];
 
-    // 1. แจ้งหัวหน้าแผนก
+    // 1. แจ้งผู้จัดการแผนก
     const heads = await getHeadOfDepts();
     recipients.push(...heads);
 
-    // 2. แจ้งผู้จัดการ
+    // 2. แจ้งผู้บริหาร
     const managers = await getManagers();
     recipients.push(...managers);
 
@@ -114,16 +114,16 @@ export const notificationService = {
     }
   },
 
-  // ==================== หัวหน้าแผนกอนุมัติ/ตีกลับ PR ====================
-  // แจ้ง → หัวหน้าแผนก + ผู้จัดการ + พนักงาน (คนสร้าง)
+  // ==================== ผู้จัดการแผนกอนุมัติ/ตีกลับ PR ====================
+  // แจ้ง → ผู้จัดการแผนก + ผู้บริหาร + พนักงาน (คนสร้าง)
   async notifyByHeadOfDept(pr: any, approverName: string, isApproval: boolean, requesterId?: string) {
     const recipients: string[] = [];
 
-    // 1. แจ้งหัวหน้าแผนกคนอื่นๆ (ไม่รวมตัวเอง)
+    // 1. แจ้งผู้จัดการแผนกคนอื่นๆ (ไม่รวมตัวเอง)
     const heads = await getHeadOfDepts();
     recipients.push(...heads);
 
-    // 2. แจ้งผู้จัดการ
+    // 2. แจ้งผู้บริหาร
     const managers = await getManagers();
     recipients.push(...managers);
 
@@ -139,7 +139,7 @@ export const notificationService = {
       const action = isApproval ? 'อนุมัติ' : 'ตีกลับ';
       await notifyUsers(uniqueRecipients, {
         title: isApproval ? 'PR ถูกอนุมัติแล้ว' : 'PR ถูกตีกลับ',
-        message: `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยหัวหน้าแผนก ${approverName}`,
+        message: `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยผู้จัดการแผนก ${approverName}`,
         type: isApproval ? 'approval' : 'rejection',
         pr_id: pr.id,
         pr_number: pr.pr_number
@@ -147,12 +147,12 @@ export const notificationService = {
     }
   },
 
-  // ==================== ผู้จัดการอนุมัติ/ตีกลับ PR ====================
-  // แจ้ง → หัวหน้าแผนก + พนักงาน (คนสร้าง)
+  // ==================== ผู้บริหารอนุมัติ/ตีกลับ PR ====================
+  // แจ้ง → ผู้จัดการแผนก + พนักงาน (คนสร้าง)
   async notifyByManager(pr: any, approverName: string, isApproval: boolean, requesterId?: string) {
     const recipients: string[] = [];
 
-    // 1. แจ้งหัวหน้าแผนก
+    // 1. แจ้งผู้จัดการแผนก
     const heads = await getHeadOfDepts();
     recipients.push(...heads);
 
@@ -168,7 +168,7 @@ export const notificationService = {
       const action = isApproval ? 'อนุมัติ' : 'ตีกลับ';
       await notifyUsers(uniqueRecipients, {
         title: isApproval ? 'PR ถูกอนุมัติแล้ว' : 'PR ถูกตีกลับ',
-        message: `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยผู้จัดการ ${approverName}`,
+        message: `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยผู้บริหาร ${approverName}`,
         type: isApproval ? 'approval' : 'rejection',
         pr_id: pr.id,
         pr_number: pr.pr_number

@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canManageUsers = (): boolean => {
-    return hasRole(['superadmin', 'manager']);
+    return hasRole(['superadmin', 'manager', 'head_of_dept']);
   };
 
   const canViewAllPR = (): boolean => {

@@ -61,8 +61,8 @@ interface Department {
 
 const roleLabels: Record<string, string> = {
   superadmin: 'ผู้ดูแลระบบ',
-  head_of_dept: 'หัวหน้าแผนก',
-  manager: 'ผู้จัดการ',
+  head_of_dept: 'ผู้จัดการแผนก',
+  manager: 'ผู้บริหาร',
   employee: 'พนักงาน'
 };
 
@@ -356,7 +356,7 @@ export default function UserManagement() {
         </Card>
         <Card className="border-none shadow-sm rounded-2xl bg-orange-50">
           <CardContent className="p-4">
-            <p className="text-xs font-bold text-gray-500 uppercase">หัวหน้าแผนก</p>
+            <p className="text-xs font-bold text-gray-500 uppercase">ผู้จัดการแผนก</p>
             <p className="text-2xl font-black text-orange-600">
               {users.filter(u => u.role === 'head_of_dept').length}
             </p>
@@ -468,8 +468,8 @@ export default function UserManagement() {
                 <SelectContent>
                   <SelectItem value="all">ทุกบทบาท</SelectItem>
                   <SelectItem value="superadmin">ผู้ดูแลระบบ</SelectItem>
-                  <SelectItem value="head_of_dept">หัวหน้าแผนก</SelectItem>
-                  <SelectItem value="manager">ผู้จัดการ</SelectItem>
+                  <SelectItem value="head_of_dept">ผู้จัดการแผนก</SelectItem>
+                  <SelectItem value="manager">ผู้บริหาร</SelectItem>
                   <SelectItem value="employee">พนักงาน</SelectItem>
                 </SelectContent>
               </Select>
@@ -556,7 +556,7 @@ export default function UserManagement() {
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
-                          {isSuperAdmin() && (
+                          {canManageUsers() && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -626,8 +626,8 @@ export default function UserManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="employee">พนักงาน</SelectItem>
-                  <SelectItem value="manager">ผู้จัดการ</SelectItem>
-                  <SelectItem value="head_of_dept">หัวหน้าแผนก</SelectItem>
+                  <SelectItem value="manager">ผู้บริหาร</SelectItem>
+                  <SelectItem value="head_of_dept">ผู้จัดการแผนก</SelectItem>
                   {isSuperAdmin() && (
                     <SelectItem value="superadmin">ผู้ดูแลระบบ</SelectItem>
                   )}
@@ -731,8 +731,8 @@ export default function UserManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="employee">พนักงาน</SelectItem>
-                  <SelectItem value="manager">ผู้จัดการ</SelectItem>
-                  <SelectItem value="head_of_dept">หัวหน้าแผนก</SelectItem>
+                  <SelectItem value="manager">ผู้บริหาร</SelectItem>
+                  <SelectItem value="head_of_dept">ผู้จัดการแผนก</SelectItem>
                   {isSuperAdmin() && (
                     <SelectItem value="superadmin">ผู้ดูแลระบบ</SelectItem>
                   )}

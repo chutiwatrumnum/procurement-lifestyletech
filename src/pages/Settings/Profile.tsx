@@ -274,8 +274,8 @@ export default function ProfileSettings() {
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
       superadmin: 'ผู้ดูแลระบบ',
-      head_of_dept: 'หัวหน้าแผนก',
-      manager: 'ผู้จัดการ',
+      head_of_dept: 'ผู้จัดการแผนก',
+      manager: 'ผู้บริหาร',
       employee: 'พนักงาน'
     };
     return labels[role] || role;

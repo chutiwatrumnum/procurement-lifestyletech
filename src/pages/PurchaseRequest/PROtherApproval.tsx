@@ -77,12 +77,12 @@ export default function PROtherApproval() {
 
     const level = pr.approval_level || 0;
 
-    // Level 0: รอหัวหน้าแผนกอนุมัติ
+    // Level 0: รอผู้จัดการแผนกอนุมัติ
     if (level === 0) {
       return isHeadOfDept() || isSuperAdmin();
     }
 
-    // Level 1: รอผู้จัดการอนุมัติ
+    // Level 1: รอผู้บริหารอนุมัติ
     if (level === 1) {
       return isManager() || isSuperAdmin();
     }
@@ -95,10 +95,10 @@ export default function PROtherApproval() {
     const level = pr?.approval_level || 0;
 
     if (level === 0) {
-      return { text: 'รอหัวหน้าแผนกอนุมัติ', color: 'bg-yellow-100 text-yellow-700', icon: UserCheck };
+      return { text: 'รอผู้จัดการแผนกอนุมัติ', color: 'bg-yellow-100 text-yellow-700', icon: UserCheck };
     }
     if (level === 1) {
-      return { text: 'รอผู้จัดการอนุมัติ', color: 'bg-blue-100 text-blue-700', icon: Users };
+      return { text: 'รอผู้บริหารอนุมัติ', color: 'bg-blue-100 text-blue-700', icon: Users };
     }
     return { text: 'อนุมัติครบถ้วน', color: 'bg-green-100 text-green-700', icon: Check };
   };
@@ -118,7 +118,7 @@ export default function PROtherApproval() {
     setApproverSignatures({ headOfDept: null, manager: null });
     
     try {
-      // Fetch ลายเซ็นหัวหน้าแผนก
+      // Fetch ลายเซ็นผู้จัดการแผนก
       if (selectedItem.head_of_dept_approved_by) {
         try {
           const headOfDeptUser = await pb.collection('users').getOne(selectedItem.head_of_dept_approved_by);
@@ -133,7 +133,7 @@ export default function PROtherApproval() {
         }
       }
       
-      // Fetch ลายเซ็นผู้จัดการ
+      // Fetch ลายเซ็นผู้บริหาร
       if (selectedItem.manager_approved_by) {
         try {
           const managerUser = await pb.collection('users').getOne(selectedItem.manager_approved_by);
@@ -301,7 +301,7 @@ export default function PROtherApproval() {
         if (user?.role === 'head_of_dept') {
           await notificationService.notifyByHeadOfDept(selectedItem, user?.name || 'หัวหน้า', false, selectedItem.requester);
         } else if (user?.role === 'manager' || user?.role === 'superadmin') {
-          await notificationService.notifyByManager(selectedItem, user?.name || 'ผู้จัดการ', false, selectedItem.requester);
+          await notificationService.notifyByManager(selectedItem, user?.name || 'ผู้บริหาร', false, selectedItem.requester);
         }
         
         toast.success('ตีกลับเรียบร้อยแล้ว');
@@ -310,7 +310,7 @@ export default function PROtherApproval() {
         const currentUserData = await pb.collection('users').getOne(user?.id || '');
         
         if (currentLevel === 0 && (isHeadOfDept() || isSuperAdmin())) {
-          // หัวหน้าแผนกอนุมัติ → เปลี่ยนเป็น level 1
+          // ผู้จัดการแผนกอนุมัติ → เปลี่ยนเป็น level 1
           const updateData: any = {
             approval_level: 1,
             head_of_dept_approved_by: user?.id,
@@ -342,11 +342,11 @@ export default function PROtherApproval() {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
           }
           
-          await notificationService.notifyByHeadOfDept(selectedItem, user?.name || 'หัวหน้าแผนก', true, selectedItem.requester);
-          toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้จัดการอนุมัติต่อ)');
+          await notificationService.notifyByHeadOfDept(selectedItem, user?.name || 'ผู้จัดการแผนก', true, selectedItem.requester);
+          toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้บริหารอนุมัติต่อ)');
           
         } else if (currentLevel === 1 && (isManager() || isSuperAdmin())) {
-          // ผู้จัดการอนุมัติ → อนุมัติสมบูรณ์
+          // ผู้บริหารอนุมัติ → อนุมัติสมบูรณ์
           const updateData: any = {
             status: 'approved',
             approved_by: user?.id,
@@ -404,7 +404,7 @@ export default function PROtherApproval() {
             }
           }
           
-          await notificationService.notifyByManager(selectedItem, user?.name || 'ผู้จัดการ', true, selectedItem.requester);
+          await notificationService.notifyByManager(selectedItem, user?.name || 'ผู้บริหาร', true, selectedItem.requester);
           toast.success('อนุมัติสมบูรณ์แล้ว');
         } else {
           toast.error('คุณไม่มีสิทธิ์อนุมัติในระดับนี้');
@@ -883,7 +883,7 @@ export default function PROtherApproval() {
                               {(selectedItem.head_of_dept_approved_by_name || 'ห')[0]}
                             </div>
                             <div className="flex-1">
-                              <p className="text-xs text-blue-600 font-medium">หัวหน้าแผนก</p>
+                              <p className="text-xs text-blue-600 font-medium">ผู้จัดการแผนก</p>
                               <p className="text-sm font-bold text-gray-900">{selectedItem.head_of_dept_approved_by_name || 'ไม่ระบุชื่อ'}</p>
                             </div>
                           </div>
@@ -898,7 +898,7 @@ export default function PROtherApproval() {
                             {selectedItem.head_of_dept_signature ? (
                               <img
                                 src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/purchase_requests/${selectedItem.id}/${selectedItem.head_of_dept_signature}`}
-                                alt="ลายเซ็นหัวหน้าแผนก"
+                                alt="ลายเซ็นผู้จัดการแผนก"
                                 className="max-h-20 object-contain"
                                 onError={(e) => {
                                   console.error('Failed to load head_of_dept signature');
@@ -925,7 +925,7 @@ export default function PROtherApproval() {
                               {(selectedItem.manager_approved_by_name || 'ผ')[0]}
                             </div>
                             <div className="flex-1">
-                              <p className="text-xs text-teal-600 font-medium">ผู้จัดการ</p>
+                              <p className="text-xs text-teal-600 font-medium">ผู้บริหาร</p>
                               <p className="text-sm font-bold text-gray-900">{selectedItem.manager_approved_by_name || 'ไม่ระบุชื่อ'}</p>
                             </div>
                           </div>
@@ -940,7 +940,7 @@ export default function PROtherApproval() {
                             {selectedItem.manager_signature ? (
                               <img
                                 src={`${import.meta.env.VITE_POCKETBASE_URL}/api/files/purchase_requests/${selectedItem.id}/${selectedItem.manager_signature}`}
-                                alt="ลายเซ็นผู้จัดการ"
+                                alt="ลายเซ็นผู้บริหาร"
                                 className="max-h-20 object-contain"
                                 onError={(e) => {
                                   console.error('Failed to load manager signature');
@@ -988,7 +988,7 @@ export default function PROtherApproval() {
                     className="flex-1 h-14 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-lg shadow-lg shadow-green-500/25"
                   >
                     <Check className="w-5 h-5 mr-2" />
-                    {selectedItem?.approval_level === 0 ? 'อนุมัติ (หัวหน้าแผนก)' : 'อนุมัติ (ผู้จัดการ)'}
+                    {selectedItem?.approval_level === 0 ? 'อนุมัติ (ผู้จัดการแผนก)' : 'อนุมัติ (ผู้บริหาร)'}
                   </Button>
                 </div>
               </CardContent>

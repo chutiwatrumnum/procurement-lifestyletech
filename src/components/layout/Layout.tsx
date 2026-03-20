@@ -212,8 +212,8 @@ function Sidebar({
   
   const roleLabels: Record<UserRole, string> = {
     superadmin: 'ผู้ดูแลระบบ',
-    head_of_dept: 'หัวหน้าแผนก',
-    manager: 'ผู้จัดการ',
+    head_of_dept: 'ผู้จัดการแผนก',
+    manager: 'ผู้บริหาร',
     employee: 'พนักงาน',
   };
 

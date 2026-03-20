@@ -294,13 +294,13 @@ export default function Login() {
                             <SelectItem value="head_of_dept" className="font-medium">
                               <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                หัวหน้าแผนก (Head of Dept)
+                                ผู้จัดการแผนก (Head of Dept)
                               </div>
                             </SelectItem>
                             <SelectItem value="manager" className="font-medium">
                               <div className="flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-green-500" />
-                                ผู้จัดการ (Manager)
+                                ผู้บริหาร (Manager)
                               </div>
                             </SelectItem>
                           </SelectContent>

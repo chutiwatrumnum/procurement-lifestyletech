@@ -443,18 +443,18 @@ export default function PRPrintPO() {
           {/* ═══ Signatures ═══ */}
           {/* ถ้า manager อนุมัติเอง (ไม่มี head_of_dept) → แสดง 1 ช่อง / ถ้ามีทั้ง 2 → แสดง 2 ช่อง */}
           {pr.head_of_dept_signature || pr.head_of_dept_approved_by_name ? (
-            /* ═══ 2 ช่องลายเซ็น (ปกติ: หัวหน้า + ผู้จัดการ) ═══ */
+            /* ═══ 2 ช่องลายเซ็น (ปกติ: หัวหน้า + ผู้บริหาร) ═══ */
             <div className="grid grid-cols-2 gap-8 mt-6">
               {/* Head of Dept */}
               <div className="text-center">
                 <div className="h-[60px] flex items-end justify-center mb-1">
                   {pr._head_sig_url && (
-                    <img src={pr._head_sig_url} alt="ลายเซ็นหัวหน้าแผนก" className="max-h-[50px] object-contain" />
+                    <img src={pr._head_sig_url} alt="ลายเซ็นผู้จัดการแผนก" className="max-h-[50px] object-contain" />
                   )}
                 </div>
                 <div className="border-t border-gray-400 pt-2 mx-6">
                   <p className="text-[12px] font-bold text-gray-800">{pr.head_of_dept_approved_by_name || '.........................'}</p>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">หัวหน้าแผนก / HEAD OF DEPT</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">ผู้จัดการแผนก / HEAD OF DEPT</p>
                   {pr.head_of_dept_approved_at && (
                     <p className="text-[8px] text-gray-400 mt-0.5">{formatDate(pr.head_of_dept_approved_at)}</p>
                   )}
@@ -464,12 +464,12 @@ export default function PRPrintPO() {
               <div className="text-center">
                 <div className="h-[60px] flex items-end justify-center mb-1">
                   {pr._mgr_sig_url && (
-                    <img src={pr._mgr_sig_url} alt="ลายเซ็นผู้จัดการ" className="max-h-[50px] object-contain" />
+                    <img src={pr._mgr_sig_url} alt="ลายเซ็นผู้บริหาร" className="max-h-[50px] object-contain" />
                   )}
                 </div>
                 <div className="border-t border-gray-400 pt-2 mx-6">
                   <p className="text-[12px] font-bold text-gray-800">{pr.manager_approved_by_name || '.........................'}</p>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">ผู้จัดการ / MANAGER</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">ผู้บริหาร / MANAGER</p>
                   {pr.manager_approved_at && (
                     <p className="text-[8px] text-gray-400 mt-0.5">{formatDate(pr.manager_approved_at)}</p>
                   )}
@@ -482,12 +482,12 @@ export default function PRPrintPO() {
               <div className="text-center w-[280px]">
                 <div className="h-[60px] flex items-end justify-center mb-1">
                   {pr._mgr_sig_url && (
-                    <img src={pr._mgr_sig_url} alt="ลายเซ็นผู้จัดการ" className="max-h-[50px] object-contain" />
+                    <img src={pr._mgr_sig_url} alt="ลายเซ็นผู้บริหาร" className="max-h-[50px] object-contain" />
                   )}
                 </div>
                 <div className="border-t border-gray-400 pt-2 mx-6">
                   <p className="text-[12px] font-bold text-gray-800">{pr.manager_approved_by_name || '.........................'}</p>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">ผู้จัดการ / MANAGER</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em] mt-1">ผู้บริหาร / MANAGER</p>
                   {pr.manager_approved_at && (
                     <p className="text-[8px] text-gray-400 mt-0.5">{formatDate(pr.manager_approved_at)}</p>
                   )}

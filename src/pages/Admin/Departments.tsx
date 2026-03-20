@@ -242,7 +242,7 @@ export default function DepartmentManagement() {
         </Card>
         <Card className="border-none shadow-sm rounded-2xl bg-purple-50">
           <CardContent className="p-4">
-            <p className="text-xs font-bold text-gray-500 uppercase">มีหัวหน้าแผนก</p>
+            <p className="text-xs font-bold text-gray-500 uppercase">มีผู้จัดการแผนก</p>
             <p className="text-2xl font-black text-purple-600">
               {departments.filter(d => d.head).length}
             </p>
@@ -280,7 +280,7 @@ export default function DepartmentManagement() {
                   <tr>
                     <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">แผนก</th>
                     <th className="py-4 px-6 text-center font-bold text-gray-600 uppercase text-[10px] tracking-wider">รหัส</th>
-                    <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">หัวหน้าแผนก</th>
+                    <th className="py-4 px-6 text-left font-bold text-gray-600 uppercase text-[10px] tracking-wider">ผู้จัดการแผนก</th>
                     <th className="py-4 px-6 text-center font-bold text-gray-600 uppercase text-[10px] tracking-wider">สมาชิก</th>
                     <th className="py-4 px-6 text-right font-bold text-gray-600 uppercase text-[10px] tracking-wider">จัดการ</th>
                   </tr>
@@ -390,10 +390,10 @@ export default function DepartmentManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label>หัวหน้าแผนก</Label>
+              <Label>ผู้จัดการแผนก</Label>
               <Select value={formData.head} onValueChange={(v) => setFormData({ ...formData, head: v })}>
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="เลือกหัวหน้าแผนก" />
+                  <SelectValue placeholder="เลือกผู้จัดการแผนก" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">ไม่ระบุ</SelectItem>
@@ -454,10 +454,10 @@ export default function DepartmentManagement() {
               />
             </div>
             <div className="space-y-2">
-              <Label>หัวหน้าแผนก</Label>
+              <Label>ผู้จัดการแผนก</Label>
               <Select value={formData.head} onValueChange={(v) => setFormData({ ...formData, head: v })}>
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="เลือกหัวหน้าแผนก" />
+                  <SelectValue placeholder="เลือกผู้จัดการแผนก" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">ไม่ระบุ</SelectItem>
