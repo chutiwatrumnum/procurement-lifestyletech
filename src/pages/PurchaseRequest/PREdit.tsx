@@ -287,25 +287,59 @@ export default function PREdit() {
         await pb.collection('purchase_requests').update(id, formData);
       }
       
-      await pb.collection('purchase_requests').update(id!, {
+      // Manager auto-approve check
+      const isManagerRole = user?.role === 'manager' || user?.role === 'superadmin';
+      const finalStatus = isManagerRole ? 'approved' : 'pending';
+
+      const updateData: any = {
         vendor: vendorIds[0],
         vendors: vendorIds,
-        // Reset approval flow to start from Head of Dept again
-        approval_level: 0,
-        head_of_dept_approved_by: '',
-        head_of_dept_approved_at: '',
-        head_of_dept_comment: '',
-        head_of_dept_signature: '',
-        head_of_dept_approved_by_name: '',
-        manager_approved_by: '',
-        manager_approved_at: '',
-        manager_comment: '',
-        manager_signature: '',
-        manager_approved_by_name: '',
-      });
-      
-      await prService.updateStatus(id!, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);
-      toast.success('อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
+        total_amount: totalAmount,
+        status: finalStatus,
+      };
+
+      if (isManagerRole) {
+        // Manager auto-approve
+        updateData.approved_by = user?.id;
+        updateData.approved_at = new Date().toISOString();
+        updateData.manager_approved_by = user?.id;
+        updateData.manager_approved_at = new Date().toISOString();
+        updateData.manager_approved_by_name = user?.name || user?.email;
+        updateData.approval_level = 2;
+      } else {
+        // Reset approval flow for regular users
+        updateData.approval_level = 0;
+        updateData.head_of_dept_approved_by = '';
+        updateData.head_of_dept_approved_at = '';
+        updateData.head_of_dept_comment = '';
+        updateData.head_of_dept_signature = '';
+        updateData.head_of_dept_approved_by_name = '';
+        updateData.manager_approved_by = '';
+        updateData.manager_approved_at = '';
+        updateData.manager_comment = '';
+        updateData.manager_signature = '';
+        updateData.manager_approved_by_name = '';
+      }
+
+      await pb.collection('purchase_requests').update(id!, updateData);
+
+      // Manager: copy signature
+      if (isManagerRole) {
+        try {
+          const currentUserData = await pb.collection('users').getOne(user?.id || '');
+          if (currentUserData.signature) {
+            const sigUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+            const response = await fetch(sigUrl);
+            const blob = await response.blob();
+            const sigFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+            const sigFormData = new FormData();
+            sigFormData.append('manager_signature', sigFile);
+            await pb.collection('purchase_requests').update(id!, sigFormData);
+          }
+        } catch (err) { console.error('Failed to copy manager signature:', err); }
+      }
+
+      toast.success(isManagerRole ? 'อนุมัติใบขอซื้อเรียบร้อยแล้ว' : 'อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
       // Refresh badge counts
       window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
       queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });

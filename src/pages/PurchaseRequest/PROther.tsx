@@ -249,59 +249,146 @@ export default function PROther() {
     setIsSubmitting(true);
     try {
       if (isEditMode && id) {
-        // Edit mode — update existing PR
-        for (const item of items) {
-          if (item.id?.length === 15) {
-            await pb.collection('pr_items').update(item.id, {
-              name: item.name,
-              unit: item.unit,
-              quantity: Number(item.quantity),
-              unit_price: Number(item.unit_price),
-              total_price: Number(item.total_price)
-            });
-          } else {
-            await pb.collection('pr_items').create({
-              pr: id,
-              name: item.name,
-              unit: item.unit,
-              quantity: Number(item.quantity),
-              unit_price: Number(item.unit_price),
-              total_price: Number(item.total_price)
-            });
+        // Edit mode
+        if (status === 'draft') {
+          // บันทึกร่าง — อัพเดตข้อมูลเท่านั้น ไม่ reset approval
+          for (const item of items) {
+            if (item.id?.length === 15) {
+              await pb.collection('pr_items').update(item.id, {
+                name: item.name,
+                unit: item.unit,
+                quantity: Number(item.quantity),
+                unit_price: Number(item.unit_price),
+                total_price: Number(item.total_price)
+              });
+            } else {
+              await pb.collection('pr_items').create({
+                pr: id,
+                name: item.name,
+                unit: item.unit,
+                quantity: Number(item.quantity),
+                unit_price: Number(item.unit_price),
+                total_price: Number(item.total_price)
+              });
+            }
           }
-        }
 
-        // Upload new files
-        const newFiles = attachments.filter(a => a.file);
-        if (newFiles.length > 0) {
-          const formData = new FormData();
-          newFiles.forEach(a => {
-            if (a.file) formData.append('attachments', a.file);
+          // Upload new files
+          const newFiles = attachments.filter(a => a.file);
+          if (newFiles.length > 0) {
+            const formData = new FormData();
+            newFiles.forEach(a => {
+              if (a.file) formData.append('attachments', a.file);
+            });
+            await pb.collection('purchase_requests').update(id, formData);
+          }
+
+          await pb.collection('purchase_requests').update(id, {
+            vendor: vendorId,
+            total_amount: totalAmount,
+            category: otherType,
+            project: isProjectPR && projectId ? projectId : null,
           });
-          await pb.collection('purchase_requests').update(id, formData);
+
+          toast.success('บันทึกร่างเรียบร้อย');
+        } else {
+          // ส่งอนุมัติ — update + manager auto-approve if applicable
+          const isManagerRole = user?.role === 'manager' || user?.role === 'superadmin';
+          const finalStatus = isManagerRole ? 'approved' : 'pending';
+
+          for (const item of items) {
+            if (item.id?.length === 15) {
+              await pb.collection('pr_items').update(item.id, {
+                name: item.name,
+                unit: item.unit,
+                quantity: Number(item.quantity),
+                unit_price: Number(item.unit_price),
+                total_price: Number(item.total_price)
+              });
+            } else {
+              await pb.collection('pr_items').create({
+                pr: id,
+                name: item.name,
+                unit: item.unit,
+                quantity: Number(item.quantity),
+                unit_price: Number(item.unit_price),
+                total_price: Number(item.total_price)
+              });
+            }
+          }
+
+          // Upload new files
+          const newFiles = attachments.filter(a => a.file);
+          if (newFiles.length > 0) {
+            const formData = new FormData();
+            newFiles.forEach(a => {
+              if (a.file) formData.append('attachments', a.file);
+            });
+            await pb.collection('purchase_requests').update(id, formData);
+          }
+
+          // Update PR with status and approval fields
+          const updateData: any = {
+            vendor: vendorId,
+            total_amount: totalAmount,
+            category: otherType,
+            status: finalStatus,
+            project: isProjectPR && projectId ? projectId : null,
+          };
+
+          if (isManagerRole) {
+            // Manager auto-approve
+            updateData.approved_by = user?.id;
+            updateData.approved_at = new Date().toISOString();
+            updateData.manager_approved_by = user?.id;
+            updateData.manager_approved_at = new Date().toISOString();
+            updateData.manager_approved_by_name = user?.name || user?.email;
+            updateData.approval_level = 2;
+          } else {
+            // Reset approval flow for regular users
+            updateData.approval_level = 0;
+            updateData.head_of_dept_approved_by = '';
+            updateData.head_of_dept_approved_at = '';
+            updateData.head_of_dept_comment = '';
+            updateData.head_of_dept_signature = '';
+            updateData.head_of_dept_approved_by_name = '';
+            updateData.manager_approved_by = '';
+            updateData.manager_approved_at = '';
+            updateData.manager_comment = '';
+            updateData.manager_signature = '';
+            updateData.manager_approved_by_name = '';
+          }
+
+          await pb.collection('purchase_requests').update(id, updateData);
+
+          // Manager: copy signature
+          if (isManagerRole) {
+            try {
+              const currentUserData = await pb.collection('users').getOne(user?.id || '');
+              if (currentUserData.signature) {
+                const sigUrl = `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${currentUserData.id}/${currentUserData.signature}`;
+                const response = await fetch(sigUrl);
+                const blob = await response.blob();
+                const sigFile = new File([blob], `signature_${currentUserData.id}_${Date.now()}.png`, { type: blob.type });
+                const sigFormData = new FormData();
+                sigFormData.append('manager_signature', sigFile);
+                await pb.collection('purchase_requests').update(id, sigFormData);
+              }
+            } catch (err) { console.error('Failed to copy manager signature:', err); }
+          }
+
+          // ส่ง notification (ไม่ส่งถ้า manager อนุมัติเองแล้ว)
+          if (!isManagerRole) {
+            try {
+              const pr = await pb.collection('purchase_requests').getOne(id);
+              await notificationService.notifyNewPR(pr, user?.id || '');
+            } catch (err) {
+              console.error('Failed to send notification:', err);
+            }
+          }
+
+          toast.success(isManagerRole ? 'อนุมัติใบขอซื้อเรียบร้อยแล้ว' : 'อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
         }
-
-        // Reset approval flow
-        await pb.collection('purchase_requests').update(id, {
-          vendor: vendorId,
-          total_amount: totalAmount,
-          category: otherType,
-          project: isProjectPR && projectId ? projectId : null,
-          approval_level: 0,
-          head_of_dept_approved_by: '',
-          head_of_dept_approved_at: '',
-          head_of_dept_comment: '',
-          head_of_dept_signature: '',
-          head_of_dept_approved_by_name: '',
-          manager_approved_by: '',
-          manager_approved_at: '',
-          manager_comment: '',
-          manager_signature: '',
-          manager_approved_by_name: '',
-        });
-
-        await prService.updateStatus(id, 'pending', 'แก้ไขข้อมูลตามที่ร้องขอ', user?.id);
-        toast.success('อัปเดตและส่งใบขอซื้ออีกครั้งเรียบร้อย');
       } else {
         // ถ้า manager/superadmin ส่ง PR → อนุมัติเลยทันที
         const isManagerRole = user?.role === 'manager' || user?.role === 'superadmin';
@@ -440,15 +527,27 @@ export default function PROther() {
         </div>
         <div className="flex gap-3">
           {isEditMode ? (
-            <>
-              <Button variant="outline" className="rounded-xl px-6 border-gray-200 font-bold" onClick={() => navigate(-1)}>
-                ยกเลิก
-              </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-bold shadow-lg" onClick={() => handleSubmit('pending')} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                ส่งคำขอจัดซื้ออีกครั้ง
-              </Button>
-            </>
+            prData?.status === 'draft' ? (
+              <>
+                <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB]" onClick={() => handleSubmit('draft')} disabled={isSubmitting}>
+                  <Save className="w-4 h-4 mr-2" /> บันทึกร่าง
+                </Button>
+                <Button className="bg-[#4B5563] hover:bg-[#1F2937] text-white rounded-xl px-8 font-bold shadow-lg" onClick={() => handleSubmit('pending')} disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                  ส่งคำขอจัดซื้อ
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" className="rounded-xl px-6 border-gray-200 font-bold" onClick={() => navigate(-1)}>
+                  ยกเลิก
+                </Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 font-bold shadow-lg" onClick={() => handleSubmit('pending')} disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                  ส่งคำขอจัดซื้ออีกครั้ง
+                </Button>
+              </>
+            )
           ) : (
             <>
               <Button variant="outline" className="rounded-xl px-6 border-[#E5E7EB]" onClick={() => handleSubmit('draft')} disabled={isSubmitting}>

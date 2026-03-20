@@ -77,8 +77,8 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
     requester: pr.requester_name || pr.expand?.requester?.name || 'N/A',
     date: new Date(pr.created).toLocaleDateString('th-TH'),
     amount: pr.total_amount || 0,
-    status: pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
-    color: pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
+    status: pr.status === 'draft' ? 'ร่าง' : pr.status === 'pending' ? 'รออนุมัติ' : pr.status === 'approved' ? 'อนุมัติแล้ว' : pr.status === 'rejected' ? 'ปฏิเสธ' : pr.status,
+    color: pr.status === 'draft' ? 'secondary' : pr.status === 'pending' ? 'warning' : pr.status === 'approved' ? 'success' : 'destructive'
   })), [rawPRs]);
 
   const handleDelete = (pr: any) => {
@@ -272,6 +272,14 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
               >
                 ปฏิเสธ
               </Button>
+              <Button
+                variant={statusFilter === 'draft' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleStatusFilter('draft')}
+                className={statusFilter === 'draft' ? 'bg-gray-600 hover:bg-gray-700' : ''}
+              >
+                ร่าง
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -323,7 +331,12 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                       ฿{pr.amount.toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      <Badge className={pr.color === 'warning' ? 'bg-yellow-100 text-yellow-700' : pr.color === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                      <Badge className={
+                        pr.color === 'secondary' ? 'bg-gray-100 text-gray-700' :
+                        pr.color === 'warning' ? 'bg-yellow-100 text-yellow-700' : 
+                        pr.color === 'success' ? 'bg-green-100 text-green-700' : 
+                        'bg-red-100 text-red-700'
+                      }>
                         {pr.status}
                       </Badge>
                     </TableCell>
@@ -361,7 +374,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                             <Eye className="w-4 h-4 mr-2" />
                             ดูรายละเอียด
                           </DropdownMenuItem>
-                          {(pr.rawStatus === 'pending' || pr.rawStatus === 'rejected') && (
+                          {(pr.rawStatus === 'draft' || pr.rawStatus === 'pending' || pr.rawStatus === 'rejected') && (
                             <DropdownMenuItem onClick={(e) => { 
                               e.stopPropagation(); 
                               if (pr.rawType === 'other') {
