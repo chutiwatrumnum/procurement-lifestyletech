@@ -374,7 +374,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                             <Eye className="w-4 h-4 mr-2" />
                             ดูรายละเอียด
                           </DropdownMenuItem>
-                          {(pr.rawStatus === 'draft' || pr.rawStatus === 'pending' || pr.rawStatus === 'rejected') && (
+                          {(pr.rawStatus === 'draft' || pr.rawStatus === 'rejected') && (
                             <DropdownMenuItem onClick={(e) => { 
                               e.stopPropagation(); 
                               if (pr.rawType === 'other') {

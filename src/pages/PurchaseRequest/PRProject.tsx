@@ -25,7 +25,8 @@ import {
   ArrowLeft,
   History,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
@@ -589,6 +590,23 @@ export default function PRProject() {
           </Button>
         </div>
       </div>
+
+      {/* Rejection Reason Banner */}
+      {isEditMode && prData?.status === 'rejected' && prData?.rejection_reason && (
+        <Card className="bg-red-50 border-none rounded-2xl shadow-sm">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">เหตุผลที่ถูกตีกลับ</p>
+                <p className="text-sm text-red-900 font-bold leading-relaxed">{prData.rejection_reason}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Edit History (show only in edit mode) */}
       {isEditMode && editHistory.length > 0 && (

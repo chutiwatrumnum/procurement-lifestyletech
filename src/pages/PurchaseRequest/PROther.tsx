@@ -26,6 +26,7 @@ import {
   Download,
   History,
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   ChevronDown,
   ChevronUp,
@@ -118,6 +119,19 @@ export default function PROther() {
             prService.getById(id),
             prService.getItems(id),
           ]);
+          
+          // Check สิทธิ์แก้ไข (เฉพาะ draft และ rejected)
+          if (pr.status !== 'draft' && pr.status !== 'rejected') {
+            toast.error('สามารถแก้ไขได้เฉพาะรายการที่ยังเป็น Draft หรือถูกตีกลับเท่านั้น');
+            navigate('/purchase-requests');
+            return;
+          }
+          
+          if (pr.type !== 'other') {
+            toast.error('รายการนี้ไม่ใช่ประเภทอื่นๆ');
+            navigate('/purchase-requests');
+            return;
+          }
           
           setPrData(pr);
           setVendorId(pr.vendor || '');
@@ -585,19 +599,18 @@ export default function PROther() {
       </div>
 
       {/* Rejection Banner */}
-      {isEditMode && prData?.status === 'rejected' && (
-        <Card className="border-none shadow-sm rounded-2xl bg-red-50">
-          <CardContent className="py-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-bold text-red-700">ใบขอซื้อนี้ถูกตีกลับ</p>
-                {(prData?.head_of_dept_comment || prData?.manager_comment) && (
-                  <p className="text-sm text-red-600 mt-1">
-                    เหตุผล: {prData?.manager_comment || prData?.head_of_dept_comment}
-                  </p>
-                )}
-                <p className="text-xs text-red-400 mt-1">กรุณาแก้ไขข้อมูลแล้วส่งอีกครั้ง</p>
+      {isEditMode && prData?.status === 'rejected' && (prData?.rejection_reason || prData?.head_of_dept_comment || prData?.manager_comment) && (
+        <Card className="bg-red-50 border-none rounded-2xl shadow-sm">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">เหตุผลที่ถูกตีกลับ</p>
+                <p className="text-sm text-red-900 font-bold leading-relaxed">
+                  {prData?.rejection_reason || prData?.manager_comment || prData?.head_of_dept_comment}
+                </p>
               </div>
             </div>
           </CardContent>

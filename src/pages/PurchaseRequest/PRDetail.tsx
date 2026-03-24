@@ -8,7 +8,12 @@ import {
   User,
   FileText,
   Download,
-  Printer
+  Printer,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  UserCheck,
+  Users
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePurchaseRequest, usePRItems } from '@/hooks/usePurchaseRequests';
@@ -74,6 +79,23 @@ export default function PRDetail() {
         </div>
         {getStatusBadge(pr.status)}
       </div>
+
+      {/* Rejection Reason Banner */}
+      {pr.status === 'rejected' && pr.rejection_reason && (
+        <Card className="bg-red-50 border-none rounded-2xl shadow-sm">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">เหตุผลที่ถูกตีกลับ</p>
+                <p className="text-sm text-red-900 font-bold leading-relaxed">{pr.rejection_reason}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
@@ -208,6 +230,101 @@ export default function PRDetail() {
             </Card>
           )}
 
+          {/* Approval Workflow Status */}
+          {(pr.status === 'pending' || pr.status === 'approved') && (
+            <Card className="border-none shadow-sm rounded-2xl">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base font-bold">
+                  <Clock className="w-5 h-5 text-blue-600" /> สถานะการอนุมัติ
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Step 1: Head of Dept */}
+                  <div className="flex items-start gap-3">
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      (pr.approval_level || 0) >= 1 || pr.status === 'approved'
+                        ? 'bg-green-100 text-green-600'
+                        : (pr.approval_level || 0) === 0 && pr.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-600 ring-2 ring-yellow-300 animate-pulse'
+                          : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      {(pr.approval_level || 0) >= 1 || pr.status === 'approved'
+                        ? <CheckCircle2 className="w-4 h-4" />
+                        : <UserCheck className="w-4 h-4" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-bold ${
+                        (pr.approval_level || 0) >= 1 || pr.status === 'approved' ? 'text-green-700' :
+                        (pr.approval_level || 0) === 0 && pr.status === 'pending' ? 'text-yellow-700' : 'text-gray-500'
+                      }`}>
+                        ผู้จัดการแผนก
+                      </p>
+                      {(pr.approval_level || 0) >= 1 || pr.status === 'approved' ? (
+                        <div>
+                          <p className="text-xs text-green-600 font-medium">✓ อนุมัติแล้ว</p>
+                          {pr.head_of_dept_approved_by_name && (
+                            <p className="text-xs text-gray-500 mt-0.5">โดย: {pr.head_of_dept_approved_by_name}</p>
+                          )}
+                          {pr.head_of_dept_approved_at && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {new Date(pr.head_of_dept_approved_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-yellow-600 font-bold">⏳ รอการอนุมัติ</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Connector line */}
+                  <div className="ml-4 border-l-2 border-dashed border-gray-200 h-2" />
+
+                  {/* Step 2: Manager */}
+                  <div className="flex items-start gap-3">
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      (pr.approval_level || 0) >= 2 || pr.status === 'approved'
+                        ? 'bg-green-100 text-green-600'
+                        : (pr.approval_level || 0) === 1 && pr.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-600 ring-2 ring-yellow-300 animate-pulse'
+                          : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      {(pr.approval_level || 0) >= 2 || pr.status === 'approved'
+                        ? <CheckCircle2 className="w-4 h-4" />
+                        : <Users className="w-4 h-4" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-bold ${
+                        (pr.approval_level || 0) >= 2 || pr.status === 'approved' ? 'text-green-700' :
+                        (pr.approval_level || 0) === 1 && pr.status === 'pending' ? 'text-yellow-700' : 'text-gray-500'
+                      }`}>
+                        ผู้บริหาร
+                      </p>
+                      {(pr.approval_level || 0) >= 2 || pr.status === 'approved' ? (
+                        <div>
+                          <p className="text-xs text-green-600 font-medium">✓ อนุมัติแล้ว</p>
+                          {pr.manager_approved_by_name && (
+                            <p className="text-xs text-gray-500 mt-0.5">โดย: {pr.manager_approved_by_name}</p>
+                          )}
+                          {pr.manager_approved_at && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              {new Date(pr.manager_approved_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                        </div>
+                      ) : (pr.approval_level || 0) === 1 && pr.status === 'pending' ? (
+                        <p className="text-xs text-yellow-600 font-bold">⏳ รอการอนุมัติ</p>
+                      ) : (
+                        <p className="text-xs text-gray-400">รอขั้นตอนก่อนหน้า</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Actions */}
           <div className="flex flex-col gap-3">
             {pr.status === 'approved' && pr.type !== 'project' && (
@@ -218,22 +335,24 @@ export default function PRDetail() {
                 <Printer className="w-4 h-4 mr-2" /> พิมพ์ใบสั่งซื้อ (PO)
               </Button>
             )}
-            <Button 
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl"
-              onClick={() => {
-                if (pr.type === 'project') {
-                  navigate(`/purchase-requests/edit/project/${pr.id}`);
-                } else if (pr.type === 'sub') {
-                  navigate(`/purchase-requests/edit/sub/${pr.id}`);
-                } else if (pr.type === 'other') {
-                  navigate(`/purchase-requests/edit/other/${pr.id}`);
-                } else {
-                  navigate(`/purchase-requests/edit/${pr.id}`);
-                }
-              }}
-            >
-              แก้ไขใบขอซื้อ
-            </Button>
+            {(pr.status === 'draft' || pr.status === 'rejected') && (
+              <Button 
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl"
+                onClick={() => {
+                  if (pr.type === 'project') {
+                    navigate(`/purchase-requests/edit/project/${pr.id}`);
+                  } else if (pr.type === 'sub') {
+                    navigate(`/purchase-requests/edit/sub/${pr.id}`);
+                  } else if (pr.type === 'other') {
+                    navigate(`/purchase-requests/edit/other/${pr.id}`);
+                  } else {
+                    navigate(`/purchase-requests/edit/${pr.id}`);
+                  }
+                }}
+              >
+                แก้ไขใบขอซื้อ
+              </Button>
+            )}
           </div>
         </div>
       </div>
