@@ -1,8 +1,6 @@
-// Webhook รับข้อความจาก LINE แล้วตอบกลับด้วย User ID
-// PocketBase v0.23+ ใช้ c.requestInfo() แทน $apis.requestInfo(c)
+// Webhook รับข้อความจาก LINE - แค่ตอบกลับด้วย LINE User ID ของผู้ส่ง
 routerAdd("POST", "/api/line-webhook", (c) => {
     try {
-        // ใช้ c.requestInfo() ซึ่งมีอยู่ใน PocketBase v0.23+
         const info = c.requestInfo();
         const body = info.body || {};
 
@@ -14,7 +12,7 @@ routerAdd("POST", "/api/line-webhook", (c) => {
         const event = events[0];
         const replyToken = String(event["replyToken"] || "");
 
-        // dummy token จากปุ่ม Verify
+        // ข้าม dummy token
         if (!replyToken ||
             replyToken === "00000000000000000000000000000000" ||
             replyToken === "ffffffffffffffffffffffffffffffff") {
@@ -33,11 +31,38 @@ routerAdd("POST", "/api/line-webhook", (c) => {
             return c.json(200, { "status": "ok" });
         }
 
-        const replyText = "สวัสดีครับ!\n\n" +
-            "📋 รหัส LINE User ID ของท่านคือ:\n" +
-            userId + "\n\n" +
-            "⚠️ กรุณาคัดลอกรหัสนี้แล้วส่งให้แอดมินครับ";
+        // ตรวจสอบว่าผู้ส่งเคย link กับระบบหรือยัง
+        let linkedUser = null;
+        let userName = "";
+        try {
+            linkedUser = $app.findRecordByFilter(
+                "users",
+                `line_user_id="${userId}"`,
+                "id,email,name"
+            );
+            if (linkedUser) {
+                userName = linkedUser.get("name") || "";
+            }
+        } catch (e) {
+            linkedUser = null;
+        }
 
+        let replyText = "";
+        if (linkedUser) {
+            // ถ้าเคย link แล้ว
+            replyText = "✅ *คุณได้เชื่อมต่อกับระบบแล้ว*\n\n" +
+                "👤 ชื่อ: " + userName + "\n" +
+                "📧 Email: " + linkedUser.get("email") + "\n\n" +
+                "💡 คุณจะได้รับการแจ้งเตือนจากระบบ Procurement";
+        } else {
+            // ถ้ายังไม่ได้ link
+            replyText = "👋 *สวัสดีครับ!*\n\n" +
+                "📋 LINE User ID ของท่านคือ:\n" +
+                "`" + userId + "`\n\n" +
+                "🔗 หากต้องการรับการแจ้งเตือน ให้นำรหัสนี้ไปผูกในระบบ Procurement → Profile → LINE Integration";
+        }
+
+        // ส่ง reply
         const result = $http.send({
             url: "https://api.line.me/v2/bot/message/reply",
             method: "POST",

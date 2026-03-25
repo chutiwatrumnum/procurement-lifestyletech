@@ -21,7 +21,10 @@ import {
   Signature,
   Upload,
   X,
-  Check
+  Check,
+  MessageCircle,
+  Link,
+  Unlink
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -48,6 +51,12 @@ export default function ProfileSettings() {
   const [isDraggingSignature, setIsDraggingSignature] = useState(false);
   const sigDragCounter = useRef(0);
   
+  // LINE Integration State
+  const [lineUserId, setLineUserId] = useState('');
+  const [lineLinked, setLineLinked] = useState(false);
+  const [linkingLine, setLinkingLine] = useState(false);
+  const [unlinkingLine, setUnlinkingLine] = useState(false);
+  
   const [profile, setProfile] = useState({
     name: '',
     email: '',
@@ -56,7 +65,8 @@ export default function ProfileSettings() {
     departmentName: '',
     role: '',
     avatar: '',
-    signature: ''
+    signature: '',
+    line_user_id: ''
   });
   
   const [passwordForm, setPasswordForm] = useState<PasswordForm>({
@@ -79,7 +89,21 @@ export default function ProfileSettings() {
     }
   };
 
+  // ดึงสถานะ LINE เมื่อโหลด component
   useEffect(() => {
+    const fetchLineStatus = async () => {
+      if (!currentUser?.id) return;
+      try {
+        const response = await pb.send('/api/line-status', { method: 'GET' });
+        if (response.success) {
+          setLineLinked(response.linked);
+          setLineUserId(response.line_user_id || '');
+        }
+      } catch (err) {
+        console.error('Failed to fetch LINE status:', err);
+      }
+    };
+    
     if (currentUser) {
       setProfile({
         name: currentUser.name || '',
@@ -89,14 +113,67 @@ export default function ProfileSettings() {
         departmentName: currentUser.departmentName || '',
         role: currentUser.role || '',
         avatar: currentUser.avatar || '',
-        signature: (currentUser as any).signature || ''
+        signature: (currentUser as any).signature || '',
+        line_user_id: (currentUser as any).line_user_id || ''
       });
       setLoading(false);
       
       // ดึงข้อมูลล่าสุดจาก API เพื่อให้แน่ใจว่าได้ signature ล่าสุด
       refreshUserData();
+      
+      // ดึงสถานะ LINE
+      fetchLineStatus();
     }
   }, [currentUser]);
+
+  // ฟังก์ชันผูก LINE
+  const handleLinkLine = async () => {
+    if (!lineUserId.trim()) {
+      toast.error('กรุณากรอก LINE User ID');
+      return;
+    }
+    
+    setLinkingLine(true);
+    try {
+      const response = await pb.send('/api/link-line', {
+        method: 'POST',
+        body: { line_user_id: lineUserId.trim() }
+      });
+      
+      if (response.success) {
+        setLineLinked(true);
+        toast.success('ผูก LINE สำเร็จ!');
+      } else {
+        toast.error(response.message || 'ผูก LINE ไม่สำเร็จ');
+      }
+    } catch (err: any) {
+      console.error('Link LINE failed:', err);
+      toast.error(err.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setLinkingLine(false);
+    }
+  };
+
+  // ฟังก์ชันยกเลิกผูก LINE
+  const handleUnlinkLine = async () => {
+    setUnlinkingLine(true);
+    try {
+      const response = await pb.send('/api/unlink-line', { method: 'POST' });
+      
+      if (response.success) {
+        setLineLinked(false);
+        setLineUserId('');
+        toast.success('ยกเลิกการผูก LINE สำเร็จ');
+      } else {
+        toast.error(response.message || 'ยกเลิกไม่สำเร็จ');
+      }
+    } catch (err: any) {
+      console.error('Unlink LINE failed:', err);
+      toast.error(err.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setUnlinkingLine(false);
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!currentUser?.id) return;
@@ -665,6 +742,158 @@ export default function ProfileSettings() {
             accept="image/png,image/jpeg,image/jpg"
             className="hidden"
           />
+        </CardContent>
+      </Card>
+
+      {/* LINE Integration Card */}
+      <Card className="border-none shadow-sm rounded-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <MessageCircle className="w-5 h-5 text-green-500" />
+            LINE Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="p-4 bg-green-50 rounded-xl border border-green-100">
+            <p className="text-sm text-green-700">
+              ผูก LINE กับบัญชีของคุณเพื่อรับการแจ้งเตือนและยืนยันตัวตนผ่าน LINE
+            </p>
+          </div>
+
+          {/* QR Code Section - แสกนเพิ่มเพื่อน */}
+          <div className="flex flex-col md:flex-row gap-6 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-2xl border-2 border-green-200">
+            <div className="flex-shrink-0">
+              <div className="bg-white p-4 rounded-xl shadow-sm">
+                {/* QR Code for LINE Bot @672fdxrk */}
+                <img 
+                  src="https://qr-official.line.me/gs/M_672fdxrk_GW.png" 
+                  alt="LINE QR Code" 
+                  className="w-40 h-40 object-contain"
+                  onError={(e) => {
+                    // Fallback to direct link if QR fails
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">📱</span>
+                <h3 className="font-bold text-green-800 text-lg">เพิ่มเพื่อน LINE Bot</h3>
+              </div>
+              <p className="text-sm text-green-700">
+                <strong>Bot ID:</strong> @672fdxrk
+              </p>
+              <p className="text-sm text-green-600">
+                แสกน QR Code ด้านบน หรือกดปุ่มด้านล่างเพื่อเพิ่มเพื่อน
+              </p>
+              <Button
+                onClick={() => window.open('https://line.me/R/ti/p/@672fdxrk', '_blank')}
+                className="bg-green-600 hover:bg-green-700 rounded-xl"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                เพิ่มเพื่อน LINE
+              </Button>
+              <p className="text-xs text-green-600 mt-2">
+                💡 หลังจากเพิ่มเพื่อนแล้ว ส่งข้อความใดๆ เพื่อดู LINE User ID ของคุณ
+              </p>
+            </div>
+          </div>
+
+          {/* สถานะการเชื่อมต่อ */}
+          <div className="flex items-center gap-3 p-4 rounded-xl border-2">
+            {lineLinked ? (
+              <>
+                <div className="p-3 bg-green-100 rounded-full">
+                  <Check className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-900">เชื่อมต่อแล้ว</p>
+                  <p className="text-sm text-gray-500">LINE User ID: {lineUserId}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-3 bg-gray-100 rounded-full">
+                  <Link className="w-6 h-6 text-gray-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-gray-900">ยังไม่ได้เชื่อมต่อ</p>
+                  <p className="text-sm text-gray-500">ผูก LINE เพื่อรับการแจ้งเตือน</p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ฟอร์มกรอก LINE User ID */}
+          {!lineLinked && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-gray-400" />
+                  LINE User ID
+                </Label>
+                <div className="flex gap-3">
+                  <Input
+                    value={lineUserId}
+                    onChange={(e) => setLineUserId(e.target.value)}
+                    className="h-11 rounded-xl flex-1"
+                    placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  />
+                  <Button
+                    onClick={handleLinkLine}
+                    disabled={linkingLine || !lineUserId.trim()}
+                    className="bg-green-600 hover:bg-green-700 rounded-xl px-6"
+                  >
+                    {linkingLine ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        กำลังผูก...
+                      </>
+                    ) : (
+                      <>
+                        <Link className="w-4 h-4 mr-2" />
+                        ผูก LINE
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <p className="text-sm text-blue-700">
+                  <strong>วิธีดู LINE User ID:</strong> ส่งข้อความใดๆ ไปยัง Bot @672fdxrk แล้ว Bot จะตอบกลับพร้อมรหัส คัดลอกมาวางในช่องด้านบน
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ปุ่มยกเลิกการเชื่อมต่อ */}
+          {lineLinked && (
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => window.open('https://line.me/R', '_blank')}
+                className="rounded-xl flex-1"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                เปิด LINE
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleUnlinkLine}
+                disabled={unlinkingLine}
+                className="rounded-xl text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
+              >
+                {unlinkingLine ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Unlink className="w-4 h-4 mr-2" />
+                )}
+                ยกเลิกการเชื่อมต่อ
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
