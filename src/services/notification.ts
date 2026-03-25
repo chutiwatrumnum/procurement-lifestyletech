@@ -29,22 +29,36 @@ async function notifyUsers(userIds: string[], data: {
   }
 }
 
-// ดึงรายชื่อผู้จัดการแผนก (head_of_dept)
+// ดึงรายชื่อผู้จัดการแผนกตาม department ของคนสร้าง PR
+async function getHeadOfDeptsByDepartment(departmentId: string): Promise<string[]> {
+  if (!departmentId) {
+    // ถ้าไม่มี department ให้ดึงทุก head
+    return getHeadOfDepts();
+  }
+  try {
+    const result = await pb.collection('users').getFullList({
+      filter: `role = "head_of_dept" && department = "${departmentId}"`,
+      fields: 'id,role,department'
+    });
+    
+    console.log('[NOTIFY] Head of dept by dept:', result.length, 'users');
+    return result.map((u: any) => u.id);
+  } catch (e: any) {
+    console.error('[NOTIFY] Failed to fetch head_of_depts by dept:', e?.message || e?.status || e);
+    return [];
+  }
+}
+
+// ดึงรายชื่อผู้จัดการแผนก (head_of_dept) ทั้งหมด
 async function getHeadOfDepts(): Promise<string[]> {
   try {
     const result = await pb.collection('users').getFullList({
-      fields: 'id,role'
+      filter: `role = "head_of_dept"`,
+      fields: 'id,role,department'
     });
     
-    console.log('[NOTIFY] All users fetched:', result.length, 'users');
-    console.log('[NOTIFY] User roles:', result.map((u: any) => ({ id: u.id, role: u.role })));
-    
-    const heads = result
-      .filter((u: any) => u.role === 'head_of_dept')
-      .map((u: any) => u.id);
-    
-    console.log('[NOTIFY] Head of dept IDs:', heads);
-    return heads;
+    console.log('[NOTIFY] All head of depts:', result.length, 'users');
+    return result.map((u: any) => u.id);
   } catch (e: any) {
     console.error('[NOTIFY] Failed to fetch head_of_depts:', e?.message || e?.status || e);
     return [];
@@ -85,15 +99,28 @@ async function getProjectManager(projectId: string): Promise<string | null> {
 
 export const notificationService = {
   // ==================== พนักงานสร้าง PR ใหม่ ====================
-  // แจ้ง → ผู้จัดการแผนก + ผู้บริหาร
+  // แจ้ง → ผู้จัดการแผนก (เฉพาะแผนกตัวเอง) + ผู้บริหาร
   async notifyNewPR(pr: any, requesterId: string) {
     const recipients: string[] = [];
 
-    // 1. แจ้งผู้จัดการแผนก
-    const heads = await getHeadOfDepts();
+    // 1. แจ้งผู้จัดการแผนกเฉพาะแผนกของคนสร้าง PR
+    // ดึง department จาก requester (คนสร้าง PR)
+    let departmentId = null;
+    if (requesterId) {
+      try {
+        const requester = await pb.collection('users').getOne(requesterId, {
+          fields: 'department'
+        });
+        departmentId = requester?.department || null;
+        console.log('[NOTIFY] Requester department:', departmentId);
+      } catch (e) {
+        console.error('[NOTIFY] Failed to get requester department:', e);
+      }
+    }
+    const heads = await getHeadOfDeptsByDepartment(departmentId);
     recipients.push(...heads);
 
-    // 2. แจ้งผู้บริหาร
+    // 2. แจ้งผู้บริหาร (ทุกแผนก)
     const managers = await getManagers();
     recipients.push(...managers);
 
@@ -115,15 +142,26 @@ export const notificationService = {
   },
 
   // ==================== ผู้จัดการแผนกอนุมัติ/ตีกลับ PR ====================
-  // แจ้ง → ผู้จัดการแผนก + ผู้บริหาร + พนักงาน (คนสร้าง)
+  // แจ้ง → ผู้จัดการแผนก (เฉพาะแผนกนั้น) + ผู้บริหาร + พนักงาน (คนสร้าง)
   async notifyByHeadOfDept(pr: any, approverName: string, isApproval: boolean, requesterId?: string) {
     const recipients: string[] = [];
 
-    // 1. แจ้งผู้จัดการแผนกคนอื่นๆ (ไม่รวมตัวเอง)
-    const heads = await getHeadOfDepts();
+    // 1. แจ้งผู้จัดการแผนกเฉพาะแผนกของคนสร้าง PR
+    let departmentId = null;
+    if (requesterId) {
+      try {
+        const requester = await pb.collection('users').getOne(requesterId, {
+          fields: 'department'
+        });
+        departmentId = requester?.department || null;
+      } catch (e) {
+        console.error('[NOTIFY] Failed to get requester department:', e);
+      }
+    }
+    const heads = await getHeadOfDeptsByDepartment(departmentId);
     recipients.push(...heads);
 
-    // 2. แจ้งผู้บริหาร
+    // 2. แจ้งผู้บริหาร (ทุกแผนก)
     const managers = await getManagers();
     recipients.push(...managers);
 
@@ -148,12 +186,23 @@ export const notificationService = {
   },
 
   // ==================== ผู้บริหารอนุมัติ/ตีกลับ PR ====================
-  // แจ้ง → ผู้จัดการแผนก + พนักงาน (คนสร้าง)
+  // แจ้ง → ผู้จัดการแผนก (เฉพาะแผนกนั้น) + พนักงาน (คนสร้าง)
   async notifyByManager(pr: any, approverName: string, isApproval: boolean, requesterId?: string) {
     const recipients: string[] = [];
 
-    // 1. แจ้งผู้จัดการแผนก
-    const heads = await getHeadOfDepts();
+    // 1. แจ้งผู้จัดการแผนกเฉพาะแผนกของคนสร้าง PR
+    let departmentId = null;
+    if (requesterId) {
+      try {
+        const requester = await pb.collection('users').getOne(requesterId, {
+          fields: 'department'
+        });
+        departmentId = requester?.department || null;
+      } catch (e) {
+        console.error('[NOTIFY] Failed to get requester department:', e);
+      }
+    }
+    const heads = await getHeadOfDeptsByDepartment(departmentId);
     recipients.push(...heads);
 
     // 2. แจ้งคนสร้าง PR (requester)
