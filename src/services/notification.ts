@@ -7,6 +7,7 @@ async function notifyUsers(userIds: string[], data: {
   type: 'approval' | 'rejection' | 'info';
   pr_id?: string;
   pr_number?: string;
+  pr_type?: string;
 }) {
   // Filter เอาแค่ ID ที่ valid
   const validIds = userIds.filter(id => id && id !== '0' && id.length > 5);
@@ -19,6 +20,8 @@ async function notifyUsers(userIds: string[], data: {
         message: data.message,
         type: data.type,
         pr_id: data.pr_id || '',
+        pr_number: data.pr_number || '',
+        pr_type: data.pr_type || '',
         is_read: false
       };
       
@@ -136,7 +139,8 @@ export const notificationService = {
         message: `ใบขอซื้อ ${pr.pr_number} ถูกสร้างโดย ${pr.requester_name || 'ไม่ระบุ'} และรอการอนุมัติ`,
         type: 'info',
         pr_id: pr.id,
-        pr_number: pr.pr_number
+        pr_number: pr.pr_number,
+        pr_type: pr.type || ''
       });
     }
   },
@@ -180,7 +184,8 @@ export const notificationService = {
         message: `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยผู้จัดการแผนก ${approverName}`,
         type: isApproval ? 'approval' : 'rejection',
         pr_id: pr.id,
-        pr_number: pr.pr_number
+        pr_number: pr.pr_number,
+        pr_type: pr.type || ''
       });
     }
   },
@@ -220,7 +225,8 @@ export const notificationService = {
         message: `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยผู้บริหาร ${approverName}`,
         type: isApproval ? 'approval' : 'rejection',
         pr_id: pr.id,
-        pr_number: pr.pr_number
+        pr_number: pr.pr_number,
+        pr_type: pr.type || ''
       });
     }
   },

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { prService } from '@/services/api';
+import pb from '@/lib/pocketbase';
 
 export const prKeys = {
     all: ['purchaseRequests'] as const,
@@ -20,7 +21,20 @@ export function usePurchaseRequests(filter = '', options?: { expand?: string }) 
 export function usePurchaseRequest(id: string | undefined) {
     return useQuery({
         queryKey: prKeys.detail(id!),
-        queryFn: () => prService.getById(id!),
+        queryFn: async () => {
+            const pr = await prService.getById(id!);
+            // ถ้ามี vendor แต่ expand.vendor ไม่มี (อาจถูกลบ) ให้ดึงข้อมูล vendor โดยตรง
+            if (pr.vendor && !pr.expand?.vendor) {
+                try {
+                    const vendor = await pb.collection('vendors').getOne(pr.vendor);
+                    pr.expand = { ...pr.expand, vendor };
+                } catch (e) {
+                    // vendor ถูกลบไปแล้ว
+                    console.log('Vendor not found:', pr.vendor);
+                }
+            }
+            return pr;
+        },
         enabled: !!id,
     });
 }

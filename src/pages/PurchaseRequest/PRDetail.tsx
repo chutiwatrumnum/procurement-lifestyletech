@@ -170,8 +170,8 @@ export default function PRDetail() {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Vendor Info — only show if vendor exists */}
-          {pr.vendor && (
+          {/* Vendor Info — แสดงเสมอถ้ามี vendor ID */}
+          {pr.vendor ? (
             <Card className="border-none shadow-sm rounded-2xl">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base font-bold">
@@ -187,8 +187,22 @@ export default function PRDetail() {
                     <p className="text-sm text-blue-700">{pr.expand.vendor.phone}</p>
                   </div>
                 ) : (
-                  <p className="text-gray-400">ไม่ระบุผู้ขาย</p>
+                  <div className="p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
+                    <p className="text-gray-500 font-medium">รหัสผู้ขาย: {pr.vendor}</p>
+                    <p className="text-xs text-gray-400 mt-1">(ผู้ขายอาจถูกลบหรือไม่มีข้อมูล)</p>
+                  </div>
                 )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-none shadow-sm rounded-2xl">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-bold">
+                  <User className="w-5 h-5 text-gray-400" /> ผู้ขาย
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-400">ไม่ระบุผู้ขาย</p>
               </CardContent>
             </Card>
           )}
