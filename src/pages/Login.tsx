@@ -100,7 +100,7 @@ function FloorPlan() {
 export default function Login() {
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  const { logoUrl } = useCompanyLogo();
+  const { logoUrl, loading: logoLoading } = useCompanyLogo();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -238,8 +238,8 @@ export default function Login() {
         {/* แบบแปลน */}
         <aside className="flex min-w-0 flex-col gap-6 p-6 lg:gap-8 lg:p-10">
           <div>
-            <p className="font-display text-xl font-semibold leading-none">ProcureReal</p>
-            <p className="mt-1.5 font-drawing text-[11px] tracking-widest text-chalk">REAL ESTATE ERP</p>
+            <p className="font-display text-xl font-semibold leading-none">ระบบจัดซื้อจัดจ้าง</p>
+            <p className="mt-2 font-drawing text-[11px] tracking-wider text-chalk">LIFESTYLE TECHNOLOGIES CO., LTD.</p>
           </div>
 
           <p className="font-display text-[clamp(2rem,4vw,3.75rem)] font-semibold leading-[1.25]">
@@ -264,9 +264,11 @@ export default function Login() {
 
         {/* ฟอร์ม อยู่ตำแหน่งเดียวกับ title block ของแบบ */}
         <main className="flex flex-col bg-white px-6 py-8 text-gray-900 lg:px-10 lg:py-10">
-          {logoUrl && (
-            <img src={logoUrl} alt="โลโก้บริษัท" className="mb-8 h-14 w-auto self-start object-contain" />
-          )}
+          <div className="mb-8 h-14">
+            {!logoLoading && (
+              <img src={logoUrl || '/logo.png'} alt="โลโก้บริษัท" className="h-full max-w-full object-contain object-left" />
+            )}
+          </div>
 
           <div className="my-auto w-full">
             {pendingApproval ? (
