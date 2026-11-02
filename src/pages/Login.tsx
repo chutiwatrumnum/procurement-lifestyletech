@@ -6,17 +6,102 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Lock, Mail, User, CheckCircle2, Clock, Layers } from 'lucide-react';
+import { Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 import { useCompanyLogo } from '@/hooks/useCompanyLogo';
+
+const FIELD_CLASS = 'h-12 bg-white border-gray-300 md:text-base placeholder:text-gray-400';
+const LABEL_CLASS = 'text-sm font-medium text-gray-700';
+
+const APPROVAL_STEPS = [
+  { code: 'PR', label: 'ขอซื้อ' },
+  { code: 'ระดับ 1', label: 'ผู้จัดการแผนก' },
+  { code: 'ระดับ 2', label: 'ผู้บริหาร' },
+  { code: 'PO', label: 'สั่งซื้อ' },
+];
+
+const ROOM_LABELS = [
+  { x: 180, y: 124, text: 'ห้องนอน 1' },
+  { x: 180, y: 310, text: 'ห้องนั่งเล่น' },
+  { x: 385, y: 124, text: 'ครัว' },
+  { x: 555, y: 124, text: 'ห้องนอน 2' },
+  { x: 470, y: 368, text: 'โถงกลาง' },
+];
+
+function PasswordInput({
+  className,
+  ...props
+}: React.ComponentProps<typeof Input>) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="relative">
+      <Input
+        {...props}
+        type={visible ? 'text' : 'password'}
+        className={`${className} pr-12 [&::-ms-reveal]:hidden`}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible(!visible)}
+        aria-label={visible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+        aria-pressed={visible}
+        className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center rounded-md text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
+        {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+      </button>
+    </div>
+  );
+}
+
+function FloorPlan() {
+  return (
+    <svg
+      viewBox="0 0 680 450"
+      fill="none"
+      aria-hidden="true"
+      preserveAspectRatio="xMinYMid meet"
+      className="h-full w-full text-chalk"
+    >
+      {/* ผนัง */}
+      <g stroke="currentColor" strokeWidth="3" strokeLinecap="square">
+        <path className="plan-line" pathLength={1} d="M300 60 H60 V420 H380" />
+        <path className="plan-line" pathLength={1} style={{ animationDelay: '150ms' }} d="M420 420 H640 V240" />
+        <path className="plan-line" pathLength={1} style={{ animationDelay: '300ms' }} d="M640 200 V60 H340" />
+        <path className="plan-line" pathLength={1} style={{ animationDelay: '450ms' }} d="M60 180 H140 M180 180 H300 V60 M300 220 V420" />
+        <path className="plan-line" pathLength={1} style={{ animationDelay: '600ms' }} d="M300 300 H470 M510 300 H640 M470 60 V150 M470 190 V300" />
+      </g>
+
+      {/* ประตู หน้าต่าง ระยะ และชื่อห้อง */}
+      <g className="plan-note" stroke="currentColor" strokeWidth="1">
+        <path d="M140 180 V220 A40 40 0 0 0 180 180" />
+        <path d="M300 180 H340 A40 40 0 0 1 300 220" />
+        <path d="M470 300 V260 A40 40 0 0 1 510 300" />
+        <path d="M470 150 H510 A40 40 0 0 1 470 190" />
+        <path d="M420 420 V380 A40 40 0 0 0 380 420" />
+        <path d="M300 56 H340 M300 64 H340 M636 200 V240 M644 200 V240" />
+        <path d="M60 28 H640 M60 22 V34 M300 22 V34 M640 22 V34 M28 60 V420 M22 60 H34 M22 420 H34" opacity="0.7" />
+        <g fill="currentColor" stroke="none" fontSize="12" className="font-drawing">
+          <text x="180" y="20" textAnchor="middle">4.80</text>
+          <text x="470" y="20" textAnchor="middle">6.80</text>
+          <text x="18" y="240" textAnchor="middle" transform="rotate(-90 18 240)">7.20</text>
+        </g>
+        <g fill="currentColor" stroke="none" fontSize="14" textAnchor="middle" className="font-display">
+          {ROOM_LABELS.map((room) => (
+            <text key={room.text} x={room.x} y={room.y}>{room.text}</text>
+          ))}
+        </g>
+      </g>
+    </svg>
+  );
+}
 
 export default function Login() {
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  const { logoUrl, loading: logoLoading } = useCompanyLogo();
+  const { logoUrl } = useCompanyLogo();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -41,6 +126,13 @@ export default function Login() {
     fetchDepartments();
   }, []);
 
+  const switchMode = (next: 'login' | 'register') => {
+    setMode(next);
+    setError('');
+    setPassword('');
+    setPendingApproval(false);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -49,13 +141,13 @@ export default function Login() {
     try {
       await login(email, password);
       toast.success('เข้าสู่ระบบสำเร็จ');
-      
+
       // เช็ครายการรออนุมัติและโดนตีกลับ
       try {
         const allPRs = await prService.getAll();
         const pendingCount = allPRs.filter(p => p.status === 'pending').length;
         const rejectedCount = allPRs.filter(p => p.status === 'rejected').length;
-        
+
         if (pendingCount > 0 || rejectedCount > 0) {
           let message = '';
           if (pendingCount > 0) message += `📋 รออนุมัติ: ${pendingCount} รายการ`;
@@ -65,7 +157,7 @@ export default function Login() {
       } catch {
         // นับรายการไม่ได้ก็เข้าระบบต่อได้
       }
-      
+
       navigate('/');
     } catch (err: any) {
       // 403 = authRule ของ users ปฏิเสธ เพราะ is_active ยังเป็น false
@@ -98,7 +190,7 @@ export default function Login() {
         email: 'อีเมล',
         name: 'ชื่อ',
       };
-      
+
       if (err?.data?.data) {
         const messages: string[] = [];
         for (const [field, detail] of Object.entries(err.data.data as Record<string, any>)) {
@@ -134,235 +226,202 @@ export default function Login() {
     }
   };
 
+  const errorBox = error && (
+    <div role="alert" className="whitespace-pre-line rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+      {error}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB] p-4 font-sans">
-      <div className="w-full max-w-[440px]">
-        {/* Branding */}
-        <div className="flex flex-col items-center mb-10 text-center">
-          <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-center mb-2 min-h-[130px] min-w-[130px]">
-            {logoLoading ? (
-              <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
-            ) : logoUrl ? (
-              <img src={logoUrl} alt="Company Logo" className="h-24 w-auto object-contain animate-in fade-in duration-500" />
-            ) : (
-              <div className="flex flex-col items-center justify-center">
-                <h2 className="text-2xl font-bold tracking-tight text-gray-900">ProcureReal</h2>
-                <p className="text-xs font-bold text-[#9CA3AF] uppercase tracking-widest leading-none mt-1">REAL ESTATE ERP</p>
-              </div>
-            )}
+    <div className="login-sheet min-h-screen bg-cyanotype text-white lg:p-6">
+      <div className="grid min-h-screen lg:min-h-[calc(100vh-3rem)] lg:grid-cols-[minmax(0,1fr)_460px] lg:border lg:border-chalk/40">
+        {/* แบบแปลน */}
+        <aside className="flex min-w-0 flex-col gap-6 p-6 lg:gap-8 lg:p-10">
+          <div>
+            <p className="font-display text-xl font-semibold leading-none">ProcureReal</p>
+            <p className="mt-1.5 font-drawing text-[11px] tracking-widest text-chalk">REAL ESTATE ERP</p>
           </div>
-        </div>
 
-        <Card className="border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] bg-white rounded-[2.5rem] overflow-hidden">
-          <CardContent className="p-0">
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 h-16 bg-[#F9FAFB] rounded-none p-1">
-                <TabsTrigger 
-                  value="login" 
-                  className="rounded-none data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-[#2563EB] font-bold text-gray-400 border-none h-full"
+          <p className="font-display text-[clamp(2rem,4vw,3.75rem)] font-semibold leading-[1.25]">
+            จากใบขอซื้อ<br />ถึงใบสั่งซื้อ
+          </p>
+
+          <div className="relative hidden min-h-[280px] flex-1 lg:block">
+            <div className="absolute inset-0">
+              <FloorPlan />
+            </div>
+          </div>
+
+          <ol className="hidden grid-cols-4 border border-chalk/40 lg:grid">
+            {APPROVAL_STEPS.map((step) => (
+              <li key={step.code} className="border-l border-chalk/40 px-3 py-2.5 first:border-l-0">
+                <p className="font-drawing text-[11px] text-chalk">{step.code}</p>
+                <p className="mt-0.5 truncate text-sm font-medium">{step.label}</p>
+              </li>
+            ))}
+          </ol>
+        </aside>
+
+        {/* ฟอร์ม อยู่ตำแหน่งเดียวกับ title block ของแบบ */}
+        <main className="flex flex-col bg-white px-6 py-8 text-gray-900 lg:px-10 lg:py-10">
+          {logoUrl && (
+            <img src={logoUrl} alt="โลโก้บริษัท" className="mb-8 h-14 w-auto self-start object-contain" />
+          )}
+
+          <div className="my-auto w-full">
+            {pendingApproval ? (
+              <div>
+                <CheckCircle2 className="h-10 w-10 text-success" />
+                <h1 className="mt-4 font-display text-3xl font-semibold">สมัครสำเร็จ</h1>
+                <p className="mt-2 text-gray-600">
+                  Admin หรือ Manager ต้องอนุมัติบัญชีของคุณก่อน จึงจะเข้าสู่ระบบได้
+                </p>
+                <Button
+                  onClick={() => switchMode('login')}
+                  variant="outline"
+                  className="mt-6 h-12 w-full font-medium"
                 >
-                  เข้าสู่ระบบ
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="register" 
-                  className="rounded-none data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-[#2563EB] font-bold text-gray-400 border-none h-full"
-                >
-                  สมัครสมาชิก
-                </TabsTrigger>
-              </TabsList>
+                  กลับไปหน้าเข้าสู่ระบบ
+                </Button>
+              </div>
+            ) : mode === 'login' ? (
+              <>
+                <h1 className="font-display text-3xl font-semibold">เข้าสู่ระบบ</h1>
+                <p className="mt-2 text-gray-600">ใช้อีเมลบริษัทและรหัสผ่านของคุณ</p>
 
-              {/* Login Content */}
-              <TabsContent value="login" className="p-8 pt-6 outline-none">
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-[#1F2937]">ยินดีต้อนรับกลับมา</h2>
-                  <p className="text-sm text-[#6B7280] font-medium mt-1">กรอกข้อมูลบัญชีเพื่อเข้าจัดการระบบจัดซื้อ</p>
-                </div>
-
-                <form onSubmit={handleLogin} className="space-y-5">
+                <form onSubmit={handleLogin} className="mt-8 space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">อีเมลบริษัท</Label>
-                    <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors" />
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="name@company.com"
-                        className="pl-12 h-14 bg-[#F9FAFB] border-none rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-gray-300"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </div>
+                    <Label htmlFor="email" className={LABEL_CLASS}>อีเมลบริษัท</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="name@company.com"
+                      className={FIELD_CLASS}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between ml-1">
-                      <Label htmlFor="password" className="text-xs font-black text-gray-400 uppercase tracking-widest">รหัสผ่าน</Label>
-                      <Button type="button" variant="link" onClick={() => toast.info('กรุณาติดต่อผู้ดูแลระบบเพื่อตั้งรหัสผ่านใหม่')} className="px-0 h-auto text-[10px] font-black text-[#2563EB] uppercase tracking-widest hover:no-underline">ลืมรหัสผ่าน?</Button>
-                    </div>
-                    <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors" />
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-12 h-14 bg-[#F9FAFB] border-none rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-gray-300"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
+                    <Label htmlFor="password" className={LABEL_CLASS}>รหัสผ่าน</Label>
+                    <PasswordInput
+                      id="password"
+                      autoComplete="current-password"
+                      className={FIELD_CLASS}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <div className="text-right">
+                      <Button type="button" variant="link" onClick={() => toast.info('กรุณาติดต่อผู้ดูแลระบบเพื่อตั้งรหัสผ่านใหม่')} className="h-auto px-0 py-0 text-sm font-medium text-primary">ลืมรหัสผ่าน?</Button>
                     </div>
                   </div>
 
-                  {error && (
-                    <div className="p-4 text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-2xl animate-in fade-in slide-in-from-top-1">
-                      {error}
-                    </div>
-                  )}
+                  {errorBox}
 
-                  <Button 
-                    type="submit" 
-                    className="w-full h-14 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98] mt-4 uppercase text-xs tracking-[0.2em]" 
+                  <Button
+                    type="submit"
+                    className="h-12 w-full bg-primary text-base font-semibold text-white hover:bg-[#1D4ED8]"
                     disabled={isLoading}
                   >
-                    {isLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      'Sign In'
-                    )}
+                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'เข้าสู่ระบบ'}
                   </Button>
                 </form>
-              </TabsContent>
 
-              {/* Register Content */}
-              <TabsContent value="register" className="p-8 pt-6 outline-none">
-                {pendingApproval ? (
-                  <div className="text-center py-8">
-                    <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                      <CheckCircle2 className="w-10 h-10 text-green-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-[#1F2937] mb-2">สมัครสมาชิกสำเร็จ!</h2>
-                    <div className="flex items-center justify-center gap-2 text-orange-600 bg-orange-50 rounded-2xl p-4 mt-4">
-                      <Clock className="w-5 h-5" />
-                      <p className="font-bold text-sm">กรุณารอ Admin หรือ Manager อนุมัติบัญชีของคุณก่อนเข้าสู่ระบบ</p>
-                    </div>
-                    <Button
-                      onClick={() => setPendingApproval(false)}
-                      variant="outline"
-                      className="mt-6 rounded-2xl h-12 font-bold"
-                    >
-                      สมัครอีกบัญชี
-                    </Button>
+                <p className="mt-8 border-t border-gray-200 pt-6 text-sm text-gray-600">
+                  ยังไม่มีบัญชี?{' '}
+                  <button type="button" onClick={() => switchMode('register')} className="font-medium text-primary hover:underline">
+                    สมัครใช้งาน
+                  </button>
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="font-display text-3xl font-semibold">สมัครใช้งาน</h1>
+                <p className="mt-2 text-gray-600">Admin หรือ Manager ต้องอนุมัติบัญชีก่อนจึงจะใช้งานได้</p>
+
+                <form onSubmit={handleRegister} className="mt-8 space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-name" className={LABEL_CLASS}>ชื่อ-นามสกุล</Label>
+                    <Input
+                      id="reg-name"
+                      type="text"
+                      autoComplete="name"
+                      placeholder="สมชาย ใจดี"
+                      className={FIELD_CLASS}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
                   </div>
-                ) : (
-                  <>
-                    <div className="mb-8">
-                      <h2 className="text-2xl font-bold text-[#1F2937]">เริ่มต้นใช้งานจริง</h2>
-                      <p className="text-sm text-[#6B7280] font-medium mt-1">สร้างบัญชีผู้ใช้งานใหม่สำหรับพนักงานในบริษัท</p>
-                    </div>
 
-                    <form onSubmit={handleRegister} className="space-y-5">
-                      <div className="space-y-2">
-                        <Label htmlFor="reg-name" className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ชื่อ-นามสกุล</Label>
-                        <div className="relative group">
-                          <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors" />
-                          <Input
-                            id="reg-name"
-                            type="text"
-                            placeholder="สมชาย ใจดี"
-                            className="pl-12 h-14 bg-[#F9FAFB] border-none rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-gray-300"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-email" className={LABEL_CLASS}>อีเมลบริษัท</Label>
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="name@company.com"
+                      className={FIELD_CLASS}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="reg-email" className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">อีเมลบริษัท</Label>
-                        <div className="relative group">
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors" />
-                          <Input
-                            id="reg-email"
-                            type="email"
-                            placeholder="name@company.com"
-                            className="pl-12 h-14 bg-[#F9FAFB] border-none rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-gray-300"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-password" className={LABEL_CLASS}>ตั้งรหัสผ่าน</Label>
+                    <PasswordInput
+                      id="reg-password"
+                      autoComplete="new-password"
+                      aria-describedby="reg-password-hint"
+                      className={FIELD_CLASS}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <p id="reg-password-hint" className="text-sm text-gray-500">อย่างน้อย 8 ตัวอักษร</p>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="reg-password" className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">กำหนดรหัสผ่าน</Label>
-                        <div className="relative group">
-                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors" />
-                          <Input
-                            id="reg-password"
-                            type="password"
-                            placeholder="••••••••"
-                            className="pl-12 h-14 bg-[#F9FAFB] border-none rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-gray-300"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-department" className={LABEL_CLASS}>แผนก</Label>
+                    <Select value={department} onValueChange={setDepartment}>
+                      <SelectTrigger id="reg-department" className="!h-12 w-full border-gray-300 bg-white text-base">
+                        <SelectValue placeholder="เลือกแผนก" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept: any) => (
+                          <SelectItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">แผนก / Department</Label>
-                        <Select value={department} onValueChange={setDepartment}>
-                          <SelectTrigger className="h-14 bg-[#F9FAFB] border-none rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500/10 pl-4">
-                            <div className="flex items-center gap-3">
-                              <Layers className="h-4 w-4 text-[#9CA3AF]" />
-                              <SelectValue placeholder="เลือกแผนก" />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {departments.map((dept: any) => (
-                              <SelectItem key={dept.id} value={dept.id} className="font-medium">
-                                {dept.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  {errorBox}
 
-                      {error && (
-                        <div className="p-4 text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-2xl animate-in fade-in slide-in-from-top-1 whitespace-pre-line">
-                          {error}
-                        </div>
-                      )}
+                  <Button
+                    type="submit"
+                    className="h-12 w-full bg-primary text-base font-semibold text-white hover:bg-[#1D4ED8]"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'สมัครใช้งาน'}
+                  </Button>
+                </form>
 
-                      <Button 
-                        type="submit" 
-                        className="w-full h-14 bg-[#1F2937] hover:bg-[#111827] text-white font-black rounded-2xl shadow-xl shadow-gray-900/10 transition-all active:scale-[0.98] mt-4 uppercase text-xs tracking-[0.2em]" 
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          'Create Account'
-                        )}
-                      </Button>
-
-                      <p className="text-xs text-center text-gray-400 mt-3">
-                        สมัครแล้วต้องรอ Admin/Manager อนุมัติก่อนใช้งาน
-                      </p>
-                    </form>
-                  </>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        <div className="mt-12 text-center">
-          <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.2em]">
-            © 2024 ProcureReal ERP. สงวนลิขสิทธิ์
-          </p>
-        </div>
+                <p className="mt-8 border-t border-gray-200 pt-6 text-sm text-gray-600">
+                  มีบัญชีแล้ว?{' '}
+                  <button type="button" onClick={() => switchMode('login')} className="font-medium text-primary hover:underline">
+                    เข้าสู่ระบบ
+                  </button>
+                </p>
+              </>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );

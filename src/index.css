@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&family=Bai+Jamjuree:wght@600&family=IBM+Plex+Mono:wght@400&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -44,6 +44,12 @@
   --color-sidebar-accent: #374151;
   --color-sidebar-border: #374151;
 
+  --color-cyanotype: #0E2A6B;
+  --color-chalk: #C4D6FF;
+
+  --font-display: 'Bai Jamjuree', 'Sarabun', sans-serif;
+  --font-drawing: 'IBM Plex Mono', ui-monospace, monospace;
+
   --radius-lg: 0.5rem;
   --radius-md: calc(0.5rem - 2px);
   --radius-sm: calc(0.5rem - 4px);
@@ -61,4 +67,36 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold;
   }
+}
+
+/* หน้า Login: พื้นกระดาษแบบแปลน และเส้นแปลนที่วาดตัวเองตอนเปิดหน้า */
+.login-sheet {
+  background-image:
+    linear-gradient(rgb(196 214 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(196 214 255 / 0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.plan-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: plan-draw 1100ms cubic-bezier(0.6, 0, 0.2, 1) forwards;
+}
+
+.plan-note {
+  opacity: 0;
+  animation: plan-note 500ms ease-out 1300ms forwards;
+}
+
+@keyframes plan-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes plan-note {
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-line { animation: none; stroke-dashoffset: 0; }
+  .plan-note { animation: none; opacity: 1; }
 }
