@@ -311,16 +311,18 @@
         "type": "bool"
       },
       {
+        "autogeneratePattern": "",
         "hidden": false,
-        "id": "number1146066909",
-        "max": null,
-        "min": null,
+        "id": "text1146066909",
+        "max": 0,
+        "min": 0,
         "name": "phone",
-        "onlyInt": false,
+        "pattern": "",
         "presentable": false,
+        "primaryKey": false,
         "required": false,
         "system": false,
-        "type": "number"
+        "type": "text"
       },
       {
         "cascadeDelete": false,
@@ -1682,20 +1684,6 @@
       {
         "autogeneratePattern": "",
         "hidden": false,
-        "id": "text1234567890",
-        "max": 50,
-        "min": 0,
-        "name": "code",
-        "pattern": "",
-        "presentable": false,
-        "primaryKey": false,
-        "required": false,
-        "system": false,
-        "type": "text"
-      },
-      {
-        "autogeneratePattern": "",
-        "hidden": false,
         "id": "text1579384326",
         "max": 0,
         "min": 0,
@@ -1750,14 +1738,14 @@
       {
         "autogeneratePattern": "",
         "hidden": false,
-        "id": "text4210889273",
-        "max": 0,
+        "id": "text1234567890",
+        "max": 50,
         "min": 0,
         "name": "product_code",
         "pattern": "",
         "presentable": false,
         "primaryKey": false,
-        "required": false,
+        "required": true,
         "system": false,
         "type": "text"
       },
@@ -1952,8 +1940,8 @@
       {
         "autogeneratePattern": "",
         "hidden": false,
-        "id": "text1234567892",
-        "max": 50,
+        "id": "text4210889273",
+        "max": 0,
         "min": 0,
         "name": "product_code",
         "pattern": "",
@@ -2806,7 +2794,7 @@
       {
         "autogeneratePattern": "",
         "hidden": false,
-        "id": "text3653416123",
+        "id": "text2448711245",
         "max": 0,
         "min": 0,
         "name": "po_ref",
