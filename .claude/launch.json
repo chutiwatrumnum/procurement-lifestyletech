@@ -11,15 +11,6 @@
         "--hooksDir=pocketbase/pb_hooks"
       ],
       "port": 8091
-    },
-    {
-      "name": "pocketbase-production",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "-c",
-        "exec \"$HOME/Downloads/pocketbase_0.36.2_darwin_arm64/pocketbase\" serve --http=127.0.0.1:8090"
-      ],
-      "port": 8090
     }
   ]
 }
