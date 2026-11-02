@@ -377,6 +377,20 @@
         "type": "file"
       },
       {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text315249394",
+        "max": 0,
+        "min": 0,
+        "name": "line_user_id",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
         "hidden": false,
         "id": "autodate2990389176",
         "name": "created",
@@ -1290,6 +1304,35 @@
         "required": false,
         "system": false,
         "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text168846911",
+        "max": 0,
+        "min": 0,
+        "name": "pr_number",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "select540505008",
+        "maxSelect": 1,
+        "name": "pr_type",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "select",
+        "values": [
+          "project",
+          "sub",
+          "other"
+        ]
       },
       {
         "hidden": false,
