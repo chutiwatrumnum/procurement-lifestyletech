@@ -9,8 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Loader2, Lock, Mail, User, Shield, CheckCircle2, Clock, Layers } from 'lucide-react';
-import type { UserRole } from '@/types';
+import { Building2, Loader2, Lock, Mail, User, CheckCircle2, Clock, Layers } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 import { useCompanyLogo } from '@/hooks/useCompanyLogo';
 
@@ -25,7 +24,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<UserRole>('employee');
   const [department, setDepartment] = useState('');
   const [departments, setDepartments] = useState<any[]>([]);
   const [pendingApproval, setPendingApproval] = useState(false);
@@ -70,7 +68,8 @@ export default function Login() {
       
       navigate('/');
     } catch (err: any) {
-      if (err.message === 'ACCOUNT_PENDING_APPROVAL') {
+      // 403 = authRule ของ users ปฏิเสธ เพราะ is_active ยังเป็น false
+      if (err.message === 'ACCOUNT_PENDING_APPROVAL' || err.status === 403) {
         setError('บัญชีของคุณยังรอการอนุมัติจาก Admin/Manager กรุณารอสักครู่');
         toast.error('บัญชียังไม่ได้รับอนุมัติ');
       } else {
@@ -88,7 +87,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await register(email, password, name, role, department || undefined);
+      // สมัครเองเป็นพนักงานเสมอ — Admin เป็นคนกำหนดตำแหน่งตอนอนุมัติ
+      await register(email, password, name, 'employee', department || undefined);
       setPendingApproval(true);
       toast.success('สมัครสำเร็จ! กรุณารอการอนุมัติจาก Admin');
     } catch (err: any) {
@@ -308,38 +308,6 @@ export default function Login() {
                             required
                           />
                         </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">ตำแหน่ง / Role</Label>
-                        <Select value={role} onValueChange={(val) => setRole(val as UserRole)}>
-                          <SelectTrigger className="h-14 bg-[#F9FAFB] border-none rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500/10 pl-4">
-                            <div className="flex items-center gap-3">
-                              <Shield className="h-4 w-4 text-[#9CA3AF]" />
-                              <SelectValue placeholder="เลือกตำแหน่ง" />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="employee" className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-gray-400" />
-                                พนักงาน (Employee)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="head_of_dept" className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                ผู้จัดการแผนก (Head of Dept)
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="manager" className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-green-500" />
-                                ผู้บริหาร (Manager)
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
 
                       <div className="space-y-2">
