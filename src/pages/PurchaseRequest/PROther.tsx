@@ -36,7 +36,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
 import VendorSearchInput from '@/components/VendorSearchInput';
-import { prService, vendorService, projectService } from '@/services/api';
+import { prService, vendorService, projectService, APPROVAL_RESET } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -358,19 +358,10 @@ export default function PROther() {
             updateData.manager_approved_at = new Date().toISOString();
             updateData.manager_approved_by_name = user?.name || user?.email;
             updateData.approval_level = 2;
+            updateData.rejection_reason = '';
           } else {
             // Reset approval flow for regular users
-            updateData.approval_level = 0;
-            updateData.head_of_dept_approved_by = '';
-            updateData.head_of_dept_approved_at = '';
-            updateData.head_of_dept_comment = '';
-            updateData.head_of_dept_signature = '';
-            updateData.head_of_dept_approved_by_name = '';
-            updateData.manager_approved_by = '';
-            updateData.manager_approved_at = '';
-            updateData.manager_comment = '';
-            updateData.manager_signature = '';
-            updateData.manager_approved_by_name = '';
+            Object.assign(updateData, APPROVAL_RESET);
           }
 
           await pb.collection('purchase_requests').update(id, updateData);
@@ -400,6 +391,7 @@ export default function PROther() {
 
           // ส่ง notification (ไม่ส่งถ้า manager อนุมัติเองแล้ว)
           if (!isManagerRole) {
+            await prService.addHistory(id, 'แก้ไขและส่งอนุมัติ', user?.id, 'แก้ไขแล้วส่งเข้าขั้นตอนอนุมัติอีกครั้ง');
             try {
               const pr = await pb.collection('purchase_requests').getOne(id);
               await notificationService.notifyNewPR(pr, user?.id || '');

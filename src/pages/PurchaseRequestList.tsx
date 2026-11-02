@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -52,7 +53,10 @@ interface PurchaseRequestListProps {
 }
 
 export default function PurchaseRequestList({ type }: PurchaseRequestListProps = {}) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams] = useSearchParams();
+  const { user, hasRole } = useAuth();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [onlyMine, setOnlyMine] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; pr: any | null }>({ open: false, pr: null });
@@ -62,6 +66,12 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
   
   const activeTab = type || 'all';
 
+  // ค้นหาจากช่องด้านบนขณะอยู่หน้านี้อยู่แล้ว
+  useEffect(() => {
+    const search = searchParams.get('search');
+    if (search !== null) setSearchTerm(search);
+  }, [searchParams]);
+
   const { data: rawPRs = [], isLoading } = usePurchaseRequests();
   const deletePRMutation = useDeletePR();
   const queryClient = useQueryClient();
@@ -69,6 +79,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
   const prs = useMemo(() => rawPRs.map(pr => ({
     id: pr.id,
     pr_number: pr.pr_number,
+    requesterId: pr.requester,
     project: pr.expand?.project?.name || 'รายการทั่วไป',
     type: (pr.type || 'N/A').toUpperCase(),
     rawType: pr.type,
@@ -121,13 +132,15 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
 
   const filteredPRs = prs.filter(pr => {
     const matchesSearch = pr.pr_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pr.project.toLowerCase().includes(searchTerm.toLowerCase());
+      pr.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pr.requester.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = activeTab === 'all' || 
       (activeTab === 'project' && pr.rawType === 'project') ||
       (activeTab === 'sub' && pr.rawType === 'sub') ||
       (activeTab === 'other' && pr.rawType === 'other');
     const matchesStatus = statusFilter === 'all' || pr.rawStatus === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
+    const matchesOwner = !onlyMine || pr.requesterId === user?.id;
+    return matchesSearch && matchesType && matchesStatus && matchesOwner;
   });
 
   // Pagination
@@ -234,13 +247,20 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="ค้นหาเลข PR หรือโครงการ..."
+                placeholder="ค้นหาเลข PR โครงการ หรือผู้ขอ..."
                 value={searchTerm}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={onlyMine ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setOnlyMine(!onlyMine); setCurrentPage(1); }}
+              >
+                ใบของฉัน
+              </Button>
               <Button
                 variant={statusFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
@@ -374,7 +394,7 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                             <Eye className="w-4 h-4 mr-2" />
                             ดูรายละเอียด
                           </DropdownMenuItem>
-                          {(pr.rawStatus === 'draft' || pr.rawStatus === 'rejected') && (
+                          {(pr.rawStatus === 'draft' || pr.rawStatus === 'rejected') && (pr.requesterId === user?.id || hasRole(['superadmin', 'manager'])) && (
                             <DropdownMenuItem onClick={(e) => { 
                               e.stopPropagation(); 
                               if (pr.rawType === 'other') {
@@ -391,14 +411,18 @@ export default function PurchaseRequestList({ type }: PurchaseRequestListProps =
                               แก้ไข
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={(e) => { e.stopPropagation(); handleDelete(pr); }}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            ลบ
-                          </DropdownMenuItem>
+                          {(hasRole(['superadmin', 'manager']) || (pr.requesterId === user?.id && pr.rawStatus !== 'approved')) && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={(e) => { e.stopPropagation(); handleDelete(pr); }}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                ลบ
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

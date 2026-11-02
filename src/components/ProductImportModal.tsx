@@ -19,6 +19,7 @@ interface ParsedProductRow {
   factory_code: string;
   factory_name: string;
   name: string;
+  unit: string;
   unit_price: number;
   category: string;
   brand: string;
@@ -142,7 +143,7 @@ export default function ProductImportModal({
       
       // Parse cost (ต้นทุน) - in Thai Baht
       let cost = 0;
-      const costRaw = findValueFuzzy(row, ['ต้นทุน', 'cost', 'Cost']);
+      const costRaw = findValueFuzzy(row, ['ต้นทุน', 'cost', 'Cost', 'ราคา', 'price', 'Price', 'unit_price']);
       if (costRaw && !costRaw.includes('Dollar')) {
         const parsed = String(costRaw).replace(/,/g, '').replace(/[^\d.-]/g, '');
         cost = parseFloat(parsed) || 0;
@@ -168,6 +169,7 @@ export default function ProductImportModal({
       let unitPrice = cost;
 
       const brand = row['Brand'] || '';
+      const unit = findValueFuzzy(row, ['หน่วย', 'unit', 'Unit']);
 
       // Validate
       if (!productName) {
@@ -179,6 +181,7 @@ export default function ProductImportModal({
         factory_code: String(factoryCode || '').trim(),
         factory_name: String(factoryName || '').trim(),
         name: String(productName || '').trim(),
+        unit: String(unit || '').trim(),
         unit_price: unitPrice,
         category: String(category || '').trim(),
         brand: String(brand || '').trim(),
@@ -489,6 +492,7 @@ export default function ProductImportModal({
           const productData: any = {
             product_code: finalCode,
             name: product.name,
+            unit: product.unit || '',
             unit_price: product.unit_price,
             category: product.category || '',
             factory_code: product.factory_code || '',

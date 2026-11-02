@@ -1,5 +1,28 @@
 import pb from '@/lib/pocketbase';
 
+// ล้างผลการอนุมัติเดิมเมื่อส่ง PR ใหม่ เพื่อเริ่มอนุมัติจากระดับแรกอีกครั้ง
+export const APPROVAL_RESET = {
+  approval_level: 0,
+  rejection_reason: '',
+  head_of_dept_approved_by: '',
+  head_of_dept_approved_at: '',
+  head_of_dept_comment: '',
+  head_of_dept_signature: '',
+  head_of_dept_approved_by_name: '',
+  manager_approved_by: '',
+  manager_approved_at: '',
+  manager_comment: '',
+  manager_signature: '',
+  manager_approved_by_name: ''
+};
+
+// ผู้จัดการแผนกเห็นเฉพาะ PR ของแผนกตัวเอง และ PR ที่คนขอไม่มีแผนก
+export function departmentFilter(user?: { role?: string; department?: string } | null) {
+  if (user?.role !== 'head_of_dept') return '';
+  const own = user.department ? `requester.department = "${user.department}" || ` : '';
+  return ` && (${own}requester.department = "")`;
+}
+
 export const projectService = {
   async getAll() {
     // ลบ sort: '-created' ออกเพื่อป้องกัน Error ถ้าฟิลด์ไม่มีอยู่จริง
@@ -53,14 +76,12 @@ export const prService = {
     const allExpand = [...new Set([...defaultExpand, ...customExpand])].join(',');
 
     // ดึง PRs โดยระบุ fields ที่ต้องการเอง (รวม expand fields)
-    const result = await pb.collection('purchase_requests').getList(1, 100, {
+    const prs = await pb.collection('purchase_requests').getFullList({
       filter,
       expand: allExpand,
       sort: '-created',
       fields: 'id,pr_number,type,po_ref,delivery_location,status,procurement_status,total_amount,attachments,project,vendor,requester,requester_name,rejection_reason,approved_by,approved_at,approval_level,head_of_dept_approved_by,head_of_dept_approved_at,head_of_dept_comment,manager_approved_by,manager_approved_at,head_of_dept_signature,manager_signature,head_of_dept_approved_by_name,manager_approved_by_name,manager_comment,created,updated,expand.project,expand.vendor'
     });
-
-    const prs = result.items;
 
     // เก็บ requester IDs ที่ unique
     const requesterIds = [...new Set(prs.map(pr => pr.requester).filter(Boolean))];
@@ -86,7 +107,7 @@ export const prService = {
           try {
             const usersResult = await pb.collection('users').getFullList({
               filter: idsFilter,
-              fields: 'id,name,email,username'
+              fields: 'id,name,email,username,department'
             });
 
             usersResult.forEach(user => {
@@ -123,16 +144,16 @@ export const prService = {
   async getById(id: string) {
     return await pb.collection('purchase_requests').getOne(id, {
       expand: 'project,vendor,requester',
-      fields: 'id,pr_number,type,po_ref,delivery_location,status,procurement_status,total_amount,attachments,project,vendor,requester,requester_name,rejection_reason,approved_by,approved_at,approval_level,head_of_dept_approved_by,head_of_dept_approved_at,head_of_dept_comment,manager_approved_by,manager_approved_at,head_of_dept_signature,manager_signature,head_of_dept_approved_by_name,manager_approved_by_name,manager_comment,created,updated'
+      fields: 'id,pr_number,type,po_ref,delivery_location,status,procurement_status,total_amount,attachments,project,vendor,requester,requester_name,rejection_reason,approved_by,approved_at,approval_level,head_of_dept_approved_by,head_of_dept_approved_at,head_of_dept_comment,manager_approved_by,manager_approved_at,head_of_dept_signature,manager_signature,head_of_dept_approved_by_name,manager_approved_by_name,manager_comment,created,updated,expand.project,expand.vendor,expand.requester'
     });
   },
   async getProjectTotalSpent(projectId: string) {
     // Get all approved/pending PRs for this project to calculate total spent
-    const result = await pb.collection('purchase_requests').getList(1, 100, {
+    const prs = await pb.collection('purchase_requests').getFullList({
       filter: `project = "${projectId}" && (status = "approved" || status = "pending")`,
       fields: 'total_amount'
     });
-    return result.items.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
+    return prs.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
   },
   async getItems(prId: string) {
     return await pb.collection('pr_items').getFullList({
@@ -367,6 +388,19 @@ export const prService = {
       throw new Error(error.message || 'อนุมัติไม่สำเร็จ');
     }
   },
+  // แผนกของผู้ขอมีผู้จัดการแผนกหรือไม่ ถ้าไม่มี ผู้บริหารอนุมัติแทนได้เลย
+  async requesterHasHead(requesterId?: string) {
+    if (!requesterId) return true;
+    try {
+      const requester = await pb.collection('users').getOne(requesterId, { fields: 'department' });
+      const department = requester.department ? ` && department = "${requester.department}"` : '';
+      const heads = await pb.collection('users').getList(1, 1, { filter: `role = "head_of_dept"${department}` });
+      return heads.totalItems > 0;
+    } catch (err) {
+      console.error('Failed to check head of department:', err);
+      return true;
+    }
+  },
   // เพิ่มอุปกรณ์เข้าโครงการหลัง PR อนุมัติครบแล้ว — ชื่อซ้ำจะบวกเข้ารายการเดิม
   async addItemsToProject(projectId: string, items: any[]) {
     const existingItems = await pb.collection('project_items').getFullList({
@@ -469,7 +503,7 @@ export const poService = {
 
   async getAll() {
     return await pb.collection('purchase_orders').getFullList({
-      expand: 'pr'
+      expand: 'pr,vendor'
     });
   },
 

@@ -62,9 +62,14 @@ export default function Dashboard() {
     let otherPRsToShow = pendingOther;
     
     if (isHeadOfDept || isSuperAdmin) {
-      projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 0);
-      subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 0);
-      otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 0);
+      // ผู้จัดการแผนกนับเฉพาะ PR ของแผนกตัวเอง ให้ตรงกับหน้าอนุมัติ
+      const canSee = (p: any) => {
+        const department = p.expand?.requester?.department;
+        return !isHeadOfDept || !department || department === user?.department;
+      };
+      projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 0 && canSee(p));
+      subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 0 && canSee(p));
+      otherPRsToShow = pendingOther.filter(p => (p.approval_level || 0) === 0 && canSee(p));
     } else if (isManager) {
       projectPRsToShow = pendingProject.filter(p => (p.approval_level || 0) === 1);
       subPRsToShow = pendingSub.filter(p => (p.approval_level || 0) === 1);
@@ -305,7 +310,7 @@ export default function Dashboard() {
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mt-1">PR ย่อย</p>
                 </div>
               </Link>
-              <Link to="/purchase-requests/approval?type=other">
+              <Link to="/purchase-requests/approval-other">
                 <div className={`p-4 rounded-xl text-center transition-all hover:scale-[1.02] ${dashboardStats.pendingCounts.otherPR > 0 ? 'bg-white border border-red-200 shadow-sm' : 'bg-white/50 border border-gray-200'}`}>
                   <p className={`text-2xl font-black ${dashboardStats.pendingCounts.otherPR > 0 ? 'text-red-600' : 'text-gray-300'}`}>{dashboardStats.pendingCounts.otherPR}</p>
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mt-1">PR อื่นๆ</p>

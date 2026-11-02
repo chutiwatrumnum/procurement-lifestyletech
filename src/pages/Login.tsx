@@ -198,7 +198,7 @@ export default function Login() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between ml-1">
                       <Label htmlFor="password" className="text-xs font-black text-gray-400 uppercase tracking-widest">รหัสผ่าน</Label>
-                      <Button variant="link" className="px-0 h-auto text-[10px] font-black text-[#2563EB] uppercase tracking-widest hover:no-underline">ลืมรหัสผ่าน?</Button>
+                      <Button type="button" variant="link" onClick={() => toast.info('กรุณาติดต่อผู้ดูแลระบบเพื่อตั้งรหัสผ่านใหม่')} className="px-0 h-auto text-[10px] font-black text-[#2563EB] uppercase tracking-widest hover:no-underline">ลืมรหัสผ่าน?</Button>
                     </div>
                     <div className="relative group">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors" />

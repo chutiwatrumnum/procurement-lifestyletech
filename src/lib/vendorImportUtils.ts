@@ -172,6 +172,11 @@ export function validateVendorRow(row: ParsedVendorRow): ParsedVendorRow {
   };
 }
 
+// Excel เก็บเลขเป็นตัวเลข จึงตัด 0 นำหน้าทิ้ง
+function restoreLeadingZero(value: string, length: number) {
+  return /^\d+$/.test(value) && value.length === length - 1 ? `0${value}` : value;
+}
+
 /**
  * Transform parsed row to PocketBase vendor format
  */
@@ -179,12 +184,12 @@ export function transformToPocketBase(row: ParsedVendorRow): any {
   return {
     name: row.name?.trim() || '',
     vendor_code: row.code?.trim() || '', // Supplier Code from Excel
-    tax_id: row.tax_id?.trim() || '',
+    tax_id: restoreLeadingZero(row.tax_id?.trim() || '', 13),
     category: row.category?.trim() || 'เจ้าหนี้ในประเทศ - นิติบุคคล',
     address: [row.address, row.address2].filter(Boolean).join(' ').trim() || '',
     contact_person: row.contact_person?.trim() || row.name?.trim() || '',
     email: row.email?.trim() || '',
-    phone: row.phone?.trim() || '',
+    phone: restoreLeadingZero(row.phone?.trim() || '', 10),
     fax: row.fax?.trim() || '',
     status: row.status || 'active',
     vendor_type: row.vendor_type || 'domestic',
@@ -207,7 +212,7 @@ export async function parseVendorFile(file: File): Promise<any[]> {
           reject(new Error('No data in file'));
           return;
         }
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', codepage: 65001, raw: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);

@@ -214,6 +214,7 @@ export default function ProfileSettings() {
       
       // Update password
       await pb.collection('users').update(currentUser.id, {
+        oldPassword: passwordForm.currentPassword,
         password: passwordForm.newPassword,
         passwordConfirm: passwordForm.newPassword
       });
@@ -227,7 +228,7 @@ export default function ProfileSettings() {
       }, 2000);
     } catch (err: any) {
       console.error('Change password failed:', err);
-      toast.error(err.message || 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
+      toast.error(err.status === 400 ? 'รหัสผ่านปัจจุบันไม่ถูกต้อง หรือรหัสใหม่ไม่ผ่านเงื่อนไข' : 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
     } finally {
       setChangingPassword(false);
     }

@@ -27,7 +27,7 @@ import {
   Paperclip
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { prService, projectService, vendorService } from '@/services/api';
+import { prService, projectService, vendorService, APPROVAL_RESET } from '@/services/api';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
 import FileUploadManager from '@/components/ui/FileUploadManager';
@@ -314,22 +314,17 @@ export default function PREdit() {
         updateData.manager_approved_at = new Date().toISOString();
         updateData.manager_approved_by_name = user?.name || user?.email;
         updateData.approval_level = 2;
+        updateData.rejection_reason = '';
       } else {
         // Reset approval flow for regular users
-        updateData.approval_level = 0;
-        updateData.head_of_dept_approved_by = '';
-        updateData.head_of_dept_approved_at = '';
-        updateData.head_of_dept_comment = '';
-        updateData.head_of_dept_signature = '';
-        updateData.head_of_dept_approved_by_name = '';
-        updateData.manager_approved_by = '';
-        updateData.manager_approved_at = '';
-        updateData.manager_comment = '';
-        updateData.manager_signature = '';
-        updateData.manager_approved_by_name = '';
+        Object.assign(updateData, APPROVAL_RESET);
       }
 
       await pb.collection('purchase_requests').update(id!, updateData);
+
+      if (!isManagerRole) {
+        await prService.addHistory(id!, 'แก้ไขและส่งอนุมัติ', user?.id, 'แก้ไขแล้วส่งเข้าขั้นตอนอนุมัติอีกครั้ง');
+      }
 
       // Manager: copy signature
       if (isManagerRole) {

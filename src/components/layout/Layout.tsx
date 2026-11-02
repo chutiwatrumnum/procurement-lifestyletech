@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { notificationService } from '@/services/notification';
+import { departmentFilter } from '@/services/api';
 import {
   LayoutDashboard,
   FileText,
@@ -310,7 +311,7 @@ function Sidebar({
             <Settings className="h-5 w-5 text-[#6B7280] flex-shrink-0" />
             {!collapsed && <span>ตั้งค่า</span>}
           </Link>
-          <Link
+          {user?.role !== 'employee' && (<Link
             to="/settings/company"
             className={cn(
               'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-[#9CA3AF] hover:text-white hover:bg-white/5 transition-all',
@@ -320,7 +321,7 @@ function Sidebar({
           >
             <Building2 className="h-5 w-5 text-[#6B7280] flex-shrink-0" />
             {!collapsed && <span>ข้อมูลบริษัท</span>}
-          </Link>
+          </Link>)}
         </ScrollArea>
       </div>
       
@@ -409,19 +410,19 @@ export default function Layout({ children }: LayoutProps) {
     try {
       // นับ PR Project ที่รออนุมัติ
       const prProjectResult = await pb.collection('purchase_requests').getList(1, 1, {
-        filter: 'status = "pending" && type = "project"',
+        filter: `status = "pending" && type = "project"${departmentFilter(user)}`,
       });
       setPendingPRProject(prProjectResult.totalItems);
       
       // นับ PR Sub ที่รออนุมัติ
       const prSubResult = await pb.collection('purchase_requests').getList(1, 1, {
-        filter: 'status = "pending" && type = "sub"',
+        filter: `status = "pending" && type = "sub"${departmentFilter(user)}`,
       });
       setPendingPRSub(prSubResult.totalItems);
       
       // นับ PR Other ที่รออนุมัติ
       const prOtherResult = await pb.collection('purchase_requests').getList(1, 1, {
-        filter: 'status = "pending" && type = "other"',
+        filter: `status = "pending" && type = "other"${departmentFilter(user)}`,
       });
       setPendingPROther(prOtherResult.totalItems);
       
@@ -482,7 +483,7 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen min-w-0">
         {/* Header */}
         <header className="flex h-16 items-center gap-4 bg-white/80 backdrop-blur-md px-6 sticky top-0 z-30 border-b border-[#F3F4F6]">
           {/* Mobile Menu */}
@@ -525,7 +526,11 @@ export default function Layout({ children }: LayoutProps) {
             <div className="hidden sm:flex relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
               <Input 
-                placeholder="ค้นหา..." 
+                placeholder="ค้นหาใบขอซื้อ..." 
+                onKeyDown={(e) => {
+                  const value = e.currentTarget.value.trim();
+                  if (e.key === 'Enter' && value) navigate(`/purchase-requests?search=${encodeURIComponent(value)}`);
+                }}
                 className="pl-10 w-[240px] h-9 bg-[#F3F4F6] border-none rounded-lg text-sm focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -608,7 +613,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-6 lg:p-8">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
           <div className="max-w-[1400px] mx-auto">
             {children}
           </div>

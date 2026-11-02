@@ -20,6 +20,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useProjects, useDeleteProject } from '@/hooks/useProjects';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase';
 import {
@@ -40,6 +41,7 @@ export default function ProjectList() {
     projectName: ''
   });
 
+  const { hasRole } = useAuth();
   const { data: projects = [], isLoading, error } = useProjects();
   const deleteProjectMutation = useDeleteProject();
 
@@ -262,6 +264,7 @@ export default function ProjectList() {
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
+                    {hasRole(['superadmin', 'head_of_dept', 'manager']) && (
                     <Button 
                       variant="ghost" 
                       size="icon" 
@@ -274,6 +277,7 @@ export default function ProjectList() {
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

@@ -35,10 +35,10 @@ routerAdd("POST", "/api/line-webhook", (c) => {
         let linkedUser = null;
         let userName = "";
         try {
-            linkedUser = $app.findRecordByFilter(
+            linkedUser = $app.findFirstRecordByFilter(
                 "users",
-                `line_user_id="${userId}"`,
-                "id,email,name"
+                "line_user_id = {:userId}",
+                { userId: userId }
             );
             if (linkedUser) {
                 userName = linkedUser.get("name") || "";

@@ -137,7 +137,7 @@ export default function UserManagement() {
     }
 
     try {
-      const tempPassword = Math.random().toString(36).slice(-8);
+      const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(9)), b => b.toString(16).padStart(2, '0')).join('');
       await createUserMutation.mutateAsync({
         email: formData.email,
         password: tempPassword,
@@ -147,7 +147,8 @@ export default function UserManagement() {
         department: formData.department === 'none' ? undefined : formData.department,
         manager: formData.manager === 'none' ? undefined : formData.manager,
         phone: formData.phone || undefined,
-        is_active: true
+        is_active: true,
+        emailVisibility: true
       });
       toast.success(`สร้างผู้ใช้สำเร็จ (รหัสผ่านชั่วคราว: ${tempPassword})`);
       setIsCreateDialogOpen(false);
@@ -189,6 +190,22 @@ export default function UserManagement() {
     } catch (err: any) {
       console.error('Update user failed:', err);
       toast.error(err.message || 'อัปเดตไม่สำเร็จ');
+    }
+  };
+
+  // ระบบยังไม่ส่งอีเมล แอดมินจึงตั้งรหัสชั่วคราวให้ผู้ใช้ที่ลืมรหัสผ่าน
+  const handleResetPassword = async () => {
+    if (!selectedUser) return;
+    try {
+      const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(9)), b => b.toString(16).padStart(2, '0')).join('');
+      await updateUserMutation.mutateAsync({
+        id: selectedUser.id,
+        data: { password: tempPassword, passwordConfirm: tempPassword }
+      });
+      toast.success(`ตั้งรหัสผ่านใหม่แล้ว (รหัสชั่วคราว: ${tempPassword})`, { duration: 30000 });
+    } catch (err: any) {
+      console.error('Reset password failed:', err);
+      toast.error(err.message || 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ');
     }
   };
 
@@ -615,7 +632,7 @@ export default function UserManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="employee">พนักงาน</SelectItem>
-                  <SelectItem value="manager">ผู้บริหาร</SelectItem>
+                  {!isHeadOfDept() && <SelectItem value="manager">ผู้บริหาร</SelectItem>}
                   <SelectItem value="head_of_dept">ผู้จัดการแผนก</SelectItem>
                   {isSuperAdmin() && (
                     <SelectItem value="superadmin">ผู้ดูแลระบบ</SelectItem>
@@ -711,7 +728,7 @@ export default function UserManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="employee">พนักงาน</SelectItem>
-                  <SelectItem value="manager">ผู้บริหาร</SelectItem>
+                  {!isHeadOfDept() && <SelectItem value="manager">ผู้บริหาร</SelectItem>}
                   <SelectItem value="head_of_dept">ผู้จัดการแผนก</SelectItem>
                   {isSuperAdmin() && (
                     <SelectItem value="superadmin">ผู้ดูแลระบบ</SelectItem>
@@ -762,6 +779,11 @@ export default function UserManagement() {
           </div>
           
           <DialogFooter>
+            {isSuperAdmin() && (
+              <Button variant="outline" onClick={handleResetPassword} disabled={updateUserMutation.isPending} className="rounded-xl sm:mr-auto">
+                รีเซ็ตรหัสผ่าน
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="rounded-xl">
               ยกเลิก
             </Button>

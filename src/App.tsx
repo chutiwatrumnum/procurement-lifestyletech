@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
+import type { UserRole } from '@/types';
 
 // Pages
 import Dashboard from '@/pages/Dashboard';
@@ -34,7 +35,6 @@ import VendorDetail from '@/pages/Vendor/VendorDetail';
 // Purchase Order
 import POCreate from '@/pages/PurchaseOrder/POCreate';
 import POApproval from '@/pages/PurchaseOrder/POApproval';
-import POEdit from '@/pages/PurchaseOrder/POEdit';
 
 // Reports
 import BudgetReport from '@/pages/Reports/BudgetReport';
@@ -62,10 +62,13 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isLoggedIn, isLoading } = useAuth();
+const APPROVER_ROLES: UserRole[] = ['superadmin', 'head_of_dept', 'manager'];
+
+function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: UserRole[] }) {
+  const { isLoggedIn, isLoading, hasRole } = useAuth();
   if (isLoading) return <div className="flex h-screen items-center justify-center font-bold">กำลังเชื่อมต่อฐานข้อมูล...</div>;
   if (!isLoggedIn) return <Navigate to="/login" replace />;
+  if (roles && !hasRole(roles)) return <Navigate to="/" replace />;
   return <Layout>{children}</Layout>;
 }
 
@@ -101,27 +104,26 @@ function AppRoutes() {
       <Route path="/purchase-requests/edit/sub/:id" element={<ProtectedRoute><PRSubcontractor /></ProtectedRoute>} />
       <Route path="/purchase-requests/new/other" element={<ProtectedRoute><PROther /></ProtectedRoute>} />
       <Route path="/purchase-requests/edit/other/:id" element={<ProtectedRoute><PROther /></ProtectedRoute>} />
-      <Route path="/purchase-requests/approval" element={<ProtectedRoute><PRApproval /></ProtectedRoute>} />
-      <Route path="/purchase-requests/approval-other" element={<ProtectedRoute><PROtherApproval /></ProtectedRoute>} />
+      <Route path="/purchase-requests/approval" element={<ProtectedRoute roles={APPROVER_ROLES}><PRApproval /></ProtectedRoute>} />
+      <Route path="/purchase-requests/approval-other" element={<ProtectedRoute roles={APPROVER_ROLES}><PROtherApproval /></ProtectedRoute>} />
       <Route path="/purchase-requests/other" element={<ProtectedRoute><PurchaseRequestList type="other" /></ProtectedRoute>} />
       <Route path="/purchase-requests/edit/:id" element={<ProtectedRoute><PREdit /></ProtectedRoute>} />
 
       {/* Purchase Orders */}
       <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrderList /></ProtectedRoute>} />
       <Route path="/purchase-orders/new" element={<ProtectedRoute><POCreate /></ProtectedRoute>} />
-      <Route path="/purchase-orders/approval" element={<ProtectedRoute><POApproval /></ProtectedRoute>} />
-      <Route path="/purchase-orders/edit/:id" element={<ProtectedRoute><POEdit /></ProtectedRoute>} />
+      <Route path="/purchase-orders/approval" element={<ProtectedRoute roles={APPROVER_ROLES}><POApproval /></ProtectedRoute>} />
 
       {/* Reports */}
-      <Route path="/reports" element={<ProtectedRoute><BudgetReport /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute roles={APPROVER_ROLES}><BudgetReport /></ProtectedRoute>} />
       
       {/* Admin */}
-      <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-      <Route path="/admin/departments" element={<ProtectedRoute><DepartmentManagement /></ProtectedRoute>} />
+      <Route path="/admin/users" element={<ProtectedRoute roles={APPROVER_ROLES}><UserManagement /></ProtectedRoute>} />
+      <Route path="/admin/departments" element={<ProtectedRoute roles={APPROVER_ROLES}><DepartmentManagement /></ProtectedRoute>} />
       
       {/* Settings */}
       <Route path="/settings/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-      <Route path="/settings/company" element={<ProtectedRoute><CompanySettings /></ProtectedRoute>} />
+      <Route path="/settings/company" element={<ProtectedRoute roles={APPROVER_ROLES}><CompanySettings /></ProtectedRoute>} />
       
       {/* Vendors */}
       <Route path="/vendors" element={<ProtectedRoute><VendorListNew /></ProtectedRoute>} />

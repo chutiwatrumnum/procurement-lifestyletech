@@ -28,7 +28,7 @@ routerAdd("POST", "/api/link-line", (c) => {
         // ตรวจสอบว่า line_user_id นี้ถูกใช้โดย user คนอื่นแล้วหรือไม่
         let existingUser = null;
         try {
-            existingUser = $app.findRecordByFilter("users", `line_user_id="${lineUserId}"`, "id,email,name");
+            existingUser = $app.findFirstRecordByFilter("users", "line_user_id = {:lineUserId}", { lineUserId: lineUserId });
         } catch (e) {
             existingUser = null;
         }

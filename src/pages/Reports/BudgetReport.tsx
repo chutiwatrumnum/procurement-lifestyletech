@@ -10,6 +10,7 @@ import {
   Building2,
   Loader2
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useDashboardData } from '@/hooks/useDashboard';
 
 export default function BudgetReport() {
@@ -57,6 +58,20 @@ export default function BudgetReport() {
   const totalRemaining = totalBudget - totalUsed;
   const averageUsage = totalBudget > 0 ? (totalUsed / totalBudget) * 100 : 0;
 
+  const handleExport = () => {
+    const rows = projects.map(p => ({
+      'รหัส': p.code,
+      'ชื่อโครงการ': p.name,
+      'งบประมาณ': p._budgetSource === 'pr_projects' ? p.used + p.remaining : p.budget,
+      'เบิกจ่ายไป': p.used,
+      'คงเหลือ': p.remaining,
+      '% การใช้': p.percentage,
+    }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), 'งบประมาณ');
+    XLSX.writeFile(workbook, `budget-report-${new Date().toLocaleDateString('sv-SE')}.xlsx`);
+  };
+
   if (isLoading) {
     return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
   }
@@ -68,7 +83,7 @@ export default function BudgetReport() {
           <h1 className="text-2xl font-bold text-[#1F2937] tracking-tight">สรุปการใช้จ่ายรายโครงการ</h1>
           <p className="text-gray-500 text-sm mt-1">ภาพรวมงบประมาณและการใช้จ่ายจริงจากฐานข้อมูล</p>
         </div>
-        <Button variant="outline" className="rounded-xl border-[#E5E7EB]">
+        <Button variant="outline" className="rounded-xl border-[#E5E7EB]" onClick={handleExport} disabled={projects.length === 0}>
           <Download className="w-4 h-4 mr-2" /> ส่งออกรายงาน
         </Button>
       </div>

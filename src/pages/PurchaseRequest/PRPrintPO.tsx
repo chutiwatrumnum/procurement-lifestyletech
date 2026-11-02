@@ -107,6 +107,16 @@ export default function PRPrintPO() {
     );
   }
 
+  if (pr.status !== 'approved') {
+    return (
+      <div className="flex h-screen items-center justify-center text-gray-500">
+        <p className="text-xl font-bold">ออกใบสั่งซื้อได้เฉพาะใบขอซื้อที่อนุมัติแล้ว</p>
+      </div>
+    );
+  }
+
+  const isCancelled = existingPO?.status === 'cancelled';
+
   // Calculations
   const subtotal = items.reduce((sum, item) => sum + (item.total_price || 0), 0);
   const vatAmount = includeVAT ? subtotal * 0.07 : 0;
@@ -128,7 +138,7 @@ export default function PRPrintPO() {
         remarks,
         payment_note: paymentNote,
         vendor: pr.vendor || '',
-        status: 'draft',
+        status: existingPO?.status || 'draft',
       };
 
       if (existingPO) {
@@ -149,6 +159,18 @@ export default function PRPrintPO() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // พิมพ์ PO ที่บันทึกแล้วถือว่าส่งออกแล้ว
+  const handlePrint = async () => {
+    if (existingPO?.status === 'draft') {
+      try {
+        setExistingPO(await poService.update(existingPO.id, { status: 'sent' }));
+      } catch (err) {
+        console.error('Failed to update PO status:', err);
+      }
+    }
+    window.print();
   };
 
   // PR Type label
@@ -210,16 +232,26 @@ export default function PRPrintPO() {
               </label>
             </div>
 
+            {isCancelled && (
+              <Button
+                variant="outline"
+                onClick={() => { setExistingPO(null); setPONumber('(รอบันทึก)'); }}
+                className="font-bold rounded-xl px-5"
+              >
+                ออก PO ใหม่
+              </Button>
+            )}
             <Button
               onClick={handleSavePO}
-              disabled={saving}
+              disabled={saving || isCancelled}
               className="bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl px-5"
             >
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              {existingPO ? 'อัปเดต PO' : 'บันทึก PO'}
+              {isCancelled ? 'PO ถูกยกเลิกแล้ว' : existingPO ? 'อัปเดต PO' : 'บันทึก PO'}
             </Button>
             <Button
-              onClick={() => window.print()}
+              onClick={handlePrint}
+              disabled={isCancelled}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-6"
             >
               <Printer className="w-4 h-4 mr-2" /> พิมพ์ / บันทึก PDF

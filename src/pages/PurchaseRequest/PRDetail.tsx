@@ -16,7 +16,10 @@ import {
   Users
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { usePurchaseRequest, usePRItems } from '@/hooks/usePurchaseRequests';
+import { useAuth } from '@/contexts/AuthContext';
+import { prService } from '@/services/api';
 
 export default function PRDetail() {
   const { id } = useParams();
@@ -24,6 +27,12 @@ export default function PRDetail() {
 
   const { data: pr, isLoading: loadingPR } = usePurchaseRequest(id);
   const { data: items = [], isLoading: loadingItems } = usePRItems(id);
+  const { user, hasRole } = useAuth();
+  const { data: history = [] } = useQuery({
+    queryKey: ['pr-history', id],
+    queryFn: () => prService.getHistory(id!),
+    enabled: !!id,
+  });
   const loading = loadingPR || loadingItems;
 
   const getFileUrl = (recordId: string, filename: string) => {
@@ -244,6 +253,25 @@ export default function PRDetail() {
             </Card>
           )}
 
+          {history.length > 0 && (
+            <Card className="border-none shadow-sm rounded-2xl">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold">ประวัติการดำเนินการ</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {history.map((entry: any) => (
+                  <div key={entry.id} className="border-l-2 border-blue-100 pl-3">
+                    <p className="text-sm font-bold text-gray-900">{entry.action}</p>
+                    <p className="text-xs text-gray-500">
+                      {entry.expand?.by?.name || 'ไม่ระบุ'} · {new Date(entry.created).toLocaleString('th-TH')}
+                    </p>
+                    {entry.details && <p className="text-xs text-gray-600 mt-1">{entry.details}</p>}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Approval Workflow Status */}
           {(pr.status === 'pending' || pr.status === 'approved') && (
             <Card className="border-none shadow-sm rounded-2xl">
@@ -349,7 +377,7 @@ export default function PRDetail() {
                 <Printer className="w-4 h-4 mr-2" /> พิมพ์ใบสั่งซื้อ (PO)
               </Button>
             )}
-            {(pr.status === 'draft' || pr.status === 'rejected') && (
+            {(pr.status === 'draft' || pr.status === 'rejected') && (pr.requester === user?.id || hasRole(['superadmin', 'manager'])) && (
               <Button 
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl"
                 onClick={() => {

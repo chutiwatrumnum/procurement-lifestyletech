@@ -180,8 +180,10 @@ export const notificationService = {
     if (uniqueRecipients.length > 0) {
       const action = isApproval ? 'อนุมัติ' : 'ตีกลับ';
       await notifyUsers(uniqueRecipients, {
-        title: isApproval ? 'PR ถูกอนุมัติแล้ว' : 'PR ถูกตีกลับ',
-        message: `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยผู้จัดการแผนก ${approverName}`,
+        title: isApproval ? 'PR ผ่านการอนุมัติระดับ 1' : 'PR ถูกตีกลับ',
+        message: isApproval
+          ? `ใบขอซื้อ ${pr.pr_number} ผ่านการอนุมัติระดับ 1 โดยผู้จัดการแผนก ${approverName} รอผู้บริหารอนุมัติต่อ`
+          : `ใบขอซื้อ ${pr.pr_number} ถูก${action}โดยผู้จัดการแผนก ${approverName}`,
         type: isApproval ? 'approval' : 'rejection',
         pr_id: pr.id,
         pr_number: pr.pr_number,

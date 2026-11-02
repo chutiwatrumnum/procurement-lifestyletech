@@ -19,30 +19,77 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Plus,
   Search,
   MoreHorizontal,
   Eye,
-  Edit,
   Trash2,
-  Filter,
   CheckCircle2,
   Clock,
+  XCircle,
   Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { usePurchaseOrders } from '@/hooks/usePurchaseOrders';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { usePurchaseOrders, poKeys } from '@/hooks/usePurchaseOrders';
+import { useAuth } from '@/contexts/AuthContext';
+import { poService } from '@/services/api';
+
+const PO_STATUS_LABELS: Record<string, string> = {
+  draft: 'ร่าง',
+  sent: 'ส่งออกแล้ว',
+  cancelled: 'ยกเลิกแล้ว',
+};
 
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { hasRole } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const { data: pos = [], isLoading } = usePurchaseOrders();
 
-  const filteredPOs = pos.filter(po => 
-    po.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (po.expand?.vendor?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPOs = pos.filter(po => {
+    const matchesSearch = po.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (po.expand?.vendor?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || po.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      await poService.update(cancelTarget.id, { status: 'cancelled' });
+      queryClient.invalidateQueries({ queryKey: poKeys.all });
+      toast.success(`ยกเลิกใบสั่งซื้อ ${cancelTarget.po_number} แล้ว`);
+      setCancelTarget(null);
+    } catch (err) {
+      console.error('Cancel PO error:', err);
+      toast.error('ยกเลิกใบสั่งซื้อไม่สำเร็จ');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (isLoading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
 
@@ -62,6 +109,17 @@ export default function PurchaseOrderList() {
         <Card className="border-none shadow-sm rounded-2xl">
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-yellow-50 rounded-lg">
+                <Clock className="h-5 w-5 text-yellow-600" />
+              </div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">ร่าง</p>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">{pos.filter(po => po.status === 'draft').length}</h3>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm rounded-2xl">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-blue-50 rounded-lg">
                 <CheckCircle2 className="h-5 w-5 text-blue-600" />
               </div>
@@ -73,12 +131,12 @@ export default function PurchaseOrderList() {
         <Card className="border-none shadow-sm rounded-2xl">
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-yellow-50 rounded-lg">
-                <Clock className="h-5 w-5 text-yellow-600" />
+              <div className="p-2 bg-red-50 rounded-lg">
+                <XCircle className="h-5 w-5 text-red-600" />
               </div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">รอการตอบรับ</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">ยกเลิกแล้ว</p>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">{pos.filter(po => po.status === 'pending_vendor').length}</h3>
+            <h3 className="text-2xl font-bold text-gray-900">{pos.filter(po => po.status === 'cancelled').length}</h3>
           </CardContent>
         </Card>
       </div>
@@ -95,12 +153,20 @@ export default function PurchaseOrderList() {
                 className="pl-10 h-11 bg-[#F9FAFB] border-none rounded-xl"
               />
             </div>
-            <Button variant="outline" className="h-11 rounded-xl border-[#E5E7EB] px-6">
-              <Filter className="mr-2 h-4 w-4" /> กรองข้อมูล
-            </Button>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-11 w-full md:w-48 rounded-xl border-[#E5E7EB]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกสถานะ</SelectItem>
+                <SelectItem value="draft">ร่าง</SelectItem>
+                <SelectItem value="sent">ส่งออกแล้ว</SelectItem>
+                <SelectItem value="cancelled">ยกเลิกแล้ว</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="rounded-xl border border-[#F3F4F6] overflow-hidden">
+          <div className="rounded-xl border border-[#F3F4F6] overflow-x-auto">
             <Table>
               <TableHeader className="bg-[#F9FAFB]">
                 <TableRow className="hover:bg-transparent border-none">
@@ -123,14 +189,14 @@ export default function PurchaseOrderList() {
                       <TableCell className="py-5 px-6 font-bold text-[#1F2937]">{po.expand?.vendor?.name || 'N/A'}</TableCell>
                       <TableCell className="py-5 px-6 font-medium text-gray-400">#{po.expand?.pr?.pr_number || 'REF'}</TableCell>
                       <TableCell className="py-5 px-6 text-gray-500">{new Date(po.created).toLocaleDateString('th-TH')}</TableCell>
-                      <TableCell className="py-5 px-6 text-right font-black text-[#111827]">฿{po.grand_total.toLocaleString()}.00</TableCell>
+                      <TableCell className="py-5 px-6 text-right font-black text-[#111827]">฿{(po.grand_total || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell className="py-5 px-6 text-center">
                         <Badge className={`rounded-full px-3 py-1 font-bold ${
                           po.status === 'sent' ? 'bg-blue-50 text-blue-700' :
-                          po.status === 'pending_vendor' ? 'bg-yellow-50 text-yellow-700' :
+                          po.status === 'cancelled' ? 'bg-red-50 text-red-700' :
                           'bg-gray-50 text-gray-500'
                         }`}>
-                          {po.status}
+                          {PO_STATUS_LABELS[po.status] || po.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="py-5 px-6 text-right">
@@ -141,10 +207,13 @@ export default function PurchaseOrderList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-2xl border-none shadow-xl w-48 p-2">
-                            <DropdownMenuItem className="rounded-xl p-3 cursor-pointer"><Eye className="mr-2 h-4 w-4 text-blue-500" /> ดูรายละเอียด</DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-xl p-3 cursor-pointer mt-1" onClick={() => navigate(`/purchase-orders/edit/${po.id}`)}><Edit className="mr-2 h-4 w-4 text-orange-500" /> แก้ไขเอกสาร</DropdownMenuItem>
-                            <DropdownMenuSeparator className="my-2" />
-                            <DropdownMenuItem className="rounded-xl p-3 cursor-pointer text-red-600"><Trash2 className="mr-2 h-4 w-4" /> ยกเลิก PO</DropdownMenuItem>
+                            <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => navigate(`/purchase-requests/${po.pr}/print-po`)}><Eye className="mr-2 h-4 w-4 text-blue-500" /> เปิดเอกสาร</DropdownMenuItem>
+                            {po.status !== 'cancelled' && hasRole(['superadmin', 'head_of_dept', 'manager']) && (
+                              <>
+                                <DropdownMenuSeparator className="my-2" />
+                                <DropdownMenuItem className="rounded-xl p-3 cursor-pointer text-red-600" onClick={() => setCancelTarget(po)}><Trash2 className="mr-2 h-4 w-4" /> ยกเลิก PO</DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -156,6 +225,21 @@ export default function PurchaseOrderList() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>ยกเลิกใบสั่งซื้อ?</DialogTitle>
+            <DialogDescription>
+              ใบสั่งซื้อ {cancelTarget?.po_number} จะถูกเปลี่ยนเป็น "ยกเลิกแล้ว" และแก้ไขหรือพิมพ์ต่อไม่ได้
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-xl" onClick={() => setCancelTarget(null)}>ไม่ยกเลิก</Button>
+            <Button className="bg-red-600 hover:bg-red-700 rounded-xl" disabled={cancelling} onClick={confirmCancel}>ยืนยันการยกเลิก</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

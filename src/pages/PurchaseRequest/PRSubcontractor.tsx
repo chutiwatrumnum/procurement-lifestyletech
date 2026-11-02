@@ -35,7 +35,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
 import VendorSearchInput from '@/components/VendorSearchInput';
-import { prService, projectService, vendorService } from '@/services/api';
+import { prService, projectService, vendorService, APPROVAL_RESET } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -249,16 +249,16 @@ export default function PRSubcontractor() {
                 name: item.name || '',
                 product_code: item.product_code || '',
                 unit: item.unit || 'งาน',
-                quantity: remaining,
+                quantity: 0,
                 reference_price: item.unit_price || 0,
                 unit_price: item.unit_price || 0,
-                total_price: remaining * (item.unit_price || 0),
+                total_price: 0,
                 max_quantity: remaining,
                 isExisting: true,
                 item_type: 'regular' as const
               };
             })
-            .filter((item: any) => item.quantity > 0);
+            .filter((item: any) => item.max_quantity > 0);
 
           console.log('Available items after filter:', availableItems);
           setItems(availableItems.length > 0 ? availableItems : []);
@@ -411,6 +411,9 @@ export default function PRSubcontractor() {
           updateData.manager_approved_at = new Date().toISOString();
           updateData.manager_approved_by_name = user?.name || user?.email;
           updateData.approval_level = 2;
+          updateData.rejection_reason = '';
+        } else if (status === 'pending') {
+          Object.assign(updateData, APPROVAL_RESET);
         }
 
         await prService.update(id, updateData);
@@ -446,6 +449,14 @@ export default function PRSubcontractor() {
             await prService.approveSub(id, user?.id, 'อนุมัติอัตโนมัติตอนแก้ไข (ผู้บริหาร)');
           } catch (err) {
             console.error('Failed to deduct stock during manager auto-approve:', err);
+          }
+        } else if (status === 'pending') {
+          await prService.addHistory(id, 'แก้ไขและส่งอนุมัติ', user?.id, 'แก้ไขแล้วส่งเข้าขั้นตอนอนุมัติอีกครั้ง');
+          try {
+            const pr = await pb.collection('purchase_requests').getOne(id);
+            await notificationService.notifyNewPR(pr, user?.id);
+          } catch (err) {
+            console.error('Failed to send notification:', err);
           }
         }
 
@@ -518,7 +529,7 @@ export default function PRSubcontractor() {
         queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         queryClient.invalidateQueries({ queryKey: ['projects'] });
         queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
-        navigate('/purchase-orders/approval');
+        navigate('/purchase-requests');
       } else {
         queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         queryClient.invalidateQueries({ queryKey: ['project-budgets'] });

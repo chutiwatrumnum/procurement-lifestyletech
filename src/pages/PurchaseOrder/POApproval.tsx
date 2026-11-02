@@ -28,7 +28,7 @@ import {
   PenTool,
   ChevronLeft
 } from 'lucide-react';
-import { prService } from '@/services/api';
+import { prService, departmentFilter } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import pb from '@/lib/pocketbase';
@@ -71,6 +71,7 @@ export default function POApproval() {
   const isHeadOfDept = () => user?.role === 'head_of_dept';
   const isManager = () => user?.role === 'manager';
   const isSuperAdmin = () => user?.role === 'superadmin';
+  const [requesterHasHead, setRequesterHasHead] = useState<boolean | null>(null);
 
   // ตรวจสอบว่า user สามารถอนุมัติ PR นี้ได้ไหม
   const canApprove = (pr: any) => {
@@ -80,7 +81,7 @@ export default function POApproval() {
 
     // Level 0: รอผู้จัดการแผนกอนุมัติ
     if (level === 0) {
-      return isHeadOfDept() || isSuperAdmin();
+      return isHeadOfDept() || isSuperAdmin() || (isManager() && requesterHasHead === false);
     }
 
     // Level 1: รอผู้บริหารอนุมัติ
@@ -156,7 +157,7 @@ export default function POApproval() {
   async function loadData() {
     try {
       // โหลดเฉพาะ PR Sub ที่รออนุมัติ
-      const prData = await prService.getAll('type = "sub" && status = "pending"');
+      const prData = await prService.getAll(`type = "sub" && status = "pending"${departmentFilter(user)}`);
       setSubPRs(prData);
 
       if (prData.length > 0) {
@@ -171,6 +172,8 @@ export default function POApproval() {
 
   async function handleSelectItem(item: any) {
     setSelectedItem(item);
+    setRequesterHasHead(null);
+    prService.requesterHasHead(item.requester).then(setRequesterHasHead);
     try {
       const prItems = await prService.getItems(item.id);
       setItems(prItems);
@@ -332,7 +335,7 @@ export default function POApproval() {
             head_of_dept_approved_by: user?.id,
             head_of_dept_approved_at: new Date().toISOString(),
             head_of_dept_approved_by_name: user?.name || user?.email,
-            head_of_dept_comment: comment || undefined
+            head_of_dept_comment: comment || ''
           };
           
           // ถ้ามีลายเซ็น ให้ copy ไปเก็บใน PR
@@ -370,7 +373,7 @@ export default function POApproval() {
           
           toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้บริหารอนุมัติต่อ)');
           
-        } else if (currentLevel === 1 && (isManager() || isSuperAdmin())) {
+        } else if ((currentLevel === 1 || requesterHasHead === false) && (isManager() || isSuperAdmin())) {
           // ผู้บริหารอนุมัติ → อนุมัติสมบูรณ์ + ตัด stock
           const oldAttachments = selectedItem.attachments;
           
@@ -378,7 +381,7 @@ export default function POApproval() {
             manager_approved_by: user?.id,
             manager_approved_at: new Date().toISOString(),
             manager_approved_by_name: user?.name || user?.email,
-            manager_comment: comment || undefined
+            manager_comment: comment || ''
           };
           
           // ถ้ามีลายเซ็น ให้ copy ไปเก็บใน PR
@@ -1038,7 +1041,7 @@ export default function POApproval() {
                     className="flex-1 h-14 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-lg shadow-lg shadow-green-500/25"
                   >
                     <Check className="w-5 h-5 mr-2" />
-                    {selectedItem?.approval_level === 0 ? 'อนุมัติ (ผู้จัดการแผนก)' : 'อนุมัติ (ผู้บริหาร)'}
+                    {selectedItem?.approval_level === 0 && !isManager() ? 'อนุมัติ (ผู้จัดการแผนก)' : 'อนุมัติ (ผู้บริหาร)'}
                   </Button>
                 </div>
               </CardContent>

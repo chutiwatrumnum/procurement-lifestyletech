@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,6 +64,7 @@ export default function ProductCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { hasRole } = useAuth();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -372,14 +374,14 @@ export default function ProductCatalog() {
                             >
                               <Pencil className="w-4 h-4" />
                             </Button>
-                            <Button
+                            {hasRole(['superadmin', 'head_of_dept', 'manager']) && (<Button
                               variant="ghost"
                               size="icon"
                               onClick={() => { setDeletingId(p.id); setDeleteDialogOpen(true); }}
                               className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </Button>
+                            </Button>)}
                           </div>
                         </td>
                       </tr>
@@ -629,14 +631,14 @@ export default function ProductCatalog() {
                       <Tag className="w-3.5 h-3.5 text-blue-500" />
                       <span className="text-sm font-medium text-gray-800">{cat.category}</span>
                     </div>
-                    <Button
+                    {hasRole(['superadmin', 'head_of_dept', 'manager']) && (<Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDeleteCategory(cat.id)}
                       className="h-7 w-7 text-red-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
                     >
                       <X className="w-3.5 h-3.5" />
-                    </Button>
+                    </Button>)}
                   </div>
                 ))
               )}

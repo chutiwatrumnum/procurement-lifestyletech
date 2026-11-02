@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ProductSearchInput from '@/components/ProductSearchInput';
-import { prService, projectService } from '@/services/api';
+import { prService, projectService, APPROVAL_RESET } from '@/services/api';
 import { notificationService } from '@/services/notification';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -292,7 +292,8 @@ export default function PRProject() {
     setIsSubmitting(true);
     try {
       const prItems = items.map((item) => {
-        if (item.isExisting) {
+        // ตอนแก้ไข quantity คือจำนวนจริงของใบ ไม่ใช่จำนวนที่เพิ่มจากสต็อก
+        if (item.isExisting && !isEditMode) {
           const addedQty = Number(item.addedQuantity) || 0;
           return {
             name: item.name,
@@ -337,6 +338,9 @@ export default function PRProject() {
           updateData.manager_approved_at = new Date().toISOString();
           updateData.manager_approved_by_name = user?.name || user?.email;
           updateData.approval_level = 2;
+          updateData.rejection_reason = '';
+        } else if (status === 'pending') {
+          Object.assign(updateData, APPROVAL_RESET);
         }
 
         await prService.update(id, updateData);
@@ -367,6 +371,14 @@ export default function PRProject() {
         if (finalStatus === 'approved') {
           await prService.addHistory(id, 'อนุมัติอัตโนมัติ (ผู้บริหาร)', user?.id, 'อนุมัติอัตโนมัติตอนแก้ไข');
           await prService.addItemsToProject(projectId, prItems);
+        } else if (status === 'pending') {
+          await prService.addHistory(id, 'แก้ไขและส่งอนุมัติ', user?.id, 'แก้ไขแล้วส่งเข้าขั้นตอนอนุมัติอีกครั้ง');
+          try {
+            const pr = await pb.collection('purchase_requests').getOne(id);
+            await notificationService.notifyNewPR(pr, user?.id);
+          } catch (err) {
+            console.error('Failed to send notification:', err);
+          }
         }
 
         // Upload new attachments
@@ -434,24 +446,13 @@ export default function PRProject() {
         toast.success(status === 'draft' ? 'บันทึกร่างเรียบร้อย' : (isManagerRole ? 'อนุมัติใบขอซื้อเรียบร้อยแล้ว' : 'ส่งใบขอซื้อเรียบร้อยแล้ว'));
       }
       
-      if (status === 'pending' && !isManagerRole) {
-        // พนักงานทั่วไป → ไปหน้า approval
+      if (status === 'pending') {
         window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
-        queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
         queryClient.invalidateQueries({ queryKey: ['projects'] });
         queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
-        navigate('/purchase-requests/approval');
-      } else if (status === 'pending' && isManagerRole) {
-        // Manager อนุมัติเอง → กลับหน้ารายการ
-        window.dispatchEvent(new CustomEvent('refresh-badge-counts'));
-        queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
-        queryClient.invalidateQueries({ queryKey: ['projects'] });
-        queryClient.invalidateQueries({ queryKey: ['project-budgets'] });
-        navigate('/purchase-requests');
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
-        navigate('/purchase-requests');
       }
+      queryClient.invalidateQueries({ queryKey: ['purchaseRequests'] });
+      navigate('/purchase-requests');
     } catch (error) {
       console.error(error);
       toast.error('บันทึกไม่สำเร็จ');

@@ -113,7 +113,7 @@ export default function VendorImportModal({
               return;
             }
             // Use array buffer type which is more reliable
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', codepage: 65001, raw: true });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
@@ -215,7 +215,7 @@ export default function VendorImportModal({
               reject(new Error('No data in file'));
               return;
             }
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', codepage: 65001, raw: true });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);

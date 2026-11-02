@@ -26,6 +26,7 @@ import {
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useVendors, useDeleteVendor, useImportVendors } from '@/hooks/useVendors';
+import { useAuth } from '@/contexts/AuthContext';
 import VendorImportModal from '@/components/VendorImportModal';
 import VendorDeleteModal from '@/components/VendorDeleteModal';
 
@@ -40,6 +41,7 @@ export default function VendorListNew() {
   const [vendorToDelete, setVendorToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const { hasRole } = useAuth();
   const { data: vendors = [], isLoading } = useVendors();
   const deleteVendorMutation = useDeleteVendor();
   const importVendorsMutation = useImportVendors();
@@ -235,7 +237,7 @@ export default function VendorListNew() {
                               <Edit className="w-4 h-4" />
                             </Link>
                           </Button>
-                          <Button 
+                          {hasRole(['superadmin', 'head_of_dept', 'manager']) && (<Button 
                             variant="ghost" 
                             size="icon" 
                             className="h-9 w-9 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all"
@@ -243,7 +245,7 @@ export default function VendorListNew() {
                             onClick={() => handleDeleteClick(vendor.id, vendor.name)}
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </Button>)}
                         </div>
                       </TableCell>
                     </TableRow>
