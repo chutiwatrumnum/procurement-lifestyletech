@@ -37,7 +37,7 @@ export default function PRPrintPO() {
           try {
             const vendor = await pb.collection('vendors').getOne(prData.vendor);
             prData._vendor = vendor;
-          } catch (e) { console.log('Vendor not found'); }
+          } catch { /* ไม่พบผู้ขายก็แสดงเอกสารต่อได้ */ }
         }
 
         // Expand requester
@@ -45,7 +45,7 @@ export default function PRPrintPO() {
           try {
             const user = await pb.collection('users').getOne(prData.requester);
             prData._requester = user;
-          } catch (e) { console.log('Requester not found'); }
+          } catch { /* ไม่พบผู้ขอก็แสดงเอกสารต่อได้ */ }
         }
 
         // Get signature URLs
@@ -63,13 +63,11 @@ export default function PRPrintPO() {
         try {
           const companyRecords = await pb.collection('company_settings').getFullList();
           if (companyRecords.length > 0) setCompany(companyRecords[0]);
-        } catch (e) { console.log('Company settings not found'); }
+        } catch { /* ยังไม่ได้ตั้งค่าบริษัท */ }
 
         // Load existing PO for this PR
         try {
-          console.log('Looking for existing PO for PR:', id);
           const po = await poService.getByPR(id);
-          console.log('Found PO:', po);
           if (po) {
             setExistingPO(po);
             setPONumber(po.po_number || '-');
@@ -171,16 +169,6 @@ export default function PRPrintPO() {
       }
     }
     window.print();
-  };
-
-  // PR Type label
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      'project': 'ใบขอซื้อโครงการ (Project PR)',
-      'sub': 'ใบขอซื้อย่อย (Subcontractor PR)',
-      'other': 'ใบขอซื้ออื่นๆ (Other PR)',
-    };
-    return labels[type] || 'ใบขอซื้อทั่วไป';
   };
 
   const formatDate = (dateStr: string) => {

@@ -27,9 +27,6 @@ import {
   Edit2, 
   Trash2, 
   UserCog,
-  Mail,
-  Building2,
-  Shield,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -52,11 +49,6 @@ interface UserData {
   phone?: string;
   position?: string;
   created: string;
-}
-
-interface Department {
-  id: string;
-  name: string;
 }
 
 const roleLabels: Record<string, string> = {
@@ -239,7 +231,6 @@ export default function UserManagement() {
 
   const openEditDialog = (user: UserData) => {
     try {
-      console.log('Opening edit dialog for user:', user);
       
       // Check permissions
       if (!isSuperAdmin()) {
@@ -421,7 +412,7 @@ export default function UserManagement() {
                             data: { is_active: true }
                           });
                           toast.success(`อนุมัติ ${pendingUser.name} เรียบร้อยแล้ว`);
-                        } catch (err) {
+                        } catch {
                           toast.error('อนุมัติไม่สำเร็จ');
                         }
                       }}
@@ -439,7 +430,7 @@ export default function UserManagement() {
                           try {
                             await deleteUserMutation.mutateAsync(pendingUser.id);
                             toast.success(`ปฏิเสธ ${pendingUser.name} เรียบร้อยแล้ว`);
-                          } catch (err) {
+                          } catch {
                             toast.error('ปฏิเสธไม่สำเร็จ');
                           }
                         }

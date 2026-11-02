@@ -1,3 +1,0 @@
-# The image only needs the hooks. Everything else stays out, including .env and pb_data.
-*
-!pocketbase/pb_hooks

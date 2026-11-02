@@ -27,10 +27,10 @@ dist-ssr
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Local Firebase CLI state (hosting no longer used)
 .firebase
 .firebaserc
-.firebase/hosting.Z-1_2026-02-13T03-55-45.000Z.log
-.firebase/hosting.Z-1_2026-02-13T03-55-45.000Z.log
 
 # PocketBase runtime data (accounts and business records)
 pocketbase/pb_data/

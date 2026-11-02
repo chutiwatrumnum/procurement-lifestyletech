@@ -33,7 +33,6 @@ import VendorEdit from '@/pages/Vendor/VendorEdit';
 import VendorDetail from '@/pages/Vendor/VendorDetail';
 
 // Purchase Order
-import POCreate from '@/pages/PurchaseOrder/POCreate';
 import POApproval from '@/pages/PurchaseOrder/POApproval';
 
 // Reports
@@ -111,7 +110,6 @@ function AppRoutes() {
 
       {/* Purchase Orders */}
       <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrderList /></ProtectedRoute>} />
-      <Route path="/purchase-orders/new" element={<ProtectedRoute><POCreate /></ProtectedRoute>} />
       <Route path="/purchase-orders/approval" element={<ProtectedRoute roles={APPROVER_ROLES}><POApproval /></ProtectedRoute>} />
 
       {/* Reports */}

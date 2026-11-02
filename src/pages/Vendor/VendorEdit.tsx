@@ -13,9 +13,6 @@ import {
   ArrowLeft,
   Loader2,
   DollarSign,
-  Upload,
-  X,
-  File
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -59,34 +56,11 @@ export default function VendorEdit() {
     }
   }, [error, navigate]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setUploadedFiles(prev => [...prev, ...Array.from(files)]);
-    }
-  };
-
   const removeFile = (index: number, isExisting: boolean = false) => {
     if (isExisting) {
       setExistingAttachments(prev => prev.filter((_, i) => i !== index));
     } else {
       setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    }
-  };
-
-  const uploadAttachments = async (vendorId: string) => {
-    if (uploadedFiles.length === 0) return;
-
-    const formData = new FormData();
-    uploadedFiles.forEach(file => {
-      formData.append('attachments', file);
-    });
-
-    try {
-      await pb.collection('vendors').update(vendorId, formData);
-    } catch (error) {
-      console.error('Upload failed:', error);
-      toast.error('อัปโหลดไฟล์ไม่สำเร็จ');
     }
   };
 

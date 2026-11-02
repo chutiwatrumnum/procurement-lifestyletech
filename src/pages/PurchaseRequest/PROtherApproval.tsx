@@ -11,11 +11,8 @@ import {
   FileText,
   ChevronRight,
   Loader2,
-  Clock,
   AlertTriangle,
-  Building2,
   User,
-  DollarSign,
   History,
   ChevronDown,
   ChevronUp,
@@ -60,12 +57,6 @@ export default function PROtherApproval() {
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; action: 'approved' | 'rejected' | null }>({ open: false, action: null });
 
-  // เก็บข้อมูลลายเซ็นของผู้อนุมัติ
-  const [approverSignatures, setApproverSignatures] = useState<{
-    headOfDept: string | null;
-    manager: string | null;
-  }>({ headOfDept: null, manager: null });
-
   // ตรวจสอบสิทธิ์การอนุมัติ
   const isHeadOfDept = () => user?.role === 'head_of_dept';
   const isManager = () => user?.role === 'manager';
@@ -107,51 +98,6 @@ export default function PROtherApproval() {
   useEffect(() => {
     loadData();
   }, []);
-
-  // Fetch ลายเซ็นของผู้อนุมัติเมื่อ selectedItem เปลี่ยน
-  useEffect(() => {
-    if (selectedItem) {
-      fetchApproverSignatures();
-    }
-  }, [selectedItem]);
-
-  async function fetchApproverSignatures() {
-    setApproverSignatures({ headOfDept: null, manager: null });
-    
-    try {
-      // Fetch ลายเซ็นผู้จัดการแผนก
-      if (selectedItem.head_of_dept_approved_by) {
-        try {
-          const headOfDeptUser = await pb.collection('users').getOne(selectedItem.head_of_dept_approved_by);
-          if (headOfDeptUser.signature) {
-            setApproverSignatures(prev => ({
-              ...prev,
-              headOfDept: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${headOfDeptUser.id}/${headOfDeptUser.signature}`
-            }));
-          }
-        } catch (err) {
-          console.log('Failed to fetch head_of_dept signature');
-        }
-      }
-      
-      // Fetch ลายเซ็นผู้บริหาร
-      if (selectedItem.manager_approved_by) {
-        try {
-          const managerUser = await pb.collection('users').getOne(selectedItem.manager_approved_by);
-          if (managerUser.signature) {
-            setApproverSignatures(prev => ({
-              ...prev,
-              manager: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${managerUser.id}/${managerUser.signature}`
-            }));
-          }
-        } catch (err) {
-          console.log('Failed to fetch manager signature');
-        }
-      }
-    } catch (err) {
-      console.error('Fetch signatures error:', err);
-    }
-  }
 
   async function loadData() {
     try {
@@ -195,8 +141,8 @@ export default function PROtherApproval() {
             users.forEach((u: any) => {
               userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
             });
-          } catch (e) {
-            console.log('Could not fetch users:', e);
+          } catch {
+            // ไม่ได้ชื่อผู้ใช้ก็แสดงประวัติต่อได้
           }
         }
 
@@ -238,7 +184,7 @@ export default function PROtherApproval() {
           historyData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
           setEditHistory(historyData);
         }
-      } catch (err) {
+      } catch {
         const createdDate = item.created;
         const requesterName = item.requester_name || item.expand?.requester?.name || item.expand?.requester?.email || 'ไม่ระบุ';
         setEditHistory([

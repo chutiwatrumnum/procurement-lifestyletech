@@ -27,12 +27,6 @@ interface ProjectItem {
   project: string;
 }
 
-interface Project {
-  id: string;
-  name: string;
-  code: string;
-}
-
 export default function ProjectStock() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

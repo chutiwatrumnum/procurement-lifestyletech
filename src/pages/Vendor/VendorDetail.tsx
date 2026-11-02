@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useVendor } from '@/hooks/useVendors';
-import pb from '@/lib/pocketbase';
 
 export default function VendorDetail() {
   const { id } = useParams();

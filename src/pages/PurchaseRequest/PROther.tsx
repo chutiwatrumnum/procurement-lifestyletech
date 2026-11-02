@@ -21,11 +21,7 @@ import {
   Save,
   Send,
   Loader2,
-  Upload,
-  X,
-  Download,
   History,
-  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   ChevronDown,
@@ -82,18 +78,11 @@ export default function PROther() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [editHistory, setEditHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
-  const [pbCategories, setPbCategories] = useState<any[]>([]);
   
   // Project selection state
   const [projects, setProjects] = useState<any[]>([]);
   const [projectId, setProjectId] = useState('');
   const [isProjectPR, setIsProjectPR] = useState(false);
-
-  useEffect(() => {
-    pb.collection('product_categories').getFullList({ sort: 'category' })
-      .then(result => setPbCategories(result))
-      .catch(err => console.error('Failed to fetch categories:', err));
-  }, []);
 
   // Load projects list
   useEffect(() => {
@@ -176,7 +165,7 @@ export default function PROther() {
                 users.forEach((u: any) => {
                   userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
                 });
-              } catch (e) { console.log('Could not fetch users:', e); }
+              } catch { /* ไม่มีชื่อผู้ใช้ก็แสดงประวัติต่อได้ */ }
             }
 
             const resolvedRequesterName = (pr.requester && userMap[pr.requester]) || pr.requester_name || 'ไม่ระบุ';
@@ -204,7 +193,7 @@ export default function PROther() {
               historyData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
               setEditHistory(historyData);
             }
-          } catch (err) {
+          } catch {
             const requesterName = pr.requester_name || 'ไม่ระบุ';
             setEditHistory([
               { date: pr.created, action: 'สร้าง PR', by: requesterName },

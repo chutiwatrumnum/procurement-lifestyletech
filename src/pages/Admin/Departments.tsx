@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,10 +28,7 @@ import {
   Loader2,
   AlertTriangle,
   Users,
-  Building2,
-  Hash
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase';
@@ -49,8 +45,6 @@ interface DepartmentData {
 }
 
 export default function DepartmentManagement() {
-  const navigate = useNavigate();
-  const { isSuperAdmin, canManageUsers } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);

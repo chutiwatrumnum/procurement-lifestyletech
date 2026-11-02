@@ -2,7 +2,7 @@
 
 ## 📋 ภาพรวมระบบ (System Overview)
 
-ระบบจัดซื้อจัดจ้างนี้เป็น Web Application สำหรับบริหารจัดการกระบวนการจัดซื้อจัดจ้างภายในองค์กร พัฒนาด้วย React 19 + TypeScript + Vite และใช้ PocketBase เป็น Backend รองรับการทำงานบน Firebase Hosting
+ระบบจัดซื้อจัดจ้างนี้เป็น Web Application สำหรับบริหารจัดการกระบวนการจัดซื้อจัดจ้างภายในองค์กร พัฒนาด้วย React 19 + TypeScript + Vite และใช้ PocketBase เป็น Backend
 
 ---
 
@@ -15,7 +15,7 @@
 | State/Fetching | React Query (TanStack Query) |
 | Routing | React Router DOM v7 |
 | Backend | PocketBase (SQLite built-in) |
-| Deployment | Firebase Hosting |
+| Deployment | PocketBase `pb_public` บนเครื่องนี้ |
 
 ---
 

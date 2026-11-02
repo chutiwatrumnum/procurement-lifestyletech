@@ -13,9 +13,6 @@ import {
   ArrowLeft,
   Loader2,
   DollarSign,
-  Upload,
-  X,
-  File
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -34,13 +31,6 @@ export default function VendorNew() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setUploadedFiles(prev => [...prev, ...Array.from(files)]);
-    }
-  };
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));

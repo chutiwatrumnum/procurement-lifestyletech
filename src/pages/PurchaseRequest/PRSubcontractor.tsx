@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Select,
   SelectContent,
@@ -15,16 +14,12 @@ import {
 import { 
   Wrench, 
   User, 
-  MapPin, 
-  Upload, 
   Plus, 
   Trash2,
   FileText,
   Save,
   Send,
   Loader2,
-  Paperclip,
-  X,
   Package,
   ArrowLeft,
   History,
@@ -204,14 +199,12 @@ export default function PRSubcontractor() {
     
     async function loadProjectItems() {
       try {
-        console.log('Loading project items for project:', projectId);
         
         const projectItems = await pb.collection('project_items').getFullList({
           filter: `project = "${projectId}"`,
           sort: 'name'
         });
         
-        console.log('Project items found:', projectItems.length, projectItems);
         
         const prSubsApproved = await pb.collection('purchase_requests').getFullList({
           filter: `project = "${projectId}" && type = "sub" && status = "approved"`
@@ -229,19 +222,16 @@ export default function PRSubcontractor() {
           }
         }
         
-        console.log('Withdrawn map:', withdrawnMap);
         
         if (projectItems.length > 0) {
           const availableItems = projectItems
             .map((item: any) => {
               // ใช้ initial_quantity เป็นค่าเริ่มต้น ถ้าไม่มีใช้ quantity แทน
               const initialQty = item.initial_quantity || item.quantity || 0;
-              const currentQty = item.quantity || 0;
               const withdrawn = withdrawnMap[item.id] || 0;
               // คงเหลือ = ค่าเริ่มต้น - เบิกไปแล้ว
               const remaining = Math.max(0, initialQty - withdrawn);
               
-              console.log(`Item ${item.name}: initial=${initialQty}, current=${currentQty}, withdrawn=${withdrawn}, remaining=${remaining}`);
               
               return {
                 id: item.id || Date.now().toString() + Math.random(),
@@ -260,10 +250,8 @@ export default function PRSubcontractor() {
             })
             .filter((item: any) => item.max_quantity > 0);
 
-          console.log('Available items after filter:', availableItems);
           setItems(availableItems.length > 0 ? availableItems : []);
         } else {
-          console.log('No project items found');
           setItems([]);
         }
       } catch (err) {
@@ -544,7 +532,6 @@ export default function PRSubcontractor() {
   };
 
   const selectedVendors = vendors.filter(v => vendorIds.includes(v.id));
-  const selectedProject = projects.find(p => p.id === projectId);
 
   if (loading) {
     return (

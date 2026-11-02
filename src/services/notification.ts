@@ -44,7 +44,6 @@ async function getHeadOfDeptsByDepartment(departmentId: string): Promise<string[
       fields: 'id,role,department'
     });
     
-    console.log('[NOTIFY] Head of dept by dept:', result.length, 'users');
     return result.map((u: any) => u.id);
   } catch (e: any) {
     console.error('[NOTIFY] Failed to fetch head_of_depts by dept:', e?.message || e?.status || e);
@@ -60,7 +59,6 @@ async function getHeadOfDepts(): Promise<string[]> {
       fields: 'id,role,department'
     });
     
-    console.log('[NOTIFY] All head of depts:', result.length, 'users');
     return result.map((u: any) => u.id);
   } catch (e: any) {
     console.error('[NOTIFY] Failed to fetch head_of_depts:', e?.message || e?.status || e);
@@ -79,24 +77,10 @@ async function getManagers(): Promise<string[]> {
       .filter((u: any) => u.role === 'manager' || u.role === 'superadmin')
       .map((u: any) => u.id);
     
-    console.log('[NOTIFY] Manager/superadmin IDs:', managers);
     return managers;
   } catch (e: any) {
     console.error('[NOTIFY] Failed to fetch managers:', e?.message || e?.status || e);
     return [];
-  }
-}
-
-// ดึง project manager ของโครงการ
-async function getProjectManager(projectId: string): Promise<string | null> {
-  if (!projectId) return null;
-  try {
-    const project = await pb.collection('projects').getOne(projectId, {
-      fields: 'manager'
-    });
-    return project.manager || null;
-  } catch (err) {
-    return null;
   }
 }
 
@@ -115,7 +99,6 @@ export const notificationService = {
           fields: 'department'
         });
         departmentId = requester?.department || null;
-        console.log('[NOTIFY] Requester department:', departmentId);
       } catch (e) {
         console.error('[NOTIFY] Failed to get requester department:', e);
       }
@@ -130,10 +113,8 @@ export const notificationService = {
     // ตัด duplicates และไม่แจ้งตัวเอง
     const uniqueRecipients = recipients.filter(id => id !== requesterId);
     
-    console.log('[NOTIFY] Recipients to notify:', uniqueRecipients);
     
     if (uniqueRecipients.length > 0) {
-      console.log('[NOTIFY] Sending notification to:', uniqueRecipients.length, 'users, IDs:', uniqueRecipients);
       await notifyUsers(uniqueRecipients, {
         title: 'มี PR ใหม่รออนุมัติ',
         message: `ใบขอซื้อ ${pr.pr_number} ถูกสร้างโดย ${pr.requester_name || 'ไม่ระบุ'} และรอการอนุมัติ`,
@@ -268,13 +249,4 @@ export const notificationService = {
       console.error('Mark all as read error:', err);
     }
   },
-
-  // ==================== ลบ notification ====================
-  async delete(id: string) {
-    try {
-      await pb.collection('notifications').delete(id);
-    } catch (err) {
-      console.error('Delete notification error:', err);
-    }
-  }
 };

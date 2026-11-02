@@ -31,17 +31,6 @@ export function useCreateVendor() {
     });
 }
 
-export function useUpdateVendor() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: any }) => vendorService.update(id, data),
-        onSuccess: (_data, variables) => {
-            queryClient.invalidateQueries({ queryKey: vendorKeys.all });
-            queryClient.invalidateQueries({ queryKey: vendorKeys.detail(variables.id) });
-        },
-    });
-}
-
 export function useDeleteVendor() {
     const queryClient = useQueryClient();
     return useMutation({

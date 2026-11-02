@@ -10,7 +10,6 @@ import {
   Mail, 
   Phone, 
   Building2, 
-  Briefcase, 
   Camera,
   Save,
   Loader2,

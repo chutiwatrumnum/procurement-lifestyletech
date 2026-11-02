@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, Loader2, Check, X, AlertCircle, CheckCircle, AlertTriangle, Search } from 'lucide-react';
+import { Upload, FileSpreadsheet, Loader2, X, AlertCircle, CheckCircle, AlertTriangle, Search } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 
 interface ProductImportModalProps {
@@ -90,16 +90,6 @@ export default function ProductImportModal({
     }
   }, [isOpen]);
 
-  // Helper function to find value by possible keys
-  const findValueByKeys = (row: any, keys: string[]): string => {
-    for (const key of keys) {
-      if (row[key] !== undefined) {
-        return String(row[key]);
-      }
-    }
-    return '';
-  };
-
   // Parse CSV/Excel data
   const processProductData = useCallback((rawData: any[]): ParsedProductRow[] => {
     return rawData.map((row, index) => {
@@ -166,7 +156,7 @@ export default function ProductImportModal({
       }
       
       // Price (Cost in THB) - map to unit_price
-      let unitPrice = cost;
+      const unitPrice = cost;
 
       const brand = row['Brand'] || '';
       const unit = findValueFuzzy(row, ['หน่วย', 'unit', 'Unit']);

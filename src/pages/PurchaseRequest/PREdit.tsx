@@ -4,11 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { 
   Building2, 
-  Upload, 
   Plus, 
   Trash2,
   FileText,
@@ -17,10 +15,8 @@ import {
   AlertCircle,
   ArrowLeft,
   Loader2,
-  DollarSign,
   User,
   History,
-  X,
   Download,
   ChevronDown,
   ChevronUp,
@@ -34,13 +30,6 @@ import FileUploadManager from '@/components/ui/FileUploadManager';
 import VendorSearchInput from '@/components/VendorSearchInput';
 import ProductSearchInput from '@/components/ProductSearchInput';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 export default function PREdit() {
   const { id } = useParams();
@@ -127,8 +116,8 @@ export default function PREdit() {
               users.forEach((u: any) => {
                 userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
               });
-            } catch (e) {
-              console.log('Could not fetch users:', e);
+            } catch {
+              // ไม่ได้ชื่อผู้ใช้ก็แสดงประวัติต่อได้
             }
           }
           
@@ -188,7 +177,7 @@ export default function PREdit() {
             
             setEditHistory(historyData);
           }
-        } catch (err) {
+        } catch {
           const createdDate = pr.created || pr.expand?.requester?.created;
           const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
           
@@ -207,7 +196,7 @@ export default function PREdit() {
             }
           ]);
         }
-      } catch (err) {
+      } catch {
         toast.error('ไม่พบข้อมูลใบขอซื้อ');
       } finally {
         setLoading(false);
@@ -256,10 +245,6 @@ export default function PREdit() {
 
   const removeExistingAttachment = (file: string) => {
     setAttachments(attachments.filter(a => a !== file));
-  };
-
-  const getFileUrl = (recordId: string, filename: string) => {
-    return `${import.meta.env.VITE_POCKETBASE_URL}/api/files/pbc_3482049810/${recordId}/${filename}`;
   };
 
   const handleUpdate = async () => {

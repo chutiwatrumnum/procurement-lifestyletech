@@ -20,55 +20,6 @@ import {
 } from 'lucide-react';
 import { useProjectDetail } from '@/hooks/useProjects';
 
-interface WithdrawDetail {
-  pr_number: string;
-  quantity: number;
-  unit_price: number;
-  total: number;
-  date: string;
-}
-
-interface ReserveItem {
-  id: string;
-  name: string;
-  unit: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  pr_number: string;
-  created: string;
-}
-
-interface ProjectItem {
-  id: string;
-  name: string;
-  product_code?: string;
-  unit: string;
-  quantity: number;
-  initial_quantity?: number;
-  unit_price: number;
-  total_price: number;
-  withdrawn: number;
-  withdrawnDetails: WithdrawDetail[];
-}
-
-interface PRProject {
-  id: string;
-  pr_number: string;
-  attachments: string[];
-  total_amount: number;
-  created: string;
-}
-
-interface PRSub {
-  id: string;
-  pr_number: string;
-  attachments: string[];
-  total_amount: number;
-  created: string;
-  status: string;
-}
-
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();

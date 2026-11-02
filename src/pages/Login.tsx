@@ -6,10 +6,10 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Loader2, Lock, Mail, User, CheckCircle2, Clock, Layers } from 'lucide-react';
+import { Loader2, Lock, Mail, User, CheckCircle2, Clock, Layers } from 'lucide-react';
 import pb from '@/lib/pocketbase';
 import { useCompanyLogo } from '@/hooks/useCompanyLogo';
 
@@ -34,8 +34,8 @@ export default function Login() {
       try {
         const depts = await pb.collection('departments').getFullList({ sort: 'name' });
         setDepartments(depts);
-      } catch (err) {
-        console.log('Could not fetch departments');
+      } catch {
+        // โหลดแผนกไม่ได้ก็ยังสมัครสมาชิกได้
       }
     };
     fetchDepartments();
@@ -62,8 +62,8 @@ export default function Login() {
           if (rejectedCount > 0) message += `\n🔴 ถูกตีกลับ: ${rejectedCount} รายการ`;
           toast.info(message);
         }
-      } catch (err) {
-        console.log('Could not fetch PR notifications');
+      } catch {
+        // นับรายการไม่ได้ก็เข้าระบบต่อได้
       }
       
       navigate('/');

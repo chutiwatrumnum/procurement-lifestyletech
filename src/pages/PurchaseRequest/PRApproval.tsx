@@ -11,9 +11,7 @@ import {
   FileText, 
   Building2,
   User,
-  DollarSign,
   ChevronRight,
-  Clock,
   Loader2,
   Download,
   Paperclip,
@@ -56,17 +54,10 @@ export default function PRApproval() {
   
   const [submitting, setSubmitting] = useState(false);
   const [comment, setComment] = useState('');
-  const [budgetInfo, setBudgetInfo] = useState<{ budget: number; spent: number; percentage: number } | null>(null);
   const [editHistory, setEditHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; action: 'approved' | 'rejected' | null }>({ open: false, action: null });
   
-  // เก็บข้อมูลลายเซ็นของผู้อนุมัติ
-  const [approverSignatures, setApproverSignatures] = useState<{
-    headOfDept: string | null;
-    manager: string | null;
-  }>({ headOfDept: null, manager: null });
-
   // ตรวจสอบสิทธิ์การอนุมัติ
   const isHeadOfDept = () => user?.role === 'head_of_dept';
   const isManager = () => user?.role === 'manager';
@@ -109,51 +100,6 @@ export default function PRApproval() {
     loadPRs();
   }, []);
 
-  // Fetch ลายเซ็นของผู้อนุมัติเมื่อ selectedPR เปลี่ยน
-  useEffect(() => {
-    if (selectedPR) {
-      fetchApproverSignatures();
-    }
-  }, [selectedPR]);
-
-  async function fetchApproverSignatures() {
-    setApproverSignatures({ headOfDept: null, manager: null });
-    
-    try {
-      // Fetch ลายเซ็นผู้จัดการแผนก
-      if (selectedPR.head_of_dept_approved_by) {
-        try {
-          const headOfDeptUser = await pb.collection('users').getOne(selectedPR.head_of_dept_approved_by);
-          if (headOfDeptUser.signature) {
-            setApproverSignatures(prev => ({
-              ...prev,
-              headOfDept: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${headOfDeptUser.id}/${headOfDeptUser.signature}`
-            }));
-          }
-        } catch (err) {
-          console.log('Failed to fetch head_of_dept signature');
-        }
-      }
-      
-      // Fetch ลายเซ็นผู้บริหาร
-      if (selectedPR.manager_approved_by) {
-        try {
-          const managerUser = await pb.collection('users').getOne(selectedPR.manager_approved_by);
-          if (managerUser.signature) {
-            setApproverSignatures(prev => ({
-              ...prev,
-              manager: `${import.meta.env.VITE_POCKETBASE_URL}/api/files/_pb_users_auth_/${managerUser.id}/${managerUser.signature}`
-            }));
-          }
-        } catch (err) {
-          console.log('Failed to fetch manager signature');
-        }
-      }
-    } catch (err) {
-      console.error('Fetch signatures error:', err);
-    }
-  }
-
   async function loadPRs() {
     setLoading(true);
     try {
@@ -183,30 +129,14 @@ export default function PRApproval() {
       const prItems = await prService.getItems(pr.id);
       setItems(prItems);
       
-      // Load budget info if project exists
-      if (pr.expand?.project?.id) {
-        const projectBudget = pr.expand.project.budget || 0;
-        const totalSpent = await prService.getProjectTotalSpent(pr.expand.project.id);
-        const percentage = projectBudget > 0 ? Math.round((totalSpent / projectBudget) * 100) : 0;
-        setBudgetInfo({
-          budget: projectBudget,
-          spent: totalSpent,
-          percentage: Math.min(percentage, 100)
-        });
-      } else {
-        setBudgetInfo(null);
-      }
-      
       // Load edit history from pr_history collection
       try {
         const history = await prService.getHistory(pr.id);
-        console.log('History records:', history);
         
         // Collect all user IDs from history + PR requester to fetch names
         const historyUserIds = history.map((h: any) => h.by).filter(Boolean);
         if (pr.requester) historyUserIds.push(pr.requester);
         const userIds = [...new Set(historyUserIds)];
-        console.log('User IDs from history:', userIds);
         const userMap: Record<string, string> = {};
         
         // Fetch user names
@@ -216,15 +146,13 @@ export default function PRApproval() {
               filter: userIds.map((id: string) => `id = "${id}"`).join(' || '),
               fields: 'id,name,email'
             });
-            console.log('Fetched users:', users);
             users.forEach((u: any) => {
               userMap[u.id] = u.name || u.email || 'ไม่ระบุ';
             });
-          } catch (e) {
-            console.log('Could not fetch users:', e);
+          } catch {
+            // ไม่ได้ชื่อผู้ใช้ก็แสดงประวัติต่อได้
           }
         }
-        console.log('User map:', userMap);
         
         // Resolve requester name from userMap first, fallback to PR fields
         const resolvedRequesterName = (pr.requester && userMap[pr.requester]) || pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
@@ -280,7 +208,7 @@ export default function PRApproval() {
           
           setEditHistory(historyData);
         }
-      } catch (err) {
+      } catch {
         // Fallback to mock data if history not available
         const createdDate = pr.created;
         const requesterName = pr.requester_name || pr.expand?.requester?.name || pr.expand?.requester?.email || 'ไม่ระบุ';
@@ -301,7 +229,6 @@ export default function PRApproval() {
       }
     } catch (err) {
       console.error(err);
-      setBudgetInfo(null);
       setEditHistory([]);
     }
   }
@@ -481,15 +408,6 @@ export default function PRApproval() {
   // Get file URL for download
   const getFileUrl = (recordId: string, filename: string) => {
     return `${import.meta.env.VITE_POCKETBASE_URL}/api/files/pbc_3482049810/${recordId}/${filename}`;
-  };
-
-  // Format file size
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   if (loading) {

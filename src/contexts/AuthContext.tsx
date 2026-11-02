@@ -60,8 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
             
             setUser(enrichedUser);
-          } catch (error) {
-            console.log('Session expired or user not found in database, logging out');
+          } catch {
             if (mounted) logout();
           }
         }
@@ -77,8 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           // ดึง Refresh Token ใหม่เพื่อขยายเวลาเซสชันตอนเปิดเว็บ
           await pb.collection('users').authRefresh();
-        } catch (e) {
-          console.log('Token refresh failed:', e);
+        } catch {
+          // ต่ออายุไม่สำเร็จ ใช้เซสชันเดิมต่อ
         } finally {
           isRefreshing = false;
         }

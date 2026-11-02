@@ -155,7 +155,7 @@ export default function PRDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {items.map((item, idx) => (
+                    {items.map((item) => (
                       <tr key={item.id}>
                         <td className="py-4 px-4 font-bold text-gray-900">{item.product_code || '-'}</td>
                         <td className="py-4 px-4 font-medium">{item.name}</td>

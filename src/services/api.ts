@@ -60,9 +60,6 @@ export const vendorService = {
     }
     return results;
   },
-  async update(id: string, data: any) {
-    return await pb.collection('vendors').update(id, data);
-  },
   async delete(id: string) {
     return await pb.collection('vendors').delete(id);
   }
@@ -113,14 +110,13 @@ export const prService = {
             usersResult.forEach(user => {
               userMap[user.id] = user;
             });
-          } catch (listErr) {
-            console.log('List users not allowed, trying individual fetch...');
+          } catch {
 
             for (const userId of requesterIds.filter(id => !userMap[id])) {
               try {
                 const user = await pb.collection('users').getOne(userId);
                 userMap[userId] = user;
-              } catch (e) {
+              } catch {
                 userMap[userId] = null;
               }
             }
@@ -268,22 +264,19 @@ export const prService = {
           filter: `pr = "${id}"`,
           expand: 'project_item'
         });
-      } catch (e) {
-        console.log('No PR items found');
+      } catch {
+        // ไม่มีรายการก็ไม่ต้องตัด stock
       }
-
-      console.log('PR Items found:', prItems.length);
 
       // 4. ตัด stock จาก project_items โดยใช้ ID (เฉพาะ item_type = 'regular')
       let updatedCount = 0;
-      let notFoundItems: string[] = [];
-      let reserveItems: string[] = [];
+      const notFoundItems: string[] = [];
+      const reserveItems: string[] = [];
 
       for (const item of prItems) {
         // ข้ามรายการสำรอง (reserve) ไม่ต้องตัด stock
         if (item.item_type === 'reserve') {
           reserveItems.push(item.name || 'ไม่มีชื่อ');
-          console.log(`Skipping reserve item: ${item.name}`);
           continue;
         }
 
@@ -303,14 +296,12 @@ export const prService = {
               total_price: newQuantity * (projItem.unit_price || 0)
             });
             updatedCount++;
-            console.log(`Updated ${projItem.name}: ${currentQty} -> ${newQuantity}`);
           } catch (e: any) {
             console.error('Error updating by ID:', projectItemId, e.message);
             notFoundItems.push(item.name || 'ไม่มีชื่อ');
           }
         } else {
           // ไม่มี ID → fallback หาด้วยชื่อ (backward compatibility)
-          console.log('No project_item ID, falling back to name search:', item.name);
 
           try {
             const itemName = (item.name || '').replace(/"/g, '\\"').trim();
@@ -361,19 +352,6 @@ export const prService = {
         by: userId || '',
         details: comment || details
       });
-
-      // 6. Log budget info (งบประมาณคำนวณจาก approved PR Projects แบบ real-time ไม่ต้อง update field)
-      if (pr.project) {
-        try {
-          const approvedPRProjects = await pb.collection('purchase_requests').getFullList({
-            filter: `project = "${pr.project}" && type = "project" && status = "approved"`
-          });
-          const totalBudget = approvedPRProjects.reduce((sum: number, p: any) => sum + (p.total_amount || 0), 0);
-          console.log(`Project budget (from approved PR Projects): ฿${totalBudget.toLocaleString()}, PR Sub amount: ฿${(pr.total_amount || 0).toLocaleString()}`);
-        } catch (budgetErr) {
-          console.error('Budget info fetch failed:', budgetErr);
-        }
-      }
 
       return {
         ...pr,
@@ -513,7 +491,6 @@ export const poService = {
         filter: `pr = "${prId}"`,
         sort: '-created'
       });
-      console.log('getByPR result:', prId, records.length, 'records');
       if (records.length > 0) return records[0];
 
       // Fallback: try with relation syntax
@@ -521,7 +498,6 @@ export const poService = {
         filter: `pr.id = "${prId}"`,
         sort: '-created'
       });
-      console.log('getByPR fallback result:', records2.length, 'records');
       return records2.length > 0 ? records2[0] : null;
     } catch (err) {
       console.error('Error fetching PO by PR:', err);

@@ -3,9 +3,8 @@ import * as XLSX from 'xlsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, Loader2, Check, X, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Upload, FileSpreadsheet, Loader2, X, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { 
-  parseVendorFile, 
   processVendorData, 
   transformToPocketBase,
 } from '@/lib/vendorImportUtils';

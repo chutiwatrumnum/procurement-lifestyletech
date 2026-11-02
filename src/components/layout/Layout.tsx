@@ -10,12 +10,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { notificationService } from '@/services/notification';
 import { departmentFilter } from '@/services/api';
 import {
@@ -192,7 +190,6 @@ function Sidebar({
   user,
   onLogout,
   onToggleCollapse,
-  isSidebarCollapsed,
   logoUrl,
   logoLoading
 }: { 
@@ -207,7 +204,6 @@ function Sidebar({
   user: any;
   onLogout: () => void;
   onToggleCollapse: () => void;
-  isSidebarCollapsed: boolean;
   logoUrl: string;
   logoLoading: boolean;
 }) {
@@ -351,7 +347,7 @@ function Sidebar({
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, logout, hasRole } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -476,7 +472,6 @@ export default function Layout({ children }: LayoutProps) {
           user={user}
           onLogout={handleLogout}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          isSidebarCollapsed={isSidebarCollapsed}
           logoUrl={logoUrl}
           logoLoading={logoLoading}
         />
@@ -505,7 +500,6 @@ export default function Layout({ children }: LayoutProps) {
                 onLogout={handleLogout}
                 onClose={() => setIsMobileMenuOpen(false)}
                 onToggleCollapse={() => {}}
-                isSidebarCollapsed={false}
                 logoUrl={logoUrl}
                 logoLoading={logoLoading}
               />

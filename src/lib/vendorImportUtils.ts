@@ -3,78 +3,11 @@
  * Handles Excel/CSV parsing and data transformation
  */
 
-import * as XLSX from 'xlsx';
-
-// Field mapping between Excel columns and PocketBase schema
-export const VENDOR_FIELD_MAPPING = {
-  // Excel Column -> PocketBase Field
-  'Supplier Code': 'vendor_code',
-  'supplier_code': 'vendor_code',
-  'รหัสผู้ขาย': 'vendor_code',
-  'Code': 'vendor_code',
-  
-  'Name': 'name',
-  'name': 'name',
-  'ชื่อ': 'name',
-  'ชื่อผู้ขาย': 'name',
-  
-  'กลุ่มผู้ขาย (Name)': 'category',
-  'category': 'category',
-  'กลุ่มผู้ขาย': 'category',
-  'Category': 'category',
-  'Group': 'category',
-  
-  'TaxNo': 'tax_id',
-  'tax_id': 'tax_id',
-  'เลขประจำตัวผู้เสียภาษี': 'tax_id',
-  'Tax ID': 'tax_id',
-  
-  'Address1': 'address',
-  'address': 'address',
-  'ที่อยู่': 'address',
-  'Address': 'address',
-  'Address2': 'address2',
-  
-  'Tel': 'phone',
-  'phone': 'phone',
-  'โทรศัพท์': 'phone',
-  'Telephone': 'phone',
-  
-  'Fax': 'fax',
-  'fax': 'fax',
-  'แฟกซ์': 'fax',
-};
-
-// Default values for vendor fields
-export const VENDOR_DEFAULTS = {
-  status: 'active',
-  vendor_type: 'domestic',
-  contact_person: '', // Will be set to name if not provided
-  email: '',
-  payment_term: '30days',
-};
 
 // Vendor type detection based on category
 export const VENDOR_TYPE_KEYWORDS = {
   domestic: ['เจ้าหนี้ในประเทศ', 'ในประเทศ', 'domestic', 'local'],
   foreign: ['เจ้าหนี้นอกประเทศ', 'นอกประเทศ', 'foreign', 'international', 'ต่างประเทศ'],
-};
-
-// Payment term mapping
-export const PAYMENT_TERM_MAPPING: Record<string, string> = {
-  '30': '30days',
-  '30 days': '30days',
-  '30days': '30days',
-  '45': '45days',
-  '45 days': '45days',
-  '45days': '45days',
-  '60': '60days',
-  '60 days': '60days',
-  '60days': '60days',
-  'cash': 'cash',
-  'เงินสด': 'cash',
-  'credit': 'credit',
-  'เครดิต': 'credit',
 };
 
 export interface ParsedVendorRow {
@@ -101,13 +34,6 @@ export interface ImportResult {
   data?: any;
   error?: string;
   rowIndex?: number;
-}
-
-export interface ImportSummary {
-  total: number;
-  success: number;
-  failed: number;
-  results: ImportResult[];
 }
 
 /**
@@ -198,39 +124,6 @@ export function transformToPocketBase(row: ParsedVendorRow): any {
 }
 
 /**
- * Parse Excel/CSV file and return raw data
- * Uses ArrayBuffer for better compatibility with large files
- */
-export async function parseVendorFile(file: File): Promise<any[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        if (!data) {
-          reject(new Error('No data in file'));
-          return;
-        }
-        const workbook = XLSX.read(data, { type: 'array', codepage: 65001, raw: true });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        resolve(jsonData);
-      } catch (error: any) {
-        reject(new Error('Cannot read Excel file: ' + (error.message || 'Unknown error')));
-      }
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('Failed to read file'));
-    };
-    
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-/**
  * Map raw Excel data to parsed vendor rows
  */
 export function mapToParsedVendors(rawData: any[]): ParsedVendorRow[] {
@@ -295,20 +188,4 @@ export function processVendorData(rawData: any[]): ParsedVendorRow[] {
   parsedData = parsedData.map(row => validateVendorRow(row));
   
   return parsedData;
-}
-
-/**
- * Get column headers from sample file
- */
-export function getExpectedColumns(): string[] {
-  return [
-    'Supplier Code (รหัสผู้ขาย)',
-    'Name (ชื่อผู้ขาย)',
-    'กลุ่มผู้ขาย (Category)',
-    'TaxNo (เลขภาษี)',
-    'Address1 (ที่อยู่)',
-    'Address2 (ที่อยู่เพิ่มเติม)',
-    'Tel (โทรศัพท์)',
-    'Fax (แฟกซ์)',
-  ];
 }

@@ -13,15 +13,12 @@ import {
 } from '@/components/ui/select';
 import { 
   Building2, 
-  User, 
-  Upload, 
   Plus, 
   Trash2,
   FileText,
   Save,
   Send,
   Loader2,
-  X,
   ArrowLeft,
   History,
   ChevronDown,
@@ -319,7 +316,6 @@ export default function PRProject() {
       // ถ้า manager/superadmin ส่ง PR → อนุมัติเลยทันที
       const isManagerRole = user?.role === 'manager' || user?.role === 'superadmin';
       const finalStatus = (status === 'pending' && isManagerRole) ? 'approved' : status;
-      console.log('[PRProject] user.role:', user?.role, '| isManagerRole:', isManagerRole, '| status:', status, '| finalStatus:', finalStatus);
 
       if (isEditMode && id) {
         // Update existing PR
