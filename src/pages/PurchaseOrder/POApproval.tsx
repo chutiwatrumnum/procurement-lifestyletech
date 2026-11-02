@@ -363,6 +363,8 @@ export default function POApproval() {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
           }
           
+          await prService.addHistory(selectedItem.id, 'อนุมัติระดับ 1 (ผู้จัดการแผนก)', user?.id, comment || `อนุมัติใบขอซื้อ ${selectedItem.pr_number}`);
+
           // ส่ง notification ตาม role (ผู้จัดการแผนกอนุมัติ)
           await notificationService.notifyByHeadOfDept(selectedItem, user?.name || 'ผู้จัดการแผนก', true, selectedItem.requester);
           

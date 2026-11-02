@@ -333,6 +333,8 @@ export default function PREdit() {
 
       // Manager: copy signature
       if (isManagerRole) {
+        await prService.addHistory(id!, 'อนุมัติอัตโนมัติ (ผู้บริหาร)', user?.id, 'อนุมัติอัตโนมัติตอนแก้ไข');
+
         try {
           const currentUserData = await pb.collection('users').getOne(user?.id || '');
           if (currentUserData.signature) {

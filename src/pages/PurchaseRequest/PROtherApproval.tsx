@@ -342,6 +342,7 @@ export default function PROtherApproval() {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
           }
           
+          await prService.addHistory(selectedItem.id, 'อนุมัติระดับ 1 (ผู้จัดการแผนก)', user?.id, comment || `อนุมัติใบขอซื้อ ${selectedItem.pr_number}`);
           await notificationService.notifyByHeadOfDept(selectedItem, user?.name || 'ผู้จัดการแผนก', true, selectedItem.requester);
           toast.success('อนุมัติระดับ 1 สำเร็จ (รอผู้บริหารอนุมัติต่อ)');
           
@@ -380,27 +381,16 @@ export default function PROtherApproval() {
             await pb.collection('purchase_requests').update(selectedItem.id, updateData);
           }
 
+          await prService.addHistory(selectedItem.id, 'อนุมัติขั้นสุดท้าย (ผู้บริหาร)', user?.id, comment || `อนุมัติใบขอซื้อ ${selectedItem.pr_number}`);
+
           // เพิ่มอุปกรณ์เข้าโครงการ (ถ้ามีการเลือกโครงการ)
           if (selectedItem.project) {
             try {
               const prItems = await prService.getItems(selectedItem.id);
-              for (const item of prItems) {
-                if (item.name?.trim()) {
-                  await pb.collection('project_items').create({
-                    project: selectedItem.project,
-                    name: item.name,
-                    product_code: item.product_code || '',
-                    unit: item.unit || 'ชิ้น',
-                    initial_quantity: item.quantity,
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                    total_price: item.total_price
-                  });
-                }
-              }
-              console.log('Added equipment to project from PR Other approval');
+              await prService.addItemsToProject(selectedItem.project, prItems);
             } catch (err) {
               console.error('Failed to add equipment to project:', err);
+              toast.error('อนุมัติแล้ว แต่เพิ่มอุปกรณ์เข้าโครงการไม่สำเร็จ กรุณาตรวจสอบสต็อก');
             }
           }
           

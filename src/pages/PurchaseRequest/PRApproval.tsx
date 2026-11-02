@@ -389,6 +389,8 @@ export default function PRApproval() {
             await pb.collection('purchase_requests').update(selectedPR.id, updateData);
           }
           
+          await prService.addHistory(selectedPR.id, 'อนุมัติระดับ 1 (ผู้จัดการแผนก)', user?.id, comment || `อนุมัติใบขอซื้อ ${selectedPR.pr_number}`);
+
           // ส่ง notification ตาม role (ผู้จัดการแผนกอนุมัติ)
           await notificationService.notifyByHeadOfDept(selectedPR, user?.name || 'ผู้จัดการแผนก', true, selectedPR.requester);
           
@@ -434,6 +436,19 @@ export default function PRApproval() {
             await pb.collection('purchase_requests').update(selectedPR.id, updateData);
           }
           
+          await prService.addHistory(selectedPR.id, 'อนุมัติขั้นสุดท้าย (ผู้บริหาร)', user?.id, comment || `อนุมัติใบขอซื้อ ${selectedPR.pr_number}`);
+
+          // เข้าสต็อกตอนอนุมัติครบ
+          if (selectedPR.project) {
+            try {
+              const prItems = await prService.getItems(selectedPR.id);
+              await prService.addItemsToProject(selectedPR.project, prItems);
+            } catch (err) {
+              console.error('Failed to add equipment to project:', err);
+              toast.error('อนุมัติแล้ว แต่เพิ่มอุปกรณ์เข้าโครงการไม่สำเร็จ กรุณาตรวจสอบสต็อก');
+            }
+          }
+
           // ส่ง notification ตาม role (ผู้บริหารอนุมัติ)
           await notificationService.notifyByManager(selectedPR, user?.name || 'ผู้บริหาร', true, selectedPR.requester);
           

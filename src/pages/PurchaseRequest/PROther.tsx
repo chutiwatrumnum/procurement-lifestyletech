@@ -390,26 +390,11 @@ export default function PROther() {
               }
             } catch (err) { console.error('Failed to copy manager signature:', err); }
 
+            await prService.addHistory(id, 'อนุมัติอัตโนมัติ (ผู้บริหาร)', user?.id, 'อนุมัติอัตโนมัติตอนแก้ไข');
+
             // Manager auto-approve: Create project_items if it's a project PR
             if (isProjectPR && projectId) {
-              for (const item of items) {
-                if (item.name?.trim()) {
-                  try {
-                    await pb.collection('project_items').create({
-                      project: projectId,
-                      name: item.name,
-                      product_code: item.product_code || '',
-                      unit: item.unit || 'ชิ้น',
-                      initial_quantity: Number(item.quantity) || 0,
-                      quantity: Number(item.quantity) || 0,
-                      unit_price: Number(item.unit_price) || 0,
-                      total_price: Number(item.total_price) || 0
-                    });
-                  } catch (err) {
-                    console.error('Failed to create project item during manager auto-approve:', err);
-                  }
-                }
-              }
+              await prService.addItemsToProject(projectId, items);
             }
           }
 
@@ -488,24 +473,11 @@ export default function PROther() {
           } catch (err) { console.error('Failed to copy manager signature:', err); }
         }
 
-        // เพิ่มอุปกรณ์เข้าโครงการ (ถ้าเลือกโครงการและส่งอนุมัติ)
-        if (status === 'pending' && isProjectPR && projectId && !isManagerRole) {
-          // สำหรับพนักงานทั่วไป จะเพิ่มอุปกรณ์เมื่อ PR ถูกอนุมัติ
-        } else if (status === 'pending' && isProjectPR && projectId) {
-          // Manager อนุมัติเอง เพิ่มอุปกรณ์ทันที
-          for (const item of items) {
-            if (item.name?.trim()) {
-              await pb.collection('project_items').create({
-                project: projectId,
-                name: item.name,
-                product_code: item.product_code || '',
-                unit: item.unit || 'ชิ้น',
-                initial_quantity: item.quantity,
-                quantity: item.quantity,
-                unit_price: item.unit_price,
-                total_price: item.total_price
-              });
-            }
+        // Manager อนุมัติเอง เพิ่มอุปกรณ์ทันที — พนักงานทั่วไปจะเพิ่มเมื่อ PR ถูกอนุมัติ
+        if (finalStatus === 'approved') {
+          await prService.addHistory(pr.id, 'อนุมัติอัตโนมัติ (ผู้บริหาร)', user?.id, 'อนุมัติอัตโนมัติตอนสร้าง');
+          if (isProjectPR && projectId) {
+            await prService.addItemsToProject(projectId, items);
           }
         }
 

@@ -278,7 +278,8 @@ export const prService = {
             const newQuantity = Math.max(0, currentQty - deductQty);
 
             await pb.collection('project_items').update(projectItemId, {
-              quantity: newQuantity
+              quantity: newQuantity,
+              total_price: newQuantity * (projItem.unit_price || 0)
             });
             updatedCount++;
             console.log(`Updated ${projItem.name}: ${currentQty} -> ${newQuantity}`);
@@ -309,7 +310,8 @@ export const prService = {
               const newQuantity = Math.max(0, currentQty - deductQty);
 
               await pb.collection('project_items').update(projItem.id, {
-                quantity: newQuantity
+                quantity: newQuantity,
+                total_price: newQuantity * (projItem.unit_price || 0)
               });
               updatedCount++;
             }
@@ -363,6 +365,55 @@ export const prService = {
     } catch (error: any) {
       console.error('approveSub error:', error);
       throw new Error(error.message || 'อนุมัติไม่สำเร็จ');
+    }
+  },
+  // เพิ่มอุปกรณ์เข้าโครงการหลัง PR อนุมัติครบแล้ว — ชื่อซ้ำจะบวกเข้ารายการเดิม
+  async addItemsToProject(projectId: string, items: any[]) {
+    const existingItems = await pb.collection('project_items').getFullList({
+      filter: `project = "${projectId}"`
+    });
+
+    for (const item of items) {
+      const name = item.name?.trim();
+      if (!name) continue;
+
+      const addedQty = Number(item.quantity) || 0;
+      const existingItem = existingItems.find(p => p.name === name);
+
+      if (existingItem) {
+        const newQuantity = (existingItem.quantity || 0) + addedQty;
+        const newInitial = (existingItem.initial_quantity || existingItem.quantity || 0) + addedQty;
+        const unitPrice = existingItem.unit_price || Number(item.unit_price) || 0;
+
+        await pb.collection('project_items').update(existingItem.id, {
+          initial_quantity: newInitial,
+          quantity: newQuantity,
+          total_price: newQuantity * unitPrice
+        });
+        existingItem.quantity = newQuantity;
+        existingItem.initial_quantity = newInitial;
+      } else {
+        const unitPrice = Number(item.unit_price) || 0;
+        const created = await pb.collection('project_items').create({
+          project: projectId,
+          name,
+          product_code: item.product_code || '',
+          unit: item.unit || 'ชิ้น',
+          initial_quantity: addedQty,
+          quantity: addedQty,
+          unit_price: unitPrice,
+          total_price: addedQty * unitPrice
+        });
+        existingItems.push(created);
+      }
+    }
+  },
+  // บันทึกประวัติการอนุมัติ — ถ้าบันทึกไม่ได้ก็ไม่ให้การอนุมัติที่สำเร็จแล้วล้มตาม
+  async addHistory(id: string, action: string, userId: string | undefined, details: string) {
+    try {
+      await pb.collection('pr_history').create({ pr: id, action, by: userId || '', details });
+    } catch (err) {
+      console.error('Failed to add PR history:', err);
     }
   },
   async delete(id: string) {
