@@ -32,3 +32,6 @@ dist-ssr
 .firebase/hosting.Z-1_2026-02-13T03-55-45.000Z.log
 .firebase/hosting.Z-1_2026-02-13T03-55-45.000Z.log
 
+# PocketBase runtime data (accounts and business records)
+pocketbase/pb_data/
+
