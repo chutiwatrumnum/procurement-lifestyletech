@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pocketbase-local",
+      "runtimeExecutable": "./pb-dev.local/pocketbase",
+      "runtimeArgs": [
+        "serve",
+        "--http=127.0.0.1:8090",
+        "--dir=pb-dev.local/pb_data",
+        "--hooksDir=pocketbase/pb_hooks"
+      ],
+      "port": 8090
+    }
+  ]
+}
